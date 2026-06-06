@@ -232,22 +232,7 @@ npm install
 npm run dev:analysisloom
 ```
 
-Download installers and portable builds from [Releases](https://github.com/YSF-Studio/analysisloom/releases). Each release ships **installer** and **portable** packages for Windows, macOS, and Linux.
-
-| Platform | Installer | Portable |
-|----------|-----------|----------|
-| **Windows** | `AnalysisLoom-{version}-windows-x64.msi` or `-setup.exe` (NSIS) | `AnalysisLoom-{version}-windows-x64-portable.zip` — extract and run `AnalysisLoom.exe` |
-| **macOS** | `AnalysisLoom-{version}-macos-{arch}.dmg` — drag to Applications | `AnalysisLoom-{version}-macos-{arch}-portable.zip` — unzip and open `AnalysisLoom.app` |
-| **Linux** | `AnalysisLoom-{version}-linux-{arch}.deb` — `sudo dpkg -i …` | `AnalysisLoom-{version}-linux-{arch}-portable.AppImage` (chmod +x, run directly) |
-
-**Requirements:** WebView2 on Windows (included in Windows 10/11), macOS 10.15+, Linux with `libwebkit2gtk-4.1` and `libayatana-appindicator3`.
-
-Build locally:
-
-```bash
-npm run build:release      # Tauri bundle (installer targets)
-npm run package:release    # Collect installers + portable archives → dist/releases/
-```
+AnalysisLoom is distributed as **source only** — build and run locally on Windows, macOS, or Linux. Pre-built binaries are not published.
 
 ### Try with sample fixtures
 
@@ -330,18 +315,12 @@ bash scripts/capture-screenshots.sh
 - **Offline-first:** no telemetry; all forensic processing runs locally
 - **CI gates:** `cargo fmt`, `clippy -D warnings`, `cargo test`, gitleaks, CodeQL, `cargo audit`
 - **Dependency updates:** Dependabot weekly for Cargo, npm, and GitHub Actions
-- **Release:** tagged builds with CycloneDX SBOM and provenance attestation
+- **Distribution:** source-only; no pre-built binary releases
 - **Reporting vulnerabilities:** see [SECURITY.md](SECURITY.md)
 
 ```bash
 npm run fmt:check && npm run lint && npm run test:all
 npm run audit:rust && npm run audit:npm
-```
-
-### Creating a release
-
-```bash
-git tag v0.1.0 && git push origin v0.1.0
 ```
 
 ## 🏗️ Tech Stack

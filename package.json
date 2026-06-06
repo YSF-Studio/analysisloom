@@ -8,8 +8,6 @@
   "scripts": {
     "dev:analysisloom": "cd packages/analysisloom && npm run tauri dev",
     "build:analysisloom": "cd packages/analysisloom && npm run tauri build",
-    "build:release": "npm run build:analysisloom",
-    "package:release": "bash scripts/package-release.sh",
     "test:all": "cd packages/analysisloom/src-tauri && cargo test",
     "test:integration": "cd packages/analysisloom/src-tauri && cargo test --test full_integration -- --nocapture",
     "test:fixtures": "cd packages/analysisloom/src-tauri && cargo run --example export_fixtures -- ../../test-fixtures",
