@@ -1,5 +1,6 @@
 //! AnalysisLoom forensic engine — pure Rust, no external package deps.
 
+pub mod acquisition;
 pub mod antiforensics;
 pub mod browser;
 pub mod bundle;

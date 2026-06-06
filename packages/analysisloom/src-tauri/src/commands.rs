@@ -1,7 +1,8 @@
 use crate::forensic::{
-    self, antiforensics, browser, bundle, carving, case_guard, chat, email, encryption, evidence,
-    evtx, hashing, integrity, linux, macos, memory, nsrl, ntfs, pcap, plugins, preview, registry,
-    report, report_meta, sqlite, steganography, timeline, windows_artifacts, yara, ProgressState,
+    self, acquisition, antiforensics, browser, bundle, carving, case_guard, chat, email,
+    encryption, evidence, evtx, hashing, integrity, linux, macos, memory, nsrl, ntfs, pcap,
+    plugins, preview, registry, report, report_meta, sqlite, steganography, timeline,
+    windows_artifacts, yara, ProgressState,
 };
 use serde::{Deserialize, Serialize};
 
@@ -1756,6 +1757,21 @@ pub fn scan_linux_artifacts(root: String) -> Result<linux::LinuxScanResult, Stri
     linux::scan_linux_artifacts(&root)
 }
 
+// ─── V2.2: Cross-Platform Acquisition ───
+
+#[tauri::command]
+pub fn detect_evidence_platform(root: String) -> Result<acquisition::PlatformDetection, String> {
+    acquisition::detect_platform(&root)
+}
+
+#[tauri::command]
+pub fn scan_acquisition(
+    root: String,
+    case_id: Option<String>,
+) -> Result<acquisition::AcquisitionScanResult, String> {
+    acquisition::scan_acquisition(&root, case_id.as_deref())
+}
+
 // ─── V2.1: Plugin SDK ───
 
 #[tauri::command]
@@ -2091,6 +2107,7 @@ pub fn about_info() -> serde_json::Value {
             "Linux Artifacts — auditd, auth.log, bash history",
             "Plugin SDK — extensible forensic plugin trait",
             "Timeline Gantt — graphical multi-source visualization",
+            "Cross-Platform Acquisition — auto-detect Windows/Linux/macOS evidence folders",
             "100% Offline — Zero Data Collection. All processing runs locally."
         ],
         "disclaimer": "This software is provided 'AS-IS'. Results should be independently verified before use in legal proceedings.",

@@ -22,6 +22,8 @@ pub struct LinuxScanResult {
     pub auth_events: usize,
     pub audit_events: usize,
     pub history_commands: usize,
+    pub syslog_events: usize,
+    pub cron_events: usize,
     pub files_parsed: usize,
 }
 
@@ -45,6 +47,12 @@ pub fn scan_linux_artifacts(root: &str) -> Result<LinuxScanResult, String> {
             parse_audit_log(path)
         } else if lower.contains("bash_history") || lower == ".bash_history" {
             parse_bash_history(path)
+        } else if lower == "syslog" || lower == "messages" || lower.contains("syslog.") {
+            parse_syslog(path)
+        } else if lower.contains("journal") || lower.ends_with(".journal") {
+            parse_journal_export(path)
+        } else if lower.contains("cron") {
+            parse_cron_log(path)
         } else {
             vec![]
         };
@@ -63,11 +71,18 @@ pub fn scan_linux_artifacts(root: &str) -> Result<LinuxScanResult, String> {
         .iter()
         .filter(|e| e.event_type == "bash_history")
         .count();
+    let syslog_events = events
+        .iter()
+        .filter(|e| e.event_type.starts_with("syslog"))
+        .count();
+    let cron_events = events.iter().filter(|e| e.event_type == "cron").count();
 
     Ok(LinuxScanResult {
         auth_events,
         audit_events,
         history_commands,
+        syslog_events,
+        cron_events,
         files_parsed,
         events,
     })
@@ -89,6 +104,11 @@ fn collect_linux_files(dir: &Path, depth: u8, max: u8, out: &mut Vec<std::path::
                     || lower == "secure"
                     || lower.contains("audit")
                     || lower.contains("bash_history")
+                    || lower == "syslog"
+                    || lower == "messages"
+                    || lower.contains("syslog.")
+                    || lower.contains("journal")
+                    || lower.contains("cron")
                 {
                     out.push(path);
                 }
@@ -166,6 +186,78 @@ pub fn parse_audit_log(path: &Path) -> Vec<LinuxEvent> {
         });
     }
     events
+}
+
+pub fn parse_syslog(path: &Path) -> Vec<LinuxEvent> {
+    let Ok(content) = std::fs::read_to_string(path) else {
+        return vec![];
+    };
+    let mut events = vec![];
+    for line in content.lines().take(500) {
+        let event_type =
+            if line.contains("Failed password") || line.contains("authentication failure") {
+                "syslog_auth_failure"
+            } else if line.contains("Accepted password") || line.contains("session opened") {
+                "syslog_auth_success"
+            } else if line.contains("sudo:") || line.contains("COMMAND=") {
+                "syslog_sudo"
+            } else if line.contains("kernel:") || line.contains("segfault") {
+                "syslog_kernel"
+            } else {
+                continue;
+            };
+        events.push(LinuxEvent {
+            event_type: event_type.into(),
+            timestamp: line.chars().take(16).collect(),
+            user: extract_field(line, "user ").unwrap_or_else(|| "—".into()),
+            source: String::new(),
+            command: extract_field(line, "COMMAND=").unwrap_or_default(),
+            details: line.chars().take(200).collect(),
+            source_file: path.to_string_lossy().into(),
+        });
+    }
+    events
+}
+
+pub fn parse_journal_export(path: &Path) -> Vec<LinuxEvent> {
+    let Ok(content) = std::fs::read_to_string(path) else {
+        return vec![];
+    };
+    content
+        .lines()
+        .filter(|l| l.contains("__CURSOR") || l.contains("MESSAGE=") || l.contains("PRIORITY="))
+        .take(200)
+        .enumerate()
+        .map(|(i, line)| LinuxEvent {
+            event_type: "journal".into(),
+            timestamp: format!("#{i}"),
+            user: "—".into(),
+            source: String::new(),
+            command: String::new(),
+            details: line.chars().take(200).collect(),
+            source_file: path.to_string_lossy().into(),
+        })
+        .collect()
+}
+
+pub fn parse_cron_log(path: &Path) -> Vec<LinuxEvent> {
+    let Ok(content) = std::fs::read_to_string(path) else {
+        return vec![];
+    };
+    content
+        .lines()
+        .filter(|l| l.contains("CMD") || l.contains("cron"))
+        .take(200)
+        .map(|line| LinuxEvent {
+            event_type: "cron".into(),
+            timestamp: line.chars().take(16).collect(),
+            user: extract_field(line, "user ").unwrap_or_else(|| "—".into()),
+            source: String::new(),
+            command: line.chars().take(200).collect(),
+            details: "Scheduled task / cron entry".into(),
+            source_file: path.to_string_lossy().into(),
+        })
+        .collect()
 }
 
 pub fn parse_bash_history(path: &Path) -> Vec<LinuxEvent> {

@@ -2,6 +2,7 @@
 
 export const VIEW_META = {
   cases: { icon: "📁", label: "Case Manager" },
+  acquisition: { icon: "📦", label: "Acquisition" },
   files: { icon: "▤", label: "NTFS Browser" },
   timeline: { icon: "📊", label: "Timeline" },
   carving: { icon: "🔎", label: "Carved Files" },

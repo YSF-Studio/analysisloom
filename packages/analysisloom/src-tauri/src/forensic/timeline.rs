@@ -116,6 +116,7 @@ fn categorize_source(source: &str) -> String {
             "linux"
         }
         s if s.contains("STEGO") => "steganography",
+        s if s.contains("ACQUISITION") => "acquisition",
         _ => "general",
     }
     .into()

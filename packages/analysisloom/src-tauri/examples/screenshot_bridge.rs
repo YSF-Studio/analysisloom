@@ -364,6 +364,15 @@ fn dispatch(rt: &tokio::runtime::Runtime, cmd: &str, args: &Value) -> Result<Val
             args.get("findingId").and_then(|v| v.as_i64()).unwrap_or(0),
             arg_str(args, "outputPath")?,
         )?)),
+        "detect_evidence_platform" => Ok(serde_json::to_value(commands::detect_evidence_platform(
+            arg_str(args, "root")?,
+        )?)
+        .map_err(|e| e.to_string())?),
+        "scan_acquisition" => Ok(serde_json::to_value(commands::scan_acquisition(
+            arg_str(args, "root")?,
+            arg_opt_str(args, "caseId"),
+        )?)
+        .map_err(|e| e.to_string())?),
         "scan_windows_artifacts" => Ok(serde_json::to_value(commands::scan_windows_artifacts(
             arg_str(args, "root")?,
         )?)

@@ -29,6 +29,8 @@ import {
   DEMO_CHAT,
   DEMO_LINUX,
   DEMO_PLUGINS,
+  DEMO_PLATFORM,
+  DEMO_ACQUISITION,
 } from "./mockData.js";
 
 let carvingDone = false;
@@ -120,6 +122,10 @@ export async function invoke(cmd, args = {}) {
       return DEMO_MACOS[0];
     case "analyze_pcap":
       return DEMO_PCAP;
+    case "detect_evidence_platform":
+      return DEMO_PLATFORM;
+    case "scan_acquisition":
+      return DEMO_ACQUISITION;
     case "scan_windows_artifacts":
       return DEMO_WINDOWS;
     case "scan_steganography":

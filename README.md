@@ -48,6 +48,16 @@
 | **Linux auditd + bash history** | ✅ V2.1 | auth.log, audit.log, .bash_history endpoint activity |
 | **Plugin SDK** | ✅ V2.1 | Rust `ForensicPlugin` trait — hash, entropy, strings built-ins |
 | **Timeline visualization** | ✅ V2.1 | Gantt-style multi-source timeline with source-colored bars |
+| **Cross-Platform Acquisition** | ✅ V2.2 | Auto-detect Windows/Linux/macOS evidence folders — one-click scan all modules |
+
+### Platform Evidence Coverage
+
+| OS | Artifacts Analyzed |
+|----|-------------------|
+| **Windows** | NTFS/MFT, Registry hives, EVTX, Prefetch/LNK/Jump Lists, Anti-Forensics, BitLocker |
+| **Linux** | auth.log, audit.log, syslog, journal, cron, .bash_history |
+| **macOS** | KnowledgeC, plist, Unified Logs, TCC, Spotlight, Safari history |
+| **All platforms** | Browser, Chat (WhatsApp/Telegram/Signal), Email (PST/OST), YARA, Carving, SQLite, PCAP |
 
 ### Architecture
 

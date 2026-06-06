@@ -64,6 +64,9 @@ if (!existsSync(assets)) {
       "scan_macos_artifacts",
       "analyze_pcap",
       "export_case_bundle",
+      "detect_evidence_platform",
+      "scan_acquisition",
+      "Cross-Platform Acquisition",
       "scan_windows_artifacts",
       "scan_steganography",
       "scan_email_directory",
@@ -99,7 +102,7 @@ if (!existsSync(registryPath)) {
 } else {
   const mod = await import(registryPath);
   const expected = [
-    "cases", "files", "timeline", "carving", "sqlite",
+    "cases", "acquisition", "files", "timeline", "carving", "sqlite",
     "search", "bookmarks", "encrypted", "registry", "yara",
     "antiforensics", "browser", "nsrl", "memory", "evtx", "macos", "pcap",
     "windows", "stego", "email", "chat", "linux", "plugins",

@@ -237,6 +237,40 @@ fn full_forensic_pipeline_with_random_fixtures() {
     .expect("export_finding");
     assert!(export_finding_path.exists());
 
+    // ─── V2.2: Cross-platform acquisition (before seal) ───
+    fixtures_gen::write_v2_extras(&ws.root);
+
+    let platform = detect_evidence_platform(ws.root.to_string_lossy().to_string())
+        .expect("detect_evidence_platform");
+    assert!(
+        platform.primary_platform == "mixed"
+            || platform.primary_platform == "windows"
+            || platform.platforms.iter().any(|p| p.score > 0),
+        "Should detect at least one OS platform"
+    );
+    println!(
+        "Platform detection: {} (confidence {:.0}%)",
+        platform.primary_platform,
+        platform.confidence * 100.0
+    );
+
+    let acquisition =
+        scan_acquisition(ws.root.to_string_lossy().to_string(), Some(case.id.clone()))
+            .expect("scan_acquisition");
+    assert!(!acquisition.modules.is_empty());
+    assert!(
+        acquisition
+            .modules
+            .iter()
+            .any(|m| m.status == "ok" && m.item_count > 0),
+        "At least one module should return results"
+    );
+    println!(
+        "Acquisition scan: {} modules, {} findings",
+        acquisition.modules.len(),
+        acquisition.findings_recorded
+    );
+
     let sealed = seal_case(case.id.clone(), "Test Analyst".into()).expect("seal_case");
     assert_eq!(sealed.status, "sealed");
     assert!(sealed.seal_hash.is_some());
@@ -270,8 +304,6 @@ fn full_forensic_pipeline_with_random_fixtures() {
     assert_eq!(about["appName"], "AnalysisLoom");
 
     // ─── V2: EVTX, macOS, PCAP, bundle export ───
-    fixtures_gen::write_v2_extras(&ws.root);
-
     let evtx = parse_evtx_log(ws.root.join("Security.evtx").to_string_lossy().to_string())
         .expect("parse_evtx_log");
     assert!(!evtx.events.is_empty(), "EVTX should yield security events");

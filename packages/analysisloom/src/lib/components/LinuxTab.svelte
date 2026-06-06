@@ -43,6 +43,8 @@
       <span>Auth: {result.authEvents}</span>
       <span>Audit: {result.auditEvents}</span>
       <span>History: {result.historyCommands}</span>
+      <span>Syslog: {result.syslogEvents}</span>
+      <span>Cron: {result.cronEvents}</span>
     </div>
     <div class="events">
       <div class="thead"><span>Type</span><span>Time</span><span>User</span><span>Command / Details</span></div>

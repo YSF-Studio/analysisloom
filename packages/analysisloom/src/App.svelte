@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
   import CaseTab from "./lib/components/CaseTab.svelte";
+  import AcquisitionTab from "./lib/components/AcquisitionTab.svelte";
   import FileBrowserTab from "./lib/components/FileBrowserTab.svelte";
   import CarvingTab from "./lib/components/CarvingTab.svelte";
   import TimelineTab from "./lib/components/TimelineTab.svelte";
@@ -663,6 +664,9 @@
         <button class="nav-item" class:active={activeView === "cases"} onclick={() => setView("cases")}>
           <span>📁</span> Case Manager
         </button>
+        <button class="nav-item" class:active={activeView === "acquisition"} onclick={() => setView("acquisition")}>
+          <span>📦</span> Cross-Platform Acquisition
+        </button>
         <SourceTree
           bind:sources
           bind:selectedSource
@@ -780,6 +784,8 @@
     >
       {#if activeView === "cases"}
         <CaseTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "acquisition"}
+        <AcquisitionTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "files"}
         <FileBrowserTab
           bind:this={fileBrowser}

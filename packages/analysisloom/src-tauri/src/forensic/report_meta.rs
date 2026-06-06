@@ -65,6 +65,10 @@ pub const TOOL_LIMITATIONS: &[(&str, &str)] = &[
         "Plugin SDK",
         "Built-in hash, entropy, and strings plugins. Community plugins require future loader integration.",
     ),
+    (
+        "Cross-Platform Acquisition",
+        "Auto-detects Windows/Linux/macOS folder layouts and runs matching analyzers. Extracted trees only — no live APFS/ext4 mount.",
+    ),
 ];
 
 pub fn limitations_html() -> String {

@@ -160,6 +160,8 @@ pub fn run() {
             commands::scan_email_directory,
             commands::scan_chat_artifacts,
             commands::scan_linux_artifacts,
+            commands::detect_evidence_platform,
+            commands::scan_acquisition,
             commands::list_forensic_plugins,
             commands::run_forensic_plugin,
             commands::export_case_bundle,

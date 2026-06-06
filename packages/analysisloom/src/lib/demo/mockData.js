@@ -172,6 +172,33 @@ export const DEMO_PCAP = {
   durationSecs: 0,
 };
 
+export const DEMO_PLATFORM = {
+  rootPath: "/workspace/test-fixtures",
+  primaryPlatform: "mixed",
+  platforms: [
+    { platform: "windows", score: 5, indicators: ["NOTEPAD.EXE-ABC123.pf", "Security.evtx", "SYSTEM"] },
+    { platform: "linux", score: 3, indicators: ["auth.log", ".bash_history"] },
+    { platform: "macos", score: 2, indicators: ["KnowledgeC.db", "com.apple.loginwindow.plist"] },
+  ],
+  mixed: true,
+  confidence: 0.5,
+};
+
+export const DEMO_ACQUISITION = {
+  rootPath: "/workspace/test-fixtures",
+  detection: DEMO_PLATFORM,
+  modules: [
+    { module: "Registry", platform: "windows", status: "ok", itemCount: 12, message: "12 items analyzed" },
+    { module: "EVTX", platform: "windows", status: "ok", itemCount: 3, message: "3 items analyzed" },
+    { module: "Linux Artifacts", platform: "linux", status: "ok", itemCount: 8, message: "8 items analyzed" },
+    { module: "macOS Artifacts", platform: "macos", status: "ok", itemCount: 2, message: "2 items analyzed" },
+    { module: "Browser", platform: "cross-platform", status: "ok", itemCount: 42, message: "42 items analyzed" },
+  ],
+  findingsRecorded: 4,
+  timelineEvents: 5,
+  durationMs: 1250,
+};
+
 export const DEMO_WINDOWS = {
   artifacts: [
     { artifactType: "prefetch", name: "NOTEPAD.EXE-ABC123.pf", sourcePath: "/workspace/test-fixtures/Windows/Prefetch/NOTEPAD.EXE-ABC123.pf", executable: "NOTEPAD.EXE", targetPath: "", runCount: 12, lastRun: "2026-06-06T10:00:00Z", details: "SCCA v30, run_count=12" },

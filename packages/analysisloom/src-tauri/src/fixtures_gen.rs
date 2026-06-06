@@ -262,6 +262,18 @@ pub fn write_v21_extras(dest: &Path) {
     write_synthetic_pst(&dest.join("mailbox.pst"));
     write_whatsapp_db(&dest.join("whatsapp/msgstore.db"));
     write_linux_logs(&dest.join("linux_logs"));
+    write_cross_platform_acquisition(dest);
+}
+
+/// Combined Windows + Linux + macOS indicators for acquisition detection tests.
+pub fn write_cross_platform_acquisition(dest: &Path) {
+    let evtx = dest.join("Windows/Logs/Security.evtx");
+    std::fs::create_dir_all(evtx.parent().expect("evtx parent")).expect("windows logs dir");
+    write_synthetic_evtx(&evtx);
+    write_synthetic_prefetch(&dest.join("Windows/Prefetch/EXPLORER.EXE-DEF456.pf"));
+    write_linux_logs(&dest.join("var/log"));
+    write_macos_profile(&dest.join("Users/analyst/Library"));
+    write_browser_profile(&dest.join("Users/analyst/AppData/Local"));
 }
 
 fn write_synthetic_prefetch(path: &Path) {
@@ -387,6 +399,17 @@ fn write_linux_logs(root: &Path) {
         "ls -la /var/log\nsudo cat /etc/passwd\ncurl -O https://cdn.example.com/tool.sh\nchmod +x tool.sh\n",
     )
     .expect("bash_history");
+    std::fs::write(
+        root.join("syslog"),
+        "Jun  6 10:20:01 workstation sudo: analyst : TTY=pts/0 ; USER=root ; COMMAND=/bin/cat /etc/shadow\n\
+         Jun  6 10:21:44 workstation sshd[2001]: Failed password for invalid user root from 10.0.0.55\n",
+    )
+    .expect("syslog");
+    std::fs::write(
+        root.join("cron.log"),
+        "Jun  6 02:00:01 CRON[999]: (root) CMD (/usr/local/bin/backup.sh)\n",
+    )
+    .expect("cron.log");
 }
 
 /// CollectionLoom-style signed hash_manifest.json for integrity verification tests.
