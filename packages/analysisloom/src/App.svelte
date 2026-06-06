@@ -33,7 +33,7 @@
   import PluginsTab from "./lib/components/PluginsTab.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { buildMftTree, isSqliteArtifact } from "./lib/mftTree.js";
-  import { VIEW_META, DEFAULT_TABS } from "./lib/viewRegistry.js";
+  import { VIEW_META, DEFAULT_TABS, FORENSICS_NAV } from "./lib/viewRegistry.js";
 
   let msg = $state("");
   let busy = $state(false);
@@ -696,60 +696,20 @@
       </div>
 
       <div class="sidebar-section">
-        <div class="section-head">FORENSICS V1.5</div>
-        <button class="nav-item" class:active={activeView === "registry"} onclick={() => setView("registry")}>
-          <span>📋</span> Registry
-        </button>
-        <button class="nav-item" class:active={activeView === "yara"} onclick={() => setView("yara")}>
-          <span>🦠</span> YARA Scanner
-        </button>
-        <button class="nav-item" class:active={activeView === "antiforensics"} onclick={() => setView("antiforensics")}>
-          <span>🕵️</span> Anti-Forensics
-        </button>
-        <button class="nav-item" class:active={activeView === "browser"} onclick={() => setView("browser")}>
-          <span>🌐</span> Browser Artifacts
-        </button>
-        <button class="nav-item" class:active={activeView === "nsrl"} onclick={() => setView("nsrl")}>
-          <span>📚</span> NSRL Lookup
-        </button>
-        <button class="nav-item" class:active={activeView === "memory"} onclick={() => setView("memory")}>
-          <span>🧠</span> Memory Bridge
-        </button>
-      </div>
-
-      <div class="sidebar-section">
-        <div class="section-head">FORENSICS V2</div>
-        <button class="nav-item" class:active={activeView === "evtx"} onclick={() => setView("evtx")}>
-          <span>📜</span> Event Log (EVTX)
-        </button>
-        <button class="nav-item" class:active={activeView === "macos"} onclick={() => setView("macos")}>
-          <span>🍎</span> macOS Artifacts
-        </button>
-        <button class="nav-item" class:active={activeView === "pcap"} onclick={() => setView("pcap")}>
-          <span>📡</span> PCAP Network
-        </button>
-      </div>
-
-      <div class="sidebar-section">
-        <div class="section-head">FORENSICS V2.1</div>
-        <button class="nav-item" class:active={activeView === "windows"} onclick={() => setView("windows")}>
-          <span>🪟</span> Windows Artifacts
-        </button>
-        <button class="nav-item" class:active={activeView === "stego"} onclick={() => setView("stego")}>
-          <span>🖼️</span> Steganography
-        </button>
-        <button class="nav-item" class:active={activeView === "email"} onclick={() => setView("email")}>
-          <span>✉️</span> Email Forensics
-        </button>
-        <button class="nav-item" class:active={activeView === "chat"} onclick={() => setView("chat")}>
-          <span>💬</span> Chat Artifacts
-        </button>
-        <button class="nav-item" class:active={activeView === "linux"} onclick={() => setView("linux")}>
-          <span>🐧</span> Linux Artifacts
-        </button>
-        <button class="nav-item" class:active={activeView === "plugins"} onclick={() => setView("plugins")}>
-          <span>🧩</span> Plugin SDK
-        </button>
+        <div class="section-head">FORENSICS</div>
+        {#each FORENSICS_NAV as group}
+          <div class="subsection-head">{group.label}</div>
+          {#each group.views as viewId}
+            {@const meta = VIEW_META[viewId]}
+            <button
+              class="nav-item"
+              class:active={activeView === viewId}
+              onclick={() => setView(viewId)}
+            >
+              <span>{meta.icon}</span> {meta.label}
+            </button>
+          {/each}
+        {/each}
       </div>
 
       <div class="sidebar-section">
@@ -970,6 +930,10 @@
   .section-head {
     padding: 8px 16px 4px; font-size: 10px; font-weight: 700;
     color: var(--text-muted); letter-spacing: 0.6px; text-transform: uppercase;
+  }
+  .subsection-head {
+    padding: 6px 16px 2px 20px; font-size: 9px; font-weight: 600;
+    color: var(--text-muted); letter-spacing: 0.4px; text-transform: uppercase; opacity: 0.85;
   }
   .nav-item {
     display: flex; align-items: center; gap: 8px;

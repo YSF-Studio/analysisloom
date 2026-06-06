@@ -30,3 +30,19 @@ export const VIEW_META = {
 };
 
 export const DEFAULT_TABS = [{ id: "files", ...VIEW_META.files }];
+
+/** Unified forensics sidebar — combines former V1.5, V2, and V2.1 modules. */
+export const FORENSICS_NAV = [
+  {
+    label: "Platform",
+    views: ["windows", "registry", "evtx", "macos", "linux"],
+  },
+  {
+    label: "Artifacts & Activity",
+    views: ["browser", "email", "chat", "memory"],
+  },
+  {
+    label: "Detection & Analysis",
+    views: ["yara", "antiforensics", "stego", "nsrl", "pcap", "plugins"],
+  },
+];

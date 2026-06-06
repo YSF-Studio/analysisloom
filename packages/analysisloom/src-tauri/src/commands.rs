@@ -2082,7 +2082,7 @@ pub fn about_info() -> serde_json::Value {
         "appName": "AnalysisLoom",
         "version": "0.1.0",
         "developer": "YSF Studio — Built with ❤️ by Yusuf Shalahuddin",
-        "build": "V2 Forensic Workstation — All Features Unlocked",
+        "build": "Forensic Workstation — All Modules Unlocked",
         "features": [
             "Forensic-grade NTFS/MFT Parser & File Browser",
             "File Carving with multi-format signature detection",

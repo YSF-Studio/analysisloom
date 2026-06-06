@@ -101,11 +101,11 @@ if (!existsSync(registryPath)) {
   fail("viewRegistry.js missing");
 } else {
   const mod = await import(registryPath);
+  const forensicsViews = mod.FORENSICS_NAV?.flatMap((g) => g.views) ?? [];
   const expected = [
     "cases", "acquisition", "files", "timeline", "carving", "sqlite",
-    "search", "bookmarks", "encrypted", "registry", "yara",
-    "antiforensics", "browser", "nsrl", "memory", "evtx", "macos", "pcap",
-    "windows", "stego", "email", "chat", "linux", "plugins",
+    "search", "bookmarks", "encrypted",
+    ...forensicsViews,
     "report", "about",
   ];
   for (const id of expected) {

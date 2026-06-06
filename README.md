@@ -26,29 +26,34 @@
 | **Encrypted Volumes** | ✅ Ready | Detect LUKS, BitLocker indicators, and high-entropy regions |
 | **Report** | ✅ Ready | Export HTML & PDF case reports with audit trail |
 | **About** | ✅ Ready | Version info, feature list, offline/privacy statement |
-| **Registry Analyzer** | ✅ V1.5 | SAM/SYSTEM/SOFTWARE/NTUSER.DAT — USB history, UserAssist, Shellbags, MRU, Run keys |
-| **YARA Scanner** | ✅ V1.5 | Built-in malware rules + custom `.yar` loading, scan case evidence |
-| **Anti-Forensics** | ✅ V1.5 | Timestomp, extension mismatch, NTFS ADS, zero-size anomalies, deleted MFT flags |
-| **Browser Artifacts** | ✅ V1.5 | Chrome/Firefox/Safari/Edge history, downloads from SQLite databases |
-| **NSRL Lookup** | ✅ V1.5 | NIST hash set import & known-good filtering |
-| **Memory Bridge** | ✅ V1.5 | Import Volatility 3 JSON — processes & network connections |
-| **Hex Search** | ✅ V1.5 | Byte pattern search (`hex:FF D8 FF`) across evidence files |
-| **Windows EVTX Parser** | ✅ V2 | Security event log — 4624/4625 logon, 4688 process, 4104 PowerShell, 7045 service |
-| **macOS Artifact Analyzer** | ✅ V2 | KnowledgeC.db, Unified Log (.logarchive), plist, Spotlight, DataDetectors, TCC |
-| **PCAP Network Analyzer** | ✅ V2 | TCP/UDP/DNS/HTTP flow reconstruction from packet captures |
-| **Evidence Bundle Export** | ✅ V2 | ZIP package — evidence files + SHA-256 manifest + HTML/PDF report |
-| **Super Timeline** | ✅ V2 | Multi-source correlated timeline (NTFS, registry, browser, YARA, memory, EVTX, PCAP) |
-| **Deleted Recovery** | ✅ V2 | Recover deleted files from NTFS browser via integrated carving |
-| **Theme Toggle** | ✅ V2 | Light / dark mode (☀/☾ in titlebar) |
-| **Drag & Drop** | ✅ V2 | Drop evidence files onto workspace — auto-hash in Inspector |
-| **Prefetch + Jump Lists + LNK parser** | ✅ V2.1 | Windows execution traces — SCCA prefetch, shell links, Jump Lists |
-| **Steganography detection** | ✅ V2.1 | LSB ratio, χ² analysis, metadata anomaly scan on images |
-| **Email forensics (PST/OST)** | ✅ V2.1 | Mailbox header parsing, folder discovery, message stub extraction |
-| **Chat artifacts** | ✅ V2.1 | WhatsApp, Telegram, Signal SQLite message databases |
-| **Linux auditd + bash history** | ✅ V2.1 | auth.log, audit.log, .bash_history endpoint activity |
-| **Plugin SDK** | ✅ V2.1 | Rust `ForensicPlugin` trait — hash, entropy, strings built-ins |
-| **Timeline visualization** | ✅ V2.1 | Gantt-style multi-source timeline with source-colored bars |
-| **Cross-Platform Acquisition** | ✅ V2.2 | Auto-detect Windows/Linux/macOS evidence folders — one-click scan all modules |
+
+### Forensics Modules
+
+| Module | Status | Description |
+|--------|--------|-------------|
+| **Registry Analyzer** | ✅ Ready | SAM/SYSTEM/SOFTWARE/NTUSER.DAT — USB history, UserAssist, Shellbags, MRU, Run keys |
+| **Windows Artifacts** | ✅ Ready | Prefetch, LNK, Jump Lists — Windows execution traces |
+| **Windows EVTX Parser** | ✅ Ready | Security event log — 4624/4625 logon, 4688 process, 4104 PowerShell, 7045 service |
+| **macOS Artifact Analyzer** | ✅ Ready | KnowledgeC.db, Unified Log (.logarchive), plist, Spotlight, DataDetectors, TCC |
+| **Linux Artifacts** | ✅ Ready | auth.log, audit.log, syslog, journal, cron, .bash_history |
+| **Browser Artifacts** | ✅ Ready | Chrome/Firefox/Safari/Edge history, downloads from SQLite databases |
+| **Email Forensics** | ✅ Ready | PST/OST mailbox header parsing, folder discovery, message stub extraction |
+| **Chat Artifacts** | ✅ Ready | WhatsApp, Telegram, Signal SQLite message databases |
+| **Memory Bridge** | ✅ Ready | Import Volatility 3 JSON — processes & network connections |
+| **YARA Scanner** | ✅ Ready | Built-in malware rules + custom `.yar` loading, scan case evidence |
+| **Anti-Forensics** | ✅ Ready | Timestomp, extension mismatch, NTFS ADS, zero-size anomalies, deleted MFT flags |
+| **Steganography** | ✅ Ready | LSB ratio, χ² analysis, metadata anomaly scan on images |
+| **NSRL Lookup** | ✅ Ready | NIST hash set import & known-good filtering |
+| **PCAP Network Analyzer** | ✅ Ready | TCP/UDP/DNS/HTTP flow reconstruction from packet captures |
+| **Plugin SDK** | ✅ Ready | Rust `ForensicPlugin` trait — hash, entropy, strings built-ins |
+| **Hex Search** | ✅ Ready | Byte pattern search (`hex:FF D8 FF`) across evidence files |
+| **Cross-Platform Acquisition** | ✅ Ready | Auto-detect Windows/Linux/macOS evidence folders — one-click scan all modules |
+| **Super Timeline** | ✅ Ready | Multi-source correlated timeline (NTFS, registry, browser, YARA, memory, EVTX, PCAP) |
+| **Timeline Gantt** | ✅ Ready | Gantt-style multi-source timeline with source-colored bars |
+| **Evidence Bundle Export** | ✅ Ready | ZIP package — evidence files + SHA-256 manifest + HTML/PDF report |
+| **Deleted Recovery** | ✅ Ready | Recover deleted files from NTFS browser via integrated carving |
+| **Theme Toggle** | ✅ Ready | Light / dark mode (☀/☾ in titlebar) |
+| **Drag & Drop** | ✅ Ready | Drop evidence files onto workspace — auto-hash in Inspector |
 
 ### Platform Evidence Coverage
 
