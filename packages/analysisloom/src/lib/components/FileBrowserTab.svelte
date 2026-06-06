@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import FilePreview from "./FilePreview.svelte";
   import SegmentedControl from "./SegmentedControl.svelte";
+  import LoadingSkeleton from "./LoadingSkeleton.svelte";
   import { isSqliteArtifact } from "../mftTree.js";
 
   let {
@@ -169,8 +170,11 @@
     return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   }
 
-  function sizeStr(s) {
-    if (!s) return "—";
+  function sizeStr(entry) {
+    if (entry?.isDirectory) return "—";
+    const s = entry?.fileSize ?? entry;
+    if (!s || s === 0) return "0 B";
+    if (s < 1024) return `${s} B`;
     const kb = s / 1024;
     if (kb < 1024) return `${Math.round(kb)} KB`;
     return `${(kb / 1024).toFixed(1)} MB`;
@@ -230,13 +234,16 @@
               >
                 <span class="col-name">{fileIcon(e)} {e.filename}</span>
                 <span class="col-date mono">{formatDate(e.siModified || e.fnModified || e.siCreated)}</span>
-                <span class="col-size mono">{sizeStr(e.fileSize)}</span>
+                <span class="col-size mono">{sizeStr(e)}</span>
               </button>
             {/each}
           </div>
         </div>
       {:else if busy}
-        <div class="empty"><span class="spinner">⏳</span> Parsing filesystem...</div>
+        <div class="loading-panel">
+          <LoadingSkeleton rows={8} columns={3} />
+          <span class="loading-label"><span class="spinner">⏳</span> Parsing filesystem…</span>
+        </div>
       {:else if mftEntries.length}
         <div class="empty">No entries in this folder</div>
       {:else}
@@ -281,16 +288,22 @@
   .load-row input { flex: 1; font-size: 12px; }
   .workspace-split { display: flex; flex-direction: column; flex: 1; min-height: 0; }
   .list-section { overflow: hidden; display: flex; flex-direction: column; min-height: 100px; }
-  .finder-table { display: flex; flex-direction: column; flex: 1; overflow: auto; border: 1px solid var(--divider); border-radius: 8px; }
+  .finder-table {
+    display: flex; flex-direction: column; flex: 1; overflow: auto;
+    border: 1px solid var(--divider); border-radius: 8px;
+    background: var(--card);
+  }
   .thead, .trow {
-    display: grid; grid-template-columns: 2fr 1fr 80px;
-    padding: 0 12px; align-items: center; text-align: left;
+    display: grid;
+    grid-template-columns: minmax(140px, 2fr) minmax(100px, 1fr) minmax(56px, max-content);
+    padding: 0 12px; align-items: center; text-align: left; gap: 8px;
   }
   .thead {
     position: sticky; top: 0; z-index: 2;
-    background: rgba(0, 0, 0, 0.35); border-bottom: 1px solid var(--divider);
+    background: rgba(0, 0, 0, 0.28); border-bottom: 1px solid var(--divider);
     height: 28px; font-size: 11px; font-weight: 600; color: var(--text-secondary);
   }
+  :global(html.theme-light) .thead { background: rgba(255, 255, 255, 0.9); }
   .th { background: none; border: none; color: inherit; cursor: pointer; padding: 0; text-align: left; font: inherit; }
   .th.right { text-align: right; }
   .tbody { overflow-y: auto; }
@@ -305,16 +318,28 @@
   .col-date, .col-size { color: var(--text-secondary); }
   .col-size { text-align: right; }
   .mono { font-family: var(--mono); }
-  .resize-handle { height: 4px; cursor: ns-resize; flex-shrink: 0; margin: 4px 0; }
+  .resize-handle {
+    height: 6px; cursor: ns-resize; flex-shrink: 0; margin: 2px 0;
+    background: linear-gradient(to bottom, var(--card), rgba(0, 0, 0, 0.35), var(--divider));
+    border-radius: 3px; transition: background 0.15s;
+  }
   .resize-handle:hover { background: var(--primary); }
   .viewer-section {
     display: flex; flex-direction: column; min-height: 120px;
-    border-top: 1px solid var(--divider); overflow: hidden;
+    border: 1px solid var(--divider); border-radius: 8px;
+    background: rgba(0, 0, 0, 0.32);
+    overflow: hidden;
+    transition: background 0.2s ease, border-color 0.2s ease;
   }
+  :global(html.theme-light) .viewer-section { background: rgba(0, 0, 0, 0.04); }
   .viewer-toolbar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 0; flex-shrink: 0; gap: 12px;
+    padding: 8px 10px; flex-shrink: 0; gap: 12px;
+    border-bottom: 1px solid var(--divider);
+    background: rgba(0, 0, 0, 0.15);
   }
+  .loading-panel { padding: 16px; flex: 1; }
+  .loading-label { display: block; text-align: center; margin-top: 8px; font-size: 12px; color: var(--text-muted); }
   .viewer-file { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
   .viewer-body { flex: 1; min-height: 0; overflow: auto; }
   .empty { display: flex; align-items: center; justify-content: center; flex: 1; color: var(--text-muted); font-size: 13px; gap: 6px; }

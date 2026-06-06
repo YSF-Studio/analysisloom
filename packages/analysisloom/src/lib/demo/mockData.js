@@ -93,8 +93,8 @@ export const DEMO_REGISTRY = {
 };
 
 export const DEMO_YARA = [
-  { ruleName: "Suspicious_PowerShell", filePath: "/workspace/test-fixtures/secret_password_log.txt", offset: 128, matchedString: "powershell", severity: "high" },
-  { ruleName: "Ransomware_Note", filePath: "/workspace/test-fixtures/secret_password_log.txt", offset: 0, matchedString: "ransom", severity: "critical" },
+  { ruleName: "Suspicious_PowerShell", filePath: "/workspace/test-fixtures/secret_password_log.txt", offset: 128, matchedString: "powershell", matchSnippet: "...invoke-expression powershell -enc SQBFAFgA...", severity: "high" },
+  { ruleName: "Ransomware_Note", filePath: "/workspace/test-fixtures/secret_password_log.txt", offset: 0, matchedString: "ransom", matchSnippet: "your files have been encrypted contact support...", severity: "critical" },
 ];
 
 export const DEMO_ANTIFORENSICS = [

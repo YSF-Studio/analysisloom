@@ -38,9 +38,13 @@
   }
   .segment:hover { color: var(--text); }
   .segment.active {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     font-weight: 600;
+  }
+  :global(html.theme-light) .segment.active {
+    background: var(--primary);
+    color: #fff;
   }
 </style>

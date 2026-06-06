@@ -10,6 +10,7 @@ pub struct YaraMatch {
     pub file_path: String,
     pub offset: u64,
     pub matched_string: String,
+    pub match_snippet: String,
     pub severity: String,
 }
 
@@ -183,6 +184,7 @@ pub(crate) fn scan_bytes(data: &[u8], file_path: &str, rules: &[YaraRule]) -> Ve
                     file_path: file_path.into(),
                     offset: off as u64,
                     matched_string: id,
+                    match_snippet: extract_match_snippet(data, off, pat.len()),
                     severity: rule.severity.clone(),
                 });
             }
@@ -199,6 +201,28 @@ pub(crate) fn scan_paths(paths: &[String], rules: &[YaraRule]) -> Result<Vec<Yar
         }
     }
     Ok(all)
+}
+
+fn extract_match_snippet(data: &[u8], offset: usize, match_len: usize) -> String {
+    const CONTEXT: usize = 48;
+    let start = offset.saturating_sub(CONTEXT);
+    let end = (offset + match_len + CONTEXT).min(data.len());
+    let slice = &data[start..end];
+    let mut out = String::new();
+    for &b in slice {
+        if b.is_ascii_graphic() || b == b' ' || b == b'\t' {
+            out.push(b as char);
+        } else if b == b'\n' || b == b'\r' {
+            out.push(' ');
+        } else {
+            out.push('·');
+        }
+    }
+    if out.len() > 200 {
+        format!("{}…", &out[..200])
+    } else {
+        out
+    }
 }
 
 fn find_pattern(data: &[u8], pattern: &[u8], nocase: bool) -> Option<usize> {

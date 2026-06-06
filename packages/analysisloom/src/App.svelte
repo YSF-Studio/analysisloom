@@ -568,10 +568,32 @@
     else if (action === "maximize") await win.toggleMaximize();
   }
 
+  function handleGlobalKeydown(e) {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod) return;
+    const key = e.key.toLowerCase();
+    if (key === "f") {
+      e.preventDefault();
+      document.getElementById("global-search")?.focus();
+      if (searchQuery.trim()) activeView = "search";
+    } else if (key === "b") {
+      e.preventDefault();
+      setView("bookmarks");
+    } else if (key === "n") {
+      e.preventDefault();
+      setView("cases");
+      requestAnimationFrame(() => {
+        document.querySelector('.case-panel input[aria-label="Case name"]')?.focus();
+      });
+    }
+  }
+
   if (import.meta.env.DEV && !import.meta.env.VITE_SCREENSHOT) {
     window.__goToView = setView;
   }
 </script>
+
+<svelte:window onkeydown={handleGlobalKeydown} />
 
 <div
   class="app-shell platform-{platform}"

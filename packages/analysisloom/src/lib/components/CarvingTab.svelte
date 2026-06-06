@@ -1,5 +1,7 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
+  import SectionHeader from "./SectionHeader.svelte";
+  import ProgressBar from "./ProgressBar.svelte";
 
   let {
     activeCase,
@@ -70,8 +72,7 @@
 </script>
 
 <div class="carving-panel">
-  <h3>File Carving</h3>
-  <p class="hint">Recover deleted files by magic-byte signature from the active source image</p>
+  <SectionHeader title="File Carving" hint="Recover deleted files by magic-byte signature from the active source image" />
   <div class="row">
     <input type="text" bind:value={imagePath} placeholder="Disk image path (from Sources)" disabled={busy} />
     <input type="text" bind:value={outputDir} placeholder="Output directory" disabled={busy} />
@@ -84,10 +85,7 @@
     {/if}
   </div>
   {#if progress.percent > 0 || busy}
-    <div class="progress-bar" role="progressbar" aria-valuenow={progress.percent} aria-valuemin="0" aria-valuemax="100">
-      <div class="fill" style="width:{progress.percent}%"></div>
-    </div>
-    <p class="info">{progress.status}</p>
+    <ProgressBar percent={progress.percent} label={progress.status || "Carving in progress…"} />
   {/if}
   {#if carvedFiles.length}
     <div class="carved-list">
@@ -108,15 +106,10 @@
 
 <style>
   .carving-panel { height: 100%; }
-  h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
-  .hint { margin: 0 0 12px; font-size: 11px; color: var(--text-muted); }
   .row { display: flex; gap: 8px; margin-bottom: 10px; }
   .row input { flex: 1; font-size: 12px; }
   .actions { margin-bottom: 12px; }
   .btn-danger { padding: 8px 16px; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; background: var(--danger); }
-  .progress-bar { height: 6px; background: rgba(255,255,255,0.06); border-radius: 4px; margin: 8px 0; overflow: hidden; }
-  .fill { height: 100%; background: var(--primary); border-radius: 4px; transition: width 0.3s; }
-  .info { font-size: 12px; color: var(--text-secondary); margin: 0 0 12px; }
   .carved-list { border: 1px solid var(--divider); border-radius: 8px; overflow: auto; max-height: 50vh; }
   .carved-head, .carved-row {
     display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px;
