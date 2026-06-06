@@ -29,12 +29,20 @@ cargo test --test full_integration -- --nocapture
 cd "$ROOT"
 
 echo ""
-echo "▶ 4/5 Frontend production build"
+echo "▶ 4/7 IPC registry (all commands registered)"
+node scripts/verify-ipc-registry.mjs
+
+echo ""
+echo "▶ 5/7 Frontend production build"
 npm run build:analysisloom
 
 echo ""
-echo "▶ 5/5 GUI smoke test"
+echo "▶ 6/7 GUI smoke test"
 node scripts/smoke-gui.mjs
+
+echo ""
+echo "▶ 7/7 Playwright E2E (browser + Tauri mock)"
+npm run test:e2e
 
 echo ""
 echo "═══════════════════════════════════════════"

@@ -8,3 +8,6 @@ build/
 .DS_Store
 Thumbs.db
 test-fixtures/
+playwright-report/
+test-results/
+blob-report/

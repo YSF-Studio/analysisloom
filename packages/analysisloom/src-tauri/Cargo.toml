@@ -34,3 +34,4 @@ plist = "1.8.0"
 zip = "7.2.0"
 pcap-parser = "0.17.0"
 ed25519-dalek = { version = "2", features = ["std"] }
+ts-rs = { version = "10", features = ["serde-compat"] }

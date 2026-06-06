@@ -3,6 +3,7 @@
   "private": true,
   "workspaces": ["packages/analysisloom"],
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "puppeteer": "^24.0.0"
   },
   "scripts": {
@@ -16,6 +17,9 @@
     "test:integration": "cd packages/analysisloom/src-tauri && cargo test --test full_integration -- --nocapture",
     "test:fixtures": "cd packages/analysisloom/src-tauri && cargo run --example export_fixtures -- ../../test-fixtures",
     "test:gui": "node scripts/smoke-gui.mjs",
+    "test:ipc": "node scripts/verify-ipc-registry.mjs",
+    "test:e2e": "playwright test",
+    "export:types": "cd packages/analysisloom/src-tauri && cargo test --test export_ts export_typescript_bindings -- --nocapture",
     "test:full": "bash scripts/run-full-test.sh",
     "screenshots": "bash scripts/capture-screenshots.sh",
     "lint": "cd packages/analysisloom/src-tauri && cargo clippy --all-targets -- -D warnings",

@@ -319,11 +319,23 @@ npm run dev:analysisloom
 ## 🧪 Testing
 
 ```bash
-npm run test:full          # fixtures + unit + integration + build + GUI smoke
+npm run test:full          # fixtures + unit + integration + IPC + E2E Playwright
 npm run test:integration   # all Tauri commands against random fixtures
+npm run test:ipc           # verify every #[tauri::command] is in generate_handler!
+npm run test:e2e           # Playwright GUI — navigation, console errors, IPC mock
 npm run test:fixtures      # export fixtures to test-fixtures/
 npm run test:gui           # validate production bundle strings
+npm run export:types       # Rust → TypeScript bindings (ts-rs)
 ```
+
+### Debug GUI (DevTools)
+
+Saat aplikasi Tauri berjalan (`npm run dev` / `npm run tauri:build`):
+
+1. Klik kanan jendela → **Inspect Element**, atau `Cmd+Option+I` (macOS) / `Ctrl+Shift+I` (Windows/Linux)
+2. Buka tab **Console**
+3. Cari error merah: `command 'nama_fungsi' not found` → fungsi Rust belum didaftarkan di `lib.rs`
+4. Gunakan `tauriInvoke()` dari `src/lib/tauriInvoke.js` agar error IPC tercatat otomatis di console
 
 ### Regenerate screenshots (maintainers)
 

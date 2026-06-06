@@ -625,7 +625,7 @@
     </div>
 
     <div class="titlebar-end">
-      <button type="button" class="title-btn" onclick={toggleTheme} title="Toggle light/dark theme">{theme === "dark" ? "☀" : "☾"}</button>
+      <button type="button" class="title-btn" onclick={toggleTheme} title="Toggle light/dark theme" aria-label="Toggle light/dark theme">{theme === "dark" ? "☀" : "☾"}</button>
       <button class="title-btn" onclick={handleExport} title="Export report">Export</button>
       <button class="case-pill" onclick={openCaseManager} title="Manage case">
         {activeCase?.name ? `Case: ${activeCase.name}` : "Case"}

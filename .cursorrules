@@ -1,0 +1,9 @@
+# Aturan Pengembangan Tauri & Rust — AnalysisLoom
+
+1. **Registrasi IPC Wajib:** Setiap fungsi Rust dengan `#[tauri::command]` WAJIB ditambahkan ke `tauri::generate_handler![...]` di `packages/analysisloom/src-tauri/src/lib.rs`. Jalankan `npm run test:ipc` sebelum commit.
+2. **Serde dan Penamaan:** JavaScript memakai camelCase, Rust memakai snake_case. Struct yang dikirim ke/dari frontend WAJIB `#[derive(Serialize, Deserialize)]` dan `#[serde(rename_all = "camelCase")]`. Tipe TypeScript di-generate via ts-rs (`npm run export:types`).
+3. **Jangan Blokir UI:** I/O file, komputasi berat (parsing disk, carving, analisis forensik), atau jaringan WAJIB `async fn` + `tokio` — jangan jalankan di main thread.
+4. **Penanganan Error:** Jangan gunakan `.unwrap()` / `.expect()` di dalam `#[tauri::command]`. Selalu kembalikan `Result<T, String>` agar frontend menangkap error tanpa panic backend.
+5. **Console Log Otomatis:** Panggilan `invoke()` di frontend WAJIB melalui `tauriInvoke()` dari `src/lib/tauriInvoke.js` (try/catch + `console.error`) agar error IPC terlihat di DevTools.
+6. **Debug GUI:** Saat vibe-coding, buka DevTools di app Tauri (`Cmd+Option+I` / `Ctrl+Shift+I`). Cari error merah `command '...' not found` di tab Console.
+7. **Tes sebelum merge:** `npm run test:ipc && npm run test:e2e && npm run test:integration`

@@ -5,12 +5,14 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const screenshot = process.env.SCREENSHOT === "1";
+const e2e = process.env.E2E === "1";
 const screenshotReal = process.env.SCREENSHOT_REAL !== "0";
+const useTauriMock = screenshot || e2e;
 const fixturesDir =
   process.env.FIXTURES_DIR || path.resolve(__dirname, "../../test-fixtures");
 const bridgeUrl = process.env.SCREENSHOT_BRIDGE_URL || "http://127.0.0.1:4174";
-const tauriCore = screenshot
-  ? screenshotReal
+const tauriCore = useTauriMock
+  ? screenshot && screenshotReal
     ? "src/lib/demo/tauriBridgeMock.js"
     : "src/lib/demo/tauriMock.js"
   : null;

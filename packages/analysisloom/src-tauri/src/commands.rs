@@ -5,9 +5,11 @@ use crate::forensic::{
     windows_artifacts, yara, ProgressState,
 };
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/lib/generated/")]
 pub struct Case {
     pub id: String,
     pub name: String,
@@ -29,8 +31,9 @@ pub struct SearchResult {
     pub context: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/lib/generated/")]
 pub struct EvidenceItem {
     pub id: String,
     pub case_id: String,
@@ -59,8 +62,9 @@ pub struct Finding {
     pub review_note: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/lib/generated/")]
 pub struct CaseStats {
     pub evidence_count: i64,
     pub findings_count: i64,
