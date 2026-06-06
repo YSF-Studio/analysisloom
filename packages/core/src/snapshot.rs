@@ -1,6 +1,6 @@
 //! System Snapshot — Capture system state, diff changes, detect anomalies
 //!
-//! Used by CollectionLoom to monitor a system before & after acquisition,
+//! Used to monitor a system before & after acquisition,
 //! detecting changes to files, processes, and network state.
 //!
 //! ISO 27037: Chain of custody includes system state baselines.

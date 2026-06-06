@@ -128,8 +128,8 @@ fn hash_empty_file_known() {
 #[test]
 fn crypto_sign_verify_roundtrip() {
     let kp = crypto::generate_keypair();
-    let sig = crypto::sign_data(&kp.private_key, b"CollectionLoom evidence").unwrap();
-    assert!(crypto::verify_signature(&kp.public_key, b"CollectionLoom evidence", &sig).unwrap());
+    let sig = crypto::sign_data(&kp.private_key, b"AnalysisLoom evidence").unwrap();
+    assert!(crypto::verify_signature(&kp.public_key, b"AnalysisLoom evidence", &sig).unwrap());
 }
 
 #[test]

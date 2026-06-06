@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn test_sign_verify_roundtrip() {
         let kp = generate_keypair();
-        let data = b"collectionloom evidence chain";
+        let data = b"analysisloom evidence chain";
         let sig = sign_data(&kp.private_key, data).unwrap();
         assert!(verify_signature(&kp.public_key, data, &sig).unwrap());
     }

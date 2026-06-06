@@ -19,7 +19,7 @@ pub async fn aws_create_snapshot(
     let params = [
         ("Action", "CreateSnapshot"),
         ("VolumeId", volume_id),
-        ("Description", "CollectionLoom forensic snapshot"),
+        ("Description", "AnalysisLoom forensic snapshot"),
         ("Version", "2016-11-15"),
     ];
 
@@ -75,7 +75,7 @@ pub async fn gcp_create_snapshot(
 
     let body = serde_json::json!({
         "name": snapshot_name,
-        "description": "CollectionLoom forensic snapshot"
+        "description": "AnalysisLoom forensic snapshot"
     });
 
     let resp = client.post(&url)

@@ -1,4 +1,4 @@
-/// Full integration test suite — ZipLoom-compatible patterns
+/// Full integration test suite
 /// Creates real sample archives and runs forensic_load + forensic_report
 
 use ysf_core::*;
@@ -15,7 +15,7 @@ fn tempdir(name: &str) -> PathBuf {
 }
 
 fn create_sample_files(dir: &Path) {
-    std::fs::write(dir.join("readme.txt"), b"CollectionLoom forensic test file.\nThis is a sample text document.\n").unwrap();
+    std::fs::write(dir.join("readme.txt"), b"AnalysisLoom forensic test file.\nThis is a sample text document.\n").unwrap();
     std::fs::write(dir.join("data.csv"), b"id,name,value\n1,alpha,100\n2,beta,200\n3,gamma,300\n").unwrap();
     std::fs::write(dir.join("empty.dat"), b"").unwrap();
     std::fs::write(dir.join("binary.bin"), &[0u8; 1024]).unwrap();

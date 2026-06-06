@@ -21,7 +21,8 @@ echo "=== EGL TEST ==="
 eglinfo -p x11 2>&1 | grep -v "EGL" | head -20
 echo ""
 echo "=== STARTING APP ==="
-BINARY="/home/kali/ysf-forensic-suite/packages/analysisloom/src-tauri/target/debug/analysisloom"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BINARY="$SCRIPT_DIR/../packages/analysisloom/src-tauri/target/debug/analysisloom"
 echo "Binary: $BINARY"
 ls -la "$BINARY"
 "$BINARY" 2>&1 &
