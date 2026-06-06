@@ -2,6 +2,9 @@
   "name": "analysisloom",
   "private": true,
   "workspaces": ["packages/analysisloom"],
+  "devDependencies": {
+    "puppeteer": "^24.0.0"
+  },
   "scripts": {
     "dev:analysisloom": "cd packages/analysisloom && npm run tauri dev",
     "build:analysisloom": "cd packages/analysisloom && npm run tauri build",
@@ -10,6 +13,7 @@
     "test:fixtures": "cd packages/analysisloom/src-tauri && cargo run --example export_fixtures -- ../../test-fixtures",
     "test:gui": "node scripts/smoke-gui.mjs",
     "test:full": "bash scripts/run-full-test.sh",
+    "screenshots": "bash scripts/capture-screenshots.sh",
     "lint": "cd packages/analysisloom/src-tauri && cargo clippy --all-targets -- -D warnings",
     "fmt:check": "cd packages/analysisloom/src-tauri && cargo fmt --all -- --check",
     "audit:rust": "cd packages/analysisloom/src-tauri && cargo audit",

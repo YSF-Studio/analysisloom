@@ -762,6 +762,38 @@ pub fn delete_bookmark(id: i64) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DemoFixtures {
+    pub ntfs: String,
+    pub luks: String,
+    pub carve: String,
+    pub sqlite: String,
+    pub evidence: String,
+    pub png: String,
+}
+
+/// Returns fixture paths when `ANALYSISLOOM_SCREENSHOT=1` (for automated screenshots).
+#[tauri::command]
+pub fn demo_fixtures() -> Option<DemoFixtures> {
+    if std::env::var("ANALYSISLOOM_SCREENSHOT").is_err() {
+        return None;
+    }
+    let dir = std::env::var("ANALYSISLOOM_FIXTURES_DIR").ok()?;
+    let base = std::path::Path::new(&dir);
+    if !base.is_dir() {
+        return None;
+    }
+    Some(DemoFixtures {
+        ntfs: base.join("random_ntfs.dd").to_string_lossy().into(),
+        luks: base.join("luks_volume.dd").to_string_lossy().into(),
+        carve: base.join("carve_source.dd").to_string_lossy().into(),
+        sqlite: base.join("messages.db").to_string_lossy().into(),
+        evidence: base.join("secret_password_log.txt").to_string_lossy().into(),
+        png: base.join("photo_evidence.png").to_string_lossy().into(),
+    })
+}
+
 #[tauri::command]
 pub fn about_info() -> serde_json::Value {
     serde_json::json!({

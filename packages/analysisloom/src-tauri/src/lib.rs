@@ -23,30 +23,67 @@ pub fn run() {
                  window.addEventListener('unhandledrejection',function(e){console.error('UNHANDLED:',e.reason);});"
             );
 
-            // ─── GUI Screenshot Mode ───
+            // ─── GUI Screenshot Mode (set ANALYSISLOOM_FIXTURES_DIR for demo data) ───
             if std::env::var("ANALYSISLOOM_SCREENSHOT").is_ok() {
                 let w = window.clone();
                 std::thread::spawn(move || {
                     use std::time::Duration;
-                    std::thread::sleep(Duration::from_secs(5));
 
-                    // Cycle through sidebar sections by text label
-                    let sections = [
-                        "NTFS Browser", "Timeline", "Carved Files", "SQLite Manager",
-                        "Search", "Key Findings", "Report", "About"
-                    ];
-                    for section in &sections {
-                        let js = format!(
-                            "Array.from(document.querySelectorAll('.nav-item')).find(b=>b.textContent.includes('{}'))?.click();",
-                            section
-                        );
-                        let _ = w.eval(&js);
-                        std::thread::sleep(Duration::from_secs(4));
+                    // Wait for frontend demo bootstrap (fixtures + case + MFT)
+                    for _ in 0..60 {
+                        std::thread::sleep(Duration::from_secs(1));
+                        if let Ok(title) = w.title() {
+                            if title.contains("DEMO READY") {
+                                break;
+                            }
+                        }
                     }
 
-                    let _ = w.eval("Array.from(document.querySelectorAll('.nav-item')).find(b=>b.textContent.includes('NTFS Browser'))?.click();");
-                    std::thread::sleep(Duration::from_secs(3));
-                    eprintln!("[SCREENSHOT] All sections navigated");
+                    let views: [(&str, &str, &str, u64); 10] = [
+                        ("case-manager", "Case Manager", "", 3),
+                        ("ntfs-browser", "NTFS Browser", "", 3),
+                        (
+                            "timeline",
+                            "Timeline",
+                            "Array.from(document.querySelectorAll('.btn-primary')).find(b=>b.textContent.includes('Load Timeline'))?.click();",
+                            2,
+                        ),
+                        (
+                            "carved-files",
+                            "Carved Files",
+                            "Array.from(document.querySelectorAll('.btn-primary')).find(b=>b.textContent.includes('Start Carving'))?.click();",
+                            8,
+                        ),
+                        ("sqlite-manager", "SQLite Manager", "", 4),
+                        ("search", "Search", "", 3),
+                        ("key-findings", "Key Findings", "", 3),
+                        (
+                            "encrypted",
+                            "Encrypted",
+                            "Array.from(document.querySelectorAll('.btn-primary')).find(b=>b.textContent.includes('Scan'))?.click();",
+                            5,
+                        ),
+                        ("report", "Report", "", 3),
+                        ("about", "About", "", 3),
+                    ];
+
+                    for (slug, label, action, wait_secs) in views {
+                        let nav = format!(
+                            "Array.from(document.querySelectorAll('.nav-item')).find(b=>b.textContent.includes('{}'))?.click();",
+                            label
+                        );
+                        let _ = w.eval(&nav);
+                        std::thread::sleep(Duration::from_millis(800));
+                        if !action.is_empty() {
+                            let _ = w.eval(action);
+                            std::thread::sleep(Duration::from_millis(500));
+                        }
+                        let _ = w.set_title(&format!("AnalysisLoom — SCREENSHOT:{slug}"));
+                        std::thread::sleep(Duration::from_secs(wait_secs));
+                    }
+
+                    let _ = w.set_title("AnalysisLoom — SCREENSHOT:DONE");
+                    eprintln!("[SCREENSHOT] All views captured");
                 });
             }
 
@@ -83,6 +120,7 @@ pub fn run() {
             commands::list_bookmarks,
             commands::delete_bookmark,
             commands::about_info,
+            commands::demo_fixtures,
         ])
         .run(tauri::generate_context!())
         .expect("error while running AnalysisLoom");

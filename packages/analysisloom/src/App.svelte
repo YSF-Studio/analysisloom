@@ -178,6 +178,119 @@
     activeView = "sqlite";
   }
 
+  function bootstrapScreenshotDemo() {
+    const imgId = "img-screenshot";
+    const path = "/workspace/test-fixtures/random_ntfs.dd";
+    const mft = [
+      { recordNumber: 0, filename: ".", parentRecord: 5, isDirectory: true, isDeleted: false, fileSize: 0 },
+      { recordNumber: 1, filename: "Windows", parentRecord: 5, isDirectory: true, isDeleted: false, fileSize: 0 },
+      { recordNumber: 2, filename: "Users", parentRecord: 5, isDirectory: true, isDeleted: false, fileSize: 0 },
+      { recordNumber: 3, filename: "Administrator", parentRecord: 5, isDirectory: true, isDeleted: false, fileSize: 0 },
+      { recordNumber: 4, filename: "secret_password.txt", parentRecord: 5, isDirectory: false, isDeleted: false, fileSize: 475 },
+      { recordNumber: 5, filename: "messages.db", parentRecord: 5, isDirectory: false, isDeleted: false, fileSize: 12288 },
+      { recordNumber: 6, filename: "BitLockerToGo", parentRecord: 5, isDirectory: true, isDeleted: false, fileSize: 0 },
+    ];
+    activeCase = { id: "CASE-A1B2C3", name: "Forensic Demo Case", operator: "Analyst", createdAt: "2026-06-06", status: "active" };
+    imagePath = path;
+    sqliteDbPath = "/workspace/test-fixtures/messages.db";
+    artifactPath = "/workspace/test-fixtures/secret_password_log.txt";
+    selectedFile = artifactPath;
+    inspectorMeta = {
+      size: 475,
+      sha256: "a3f2c891d4e5b6071829345fa6678bcde90123456789abcdef0123456789abcd",
+      sha1: "b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7",
+      md5: "c9d8e7f6a5b4c3d2e1f0091827364554",
+      extension: "txt",
+      source: "disk",
+    };
+    mftEntries = mft;
+    mftCache = { [imgId]: mft };
+    sources = [{
+      id: imgId,
+      name: "random_ntfs.dd",
+      icon: "💽",
+      path,
+      entryCount: mft.length,
+      children: buildMftTree(mft),
+    }];
+    selectedSource = { id: `${imgId}-root`, imageId: imgId, recordNumber: 5, name: path, isRoot: true };
+    fileCount = mft.length;
+    findingCount = 1;
+    bookmarkCount = 1;
+    encryptedCount = 2;
+    searchQuery = "password";
+    filterParent = 5;
+    window.__goToView = setView;
+    document.title = "AnalysisLoom — DEMO READY";
+  }
+
+  async function loadDemoFixtures(fixtures) {
+    busy = true;
+    try {
+      const c = await invoke("create_case", {
+        name: "Forensic Demo Case",
+        operator: "Analyst",
+      });
+      activeCase = c;
+
+      const entries = await timeoutPromise(
+        invoke("parse_mft", { imagePath: fixtures.ntfs }),
+        120000
+      );
+      onMftLoaded(entries, fixtures.ntfs);
+      imagePath = fixtures.ntfs;
+
+      sqliteDbPath = fixtures.sqlite;
+
+      const [hashes, preview] = await Promise.all([
+        invoke("hash_file", { path: fixtures.evidence }),
+        timeoutPromise(invoke("preview_file", { path: fixtures.evidence }), 30000),
+      ]);
+      selectedFile = fixtures.evidence;
+      artifactPath = fixtures.evidence;
+      inspectorMeta = { ...preview.metadata, ...hashes, source: "disk" };
+
+      await invoke("add_evidence", {
+        caseId: c.id,
+        sourcePath: fixtures.evidence,
+        itemType: "text",
+        sha256: hashes.sha256 ?? null,
+        sizeBytes: preview.metadata?.size ?? null,
+        tag: "high",
+        note: "Demo fixture — password log",
+      });
+
+      await invoke("record_timeline_event", {
+        caseId: c.id,
+        timestamp: new Date().toISOString(),
+        source: "NTFS",
+        filePath: fixtures.ntfs,
+        eventType: `mft_loaded_${entries.length}`,
+      });
+
+      const enc = await timeoutPromise(
+        invoke("detect_encrypted", { imagePath: fixtures.ntfs }),
+        120000
+      );
+      encryptedCount = enc.length;
+
+      await invoke("add_bookmark", {
+        caseId: c.id,
+        filePath: fixtures.evidence,
+        offset: 0,
+        tag: "suspicious",
+        note: "Contains password keyword",
+      });
+
+      searchQuery = "password";
+      await refreshCaseStats();
+      document.title = "AnalysisLoom — DEMO READY";
+    } catch (e) {
+      console.error("Demo bootstrap failed:", e);
+    }
+    busy = false;
+  }
+
   async function onOpenArtifact() {
     const picked = await open({
       multiple: false,
@@ -293,6 +406,18 @@
 
   $effect(() => {
     platform = detectPlatform();
+  });
+
+  $effect(() => {
+    if (import.meta.env.VITE_SCREENSHOT) {
+      bootstrapScreenshotDemo();
+      return;
+    }
+    invoke("demo_fixtures")
+      .then((fixtures) => {
+        if (fixtures) loadDemoFixtures(fixtures);
+      })
+      .catch(() => {});
   });
 
   $effect(() => {
