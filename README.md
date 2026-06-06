@@ -319,14 +319,23 @@ npm run dev:analysisloom
 ## 🧪 Testing
 
 ```bash
-npm run test:full          # fixtures + unit + integration + IPC + E2E Playwright
+npm run test:full          # fixtures + unit + integration + IPC + mock + E2E Playwright
 npm run test:integration   # all Tauri commands against random fixtures
 npm run test:ipc           # verify every #[tauri::command] is in generate_handler!
-npm run test:e2e           # Playwright GUI — navigation, console errors, IPC mock
+npm run test:mock          # every invoke() has a handler in tauriMock.js (E2E backend)
+npm run test:e2e           # Playwright GUI — all sidebar views, case flow, IPC mock
 npm run test:fixtures      # export fixtures to test-fixtures/
 npm run test:gui           # validate production bundle strings
 npm run export:types       # Rust → TypeScript bindings (ts-rs)
 ```
+
+E2E specs live in `e2e/`:
+
+| Spec | Coverage |
+|------|----------|
+| `app.spec.ts` | Shell load, main navigation, theme toggle |
+| `sidebar-views.spec.ts` | Every sidebar entry (26+ views) without IPC fatals |
+| `case-manager.spec.ts` | Create case + YARA scanner panel |
 
 ### Debug GUI (DevTools)
 

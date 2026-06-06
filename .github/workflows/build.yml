@@ -80,6 +80,8 @@ jobs:
         run: npm run build
       - name: Verify IPC registry
         run: npm run test:ipc
+      - name: Verify mock coverage
+        run: npm run test:mock
 
   e2e:
     name: E2E (Playwright + IPC)
@@ -97,6 +99,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: IPC registry check
         run: npm run test:ipc
+      - name: Mock coverage check
+        run: npm run test:mock
       - name: Playwright E2E (vite preview + Tauri mock)
         run: npm run test:e2e
         env:

@@ -18,6 +18,7 @@
     "test:fixtures": "cd packages/analysisloom/src-tauri && cargo run --example export_fixtures -- ../../test-fixtures",
     "test:gui": "node scripts/smoke-gui.mjs",
     "test:ipc": "node scripts/verify-ipc-registry.mjs",
+    "test:mock": "node scripts/verify-mock-coverage.mjs",
     "test:e2e": "playwright test",
     "export:types": "cd packages/analysisloom/src-tauri && cargo test --test export_ts export_typescript_bindings -- --nocapture",
     "test:full": "bash scripts/run-full-test.sh",

@@ -9,7 +9,7 @@ echo " AnalysisLoom — Full Test Suite"
 echo "═══════════════════════════════════════════"
 
 echo ""
-echo "▶ 1/5 Generate random test fixtures"
+echo "▶ 1/8 Generate random test fixtures"
 mkdir -p test-fixtures
 cd packages/analysisloom/src-tauri
 cargo run --example export_fixtures -- "$ROOT/test-fixtures" "$(date +%s)"
@@ -17,31 +17,35 @@ cd "$ROOT"
 ls -la test-fixtures/
 
 echo ""
-echo "▶ 2/5 Rust unit tests"
+echo "▶ 2/8 Rust unit tests"
 cd packages/analysisloom/src-tauri
 cargo test --lib -- --nocapture
 cd "$ROOT"
 
 echo ""
-echo "▶ 3/5 Full integration test (all commands + random fixtures)"
+echo "▶ 3/8 Full integration test (all commands + random fixtures)"
 cd packages/analysisloom/src-tauri
 cargo test --test full_integration -- --nocapture
 cd "$ROOT"
 
 echo ""
-echo "▶ 4/7 IPC registry (all commands registered)"
+echo "▶ 4/8 IPC registry (all commands registered)"
 node scripts/verify-ipc-registry.mjs
 
 echo ""
-echo "▶ 5/7 Frontend production build"
+echo "▶ 5/8 Mock coverage (invoke → tauriMock.js)"
+npm run test:mock
+
+echo ""
+echo "▶ 6/8 Frontend production build"
 npm run build:analysisloom
 
 echo ""
-echo "▶ 6/7 GUI smoke test"
+echo "▶ 7/8 GUI smoke test"
 node scripts/smoke-gui.mjs
 
 echo ""
-echo "▶ 7/7 Playwright E2E (browser + Tauri mock)"
+echo "▶ 8/8 Playwright E2E (browser + Tauri mock)"
 npm run test:e2e
 
 echo ""
