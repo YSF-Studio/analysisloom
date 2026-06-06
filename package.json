@@ -3,7 +3,7 @@
   "private": true,
   "workspaces": ["packages/analysisloom"],
   "devDependencies": {
-    "puppeteer": "^24.0.0"
+    "puppeteer": "^25.1.0"
   },
   "scripts": {
     "dev:analysisloom": "cd packages/analysisloom && npm run tauri dev",
