@@ -15,6 +15,12 @@
   import StatusBar from "./lib/components/StatusBar.svelte";
   import TabBar from "./lib/components/TabBar.svelte";
   import EncryptedTab from "./lib/components/EncryptedTab.svelte";
+  import RegistryTab from "./lib/components/RegistryTab.svelte";
+  import YaraTab from "./lib/components/YaraTab.svelte";
+  import AntiForensicsTab from "./lib/components/AntiForensicsTab.svelte";
+  import BrowserTab from "./lib/components/BrowserTab.svelte";
+  import NsrlTab from "./lib/components/NsrlTab.svelte";
+  import MemoryTab from "./lib/components/MemoryTab.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { buildMftTree, isSqliteArtifact } from "./lib/mftTree.js";
   import { VIEW_META, DEFAULT_TABS } from "./lib/viewRegistry.js";
@@ -49,6 +55,9 @@
   let tabs = $state([...DEFAULT_TABS]);
   let sidebarWidth = $state(220);
   let inspectorWidth = $state(320);
+  let theme = $state("dark");
+  let evidencePaths = $state([]);
+  let dragOver = $state(false);
 
   function timeoutPromise(promise, ms) {
     let timer;
@@ -136,15 +145,46 @@
     if (!activeCase?.id) {
       findingCount = 0;
       bookmarkCount = 0;
+      evidencePaths = [];
       return;
     }
     try {
       const stats = await invoke("case_stats", { caseId: activeCase.id });
       findingCount = stats.findingsCount ?? 0;
       bookmarkCount = stats.bookmarkCount ?? 0;
+      const evidence = await invoke("list_evidence", { caseId: activeCase.id });
+      evidencePaths = evidence.map((e) => e.sourcePath).filter(Boolean);
     } catch {
       /* ignore */
     }
+  }
+
+  function toggleTheme() {
+    theme = theme === "dark" ? "light" : "dark";
+    document.documentElement.classList.toggle("theme-light", theme === "light");
+  }
+
+  async function handleDroppedPath(path) {
+    artifactPath = path;
+    selectedFile = path;
+    hashLoading = true;
+    busy = true;
+    try {
+      const [hashes, preview] = await Promise.all([
+        invoke("hash_file", { path }),
+        timeoutPromise(invoke("preview_file", { path }), 30000),
+      ]);
+      inspectorMeta = { ...preview.metadata, ...hashes, source: "disk" };
+      msg = `✅ Dropped: ${path.split(/[/\\]/).pop()}`;
+      if (isSqliteArtifact(path)) {
+        sqliteDbPath = path;
+        activeView = "sqlite";
+      }
+    } catch (e) {
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    }
+    hashLoading = false;
+    busy = false;
   }
 
   async function onAddImage() {
@@ -425,7 +465,29 @@
     else {
       findingCount = 0;
       bookmarkCount = 0;
+      evidencePaths = [];
     }
+  });
+
+  $effect(() => {
+    let unlisten;
+    (async () => {
+      try {
+        const win = getCurrentWindow();
+        unlisten = await win.onDragDropEvent((event) => {
+          if (event.payload.type === "over") dragOver = true;
+          else if (event.payload.type === "leave") dragOver = false;
+          else if (event.payload.type === "drop") {
+            dragOver = false;
+            const p = event.payload.paths?.[0];
+            if (p) handleDroppedPath(p);
+          }
+        });
+      } catch {
+        /* drag-drop unavailable */
+      }
+    })();
+    return () => { unlisten?.(); };
   });
 
   async function windowAction(action) {
@@ -475,6 +537,7 @@
     </div>
 
     <div class="titlebar-end">
+      <button class="title-btn" onclick={toggleTheme} title="Toggle light/dark theme">{theme === "dark" ? "☀" : "☾"}</button>
       <button class="title-btn" onclick={handleExport} title="Export report">Export</button>
       <button class="case-pill" onclick={openCaseManager} title="Manage case">
         {activeCase?.name ? `Case: ${activeCase.name}` : "Case"}
@@ -530,6 +593,28 @@
       </div>
 
       <div class="sidebar-section">
+        <div class="section-head">FORENSICS V1.5</div>
+        <button class="nav-item" class:active={activeView === "registry"} onclick={() => setView("registry")}>
+          <span>📋</span> Registry
+        </button>
+        <button class="nav-item" class:active={activeView === "yara"} onclick={() => setView("yara")}>
+          <span>🦠</span> YARA Scanner
+        </button>
+        <button class="nav-item" class:active={activeView === "antiforensics"} onclick={() => setView("antiforensics")}>
+          <span>🕵️</span> Anti-Forensics
+        </button>
+        <button class="nav-item" class:active={activeView === "browser"} onclick={() => setView("browser")}>
+          <span>🌐</span> Browser Artifacts
+        </button>
+        <button class="nav-item" class:active={activeView === "nsrl"} onclick={() => setView("nsrl")}>
+          <span>📚</span> NSRL Lookup
+        </button>
+        <button class="nav-item" class:active={activeView === "memory"} onclick={() => setView("memory")}>
+          <span>🧠</span> Memory Bridge
+        </button>
+      </div>
+
+      <div class="sidebar-section">
         <div class="section-head">EVIDENCE</div>
         <button class="nav-item" class:active={activeView === "bookmarks"} onclick={() => setView("bookmarks")}>
           <span>🔖</span> Key Findings {#if findingCount}<span class="count pill-info">{findingCount}</span>{/if}
@@ -554,7 +639,11 @@
       onpointerdown={(e) => startPaneDrag("sidebar", e)}
     ></div>
 
-    <main class="workspace-main" class:padded={activeView !== "files" && activeView !== "sqlite" && activeView !== "encrypted"}>
+    <main
+      class="workspace-main"
+      class:padded={activeView !== "files" && activeView !== "sqlite" && activeView !== "encrypted"}
+      class:drag-over={dragOver}
+    >
       {#if activeView === "cases"}
         <CaseTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "files"}
@@ -593,6 +682,18 @@
           {timeoutPromise}
           onCountChange={(n) => encryptedCount = n}
         />
+      {:else if activeView === "registry"}
+        <RegistryTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "yara"}
+        <YaraTab bind:activeCase bind:busy bind:msg {timeoutPromise} {evidencePaths} />
+      {:else if activeView === "antiforensics"}
+        <AntiForensicsTab bind:activeCase bind:busy bind:msg bind:imagePath {timeoutPromise} {evidencePaths} />
+      {:else if activeView === "browser"}
+        <BrowserTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "nsrl"}
+        <NsrlTab bind:busy bind:msg {timeoutPromise} selectedFile={selectedFile || artifactPath || ""} />
+      {:else if activeView === "memory"}
+        <MemoryTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "report"}
         <ReportTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "about"}
@@ -727,6 +828,7 @@
   .inspector-logo { width: 16px; height: 16px; border-radius: 3px; }
 
   .workspace-main.padded { padding: 16px 20px; overflow-y: auto; }
+  .workspace-main.drag-over { outline: 2px dashed var(--primary); outline-offset: -4px; background: var(--primary-bg); }
   .workspace-main > :global(*) {
     flex: 1; min-height: 0; overflow: hidden;
   }

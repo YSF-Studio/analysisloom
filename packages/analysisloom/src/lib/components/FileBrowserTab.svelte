@@ -61,6 +61,31 @@
     e.preventDefault();
   }
 
+  async function recoverDeleted() {
+    if (!imagePath) return;
+    busy = true;
+    try {
+      const out = "/tmp/analysisloom_recovered";
+      const result = await timeoutPromise(
+        invoke("recover_deleted_carve", { imagePath, outputDir: out }),
+        120000
+      );
+      msg = `✅ Recovered ${result.filesFound} deleted/carved files → ${out}`;
+      if (activeCase?.id) {
+        invoke("record_timeline_event", {
+          caseId: activeCase.id,
+          timestamp: new Date().toISOString(),
+          source: "Recovery",
+          filePath: imagePath,
+          eventType: `recovered_${result.filesFound}`,
+        }).catch(() => {});
+      }
+    } catch (e) {
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    }
+    busy = false;
+  }
+
   export async function loadMft() {
     if (!imagePath) return [];
     busy = true;
@@ -179,6 +204,9 @@
   <div class="load-row">
     <input type="text" bind:value={imagePath} placeholder="/dev/sda or path to E01/DD image..." disabled={busy} />
     <button onclick={() => loadMft()} disabled={busy || !imagePath} class="btn-primary">Load</button>
+    {#if mftEntries.some((e) => e.isDeleted)}
+      <button onclick={recoverDeleted} disabled={busy || !imagePath} class="btn" title="Carve deleted files from image">Recover Deleted</button>
+    {/if}
   </div>
 
   <div class="workspace-split">

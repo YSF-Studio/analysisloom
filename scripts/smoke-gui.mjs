@@ -52,6 +52,14 @@ if (!existsSync(assets)) {
       "hash_file",
       "sqlite_db_info",
       "add_evidence",
+      "analyze_registry_hive",
+      "yara_scan_paths",
+      "analyze_antiforensics_mft",
+      "scan_browser_artifacts",
+      "nsrl_lookup_file",
+      "parse_volatility_json",
+      "get_super_timeline",
+      "unified_search",
     ];
     for (const needle of required) {
       if (!bundle.includes(needle)) {
@@ -72,7 +80,8 @@ if (!existsSync(registryPath)) {
   const mod = await import(registryPath);
   const expected = [
     "cases", "files", "timeline", "carving", "sqlite",
-    "search", "bookmarks", "encrypted", "report", "about",
+    "search", "bookmarks", "encrypted", "registry", "yara",
+    "antiforensics", "browser", "nsrl", "memory", "report", "about",
   ];
   for (const id of expected) {
     if (!mod.VIEW_META[id]) fail(`VIEW_META missing: ${id}`);

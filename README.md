@@ -26,6 +26,17 @@
 | **Encrypted Volumes** | ✅ Ready | Detect LUKS, BitLocker indicators, and high-entropy regions |
 | **Report** | ✅ Ready | Export HTML & PDF case reports with audit trail |
 | **About** | ✅ Ready | Version info, feature list, offline/privacy statement |
+| **Registry Analyzer** | ✅ V1.5 | SAM/SYSTEM/SOFTWARE/NTUSER.DAT — USB history, UserAssist, Shellbags, MRU, Run keys |
+| **YARA Scanner** | ✅ V1.5 | Built-in malware rules + custom `.yar` loading, scan case evidence |
+| **Anti-Forensics** | ✅ V1.5 | Timestomp, extension mismatch, NTFS ADS, zero-size anomalies, deleted MFT flags |
+| **Browser Artifacts** | ✅ V1.5 | Chrome/Firefox/Safari/Edge history, downloads from SQLite databases |
+| **NSRL Lookup** | ✅ V1.5 | NIST hash set import & known-good filtering |
+| **Memory Bridge** | ✅ V1.5 | Import Volatility 3 JSON — processes & network connections |
+| **Hex Search** | ✅ V1.5 | Byte pattern search (`hex:FF D8 FF`) across evidence files |
+| **Super Timeline** | ✅ V2 | Multi-source correlated timeline (NTFS, registry, browser, YARA, memory) |
+| **Deleted Recovery** | ✅ V2 | Recover deleted files from NTFS browser via integrated carving |
+| **Theme Toggle** | ✅ V2 | Light / dark mode (☀/☾ in titlebar) |
+| **Drag & Drop** | ✅ V2 | Drop evidence files onto workspace — auto-hash in Inspector |
 
 ### Architecture
 

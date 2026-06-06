@@ -1,5 +1,6 @@
 use crate::forensic::{
-    self, carving, encryption, evidence, hashing, ntfs, preview, report, sqlite, ProgressState,
+    self, antiforensics, browser, carving, encryption, evidence, hashing, memory, nsrl, ntfs,
+    preview, registry, report, sqlite, timeline, yara, ProgressState,
 };
 use serde::{Deserialize, Serialize};
 
@@ -340,23 +341,39 @@ pub fn get_timeline(case_id: String) -> Result<Vec<serde_json::Value>, String> {
 
 #[tauri::command]
 pub fn keyword_search(case_id: String, query: String) -> Result<Vec<SearchResult>, String> {
-    let regex = regex::Regex::new(&format!("(?i){}", regex::escape(&query)))
-        .map_err(|e| format!("Invalid regex: {}", e))?;
+    unified_search(case_id, query)
+}
 
-    // Search evidence items for the case
+#[tauri::command]
+pub fn unified_search(case_id: String, query: String) -> Result<Vec<SearchResult>, String> {
     let db = crate::db::conn();
     let mut stmt = db
-        .prepare("SELECT source_path, sha256 FROM evidence_items WHERE case_id = ?1")
+        .prepare("SELECT source_path FROM evidence_items WHERE case_id = ?1")
         .map_err(|e| e.to_string())?;
-
-    let mut results = vec![];
-    let items: Vec<(String, Option<String>)> = stmt
-        .query_map([&case_id], |row| Ok((row.get(0)?, row.get(1)?)))
+    let paths: Vec<String> = stmt
+        .query_map([&case_id], |row| row.get(0))
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
 
-    for (path, _) in items {
+    if forensic::search::is_hex_query(&query) {
+        let hex_q = forensic::search::normalize_hex_query(&query);
+        let hits = forensic::search::hex_search_paths(&paths, &hex_q)?;
+        return Ok(hits
+            .into_iter()
+            .map(|h| SearchResult {
+                file_path: h.file_path,
+                offset: h.offset,
+                context: h.context,
+            })
+            .collect());
+    }
+
+    let regex = regex::Regex::new(&format!("(?i){}", regex::escape(&query)))
+        .map_err(|e| format!("Invalid regex: {e}"))?;
+
+    let mut results = vec![];
+    for path in paths {
         if let Ok(content) = std::fs::read_to_string(&path) {
             for (line_no, line) in content.lines().enumerate() {
                 if regex.is_match(line) {
@@ -368,9 +385,41 @@ pub fn keyword_search(case_id: String, query: String) -> Result<Vec<SearchResult
                 }
             }
         }
+        if let Ok(data) = std::fs::read(&path) {
+            if let Ok(text) = std::str::from_utf8(&data) {
+                if regex.is_match(text) && results.iter().all(|r| r.file_path != path) {
+                    results.push(SearchResult {
+                        file_path: path.clone(),
+                        offset: 0,
+                        context: text.chars().take(120).collect(),
+                    });
+                }
+            }
+        }
     }
-
     Ok(results)
+}
+
+#[tauri::command]
+pub fn hex_search(case_id: String, hex_pattern: String) -> Result<Vec<SearchResult>, String> {
+    let db = crate::db::conn();
+    let mut stmt = db
+        .prepare("SELECT source_path FROM evidence_items WHERE case_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let paths: Vec<String> = stmt
+        .query_map([&case_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+    let hits = forensic::search::hex_search_paths(&paths, &hex_pattern)?;
+    Ok(hits
+        .into_iter()
+        .map(|h| SearchResult {
+            file_path: h.file_path,
+            offset: h.offset,
+            context: h.context,
+        })
+        .collect())
 }
 
 // ─── File Preview & Hashing ───
@@ -760,6 +809,113 @@ pub fn delete_bookmark(id: i64) -> Result<(), String> {
         .execute("DELETE FROM bookmarks WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// ─── Registry Analyzer ───
+
+#[tauri::command]
+pub fn analyze_registry_hive(path: String) -> Result<registry::RegistryScanResult, String> {
+    registry::analyze_hive(&path)
+}
+
+#[tauri::command]
+pub fn scan_registry_directory(dir: String) -> Result<Vec<registry::RegistryScanResult>, String> {
+    registry::scan_hives_in_directory(&dir)
+}
+
+// ─── YARA Scanner ───
+
+#[tauri::command]
+pub fn yara_scan_paths(paths: Vec<String>, rules_path: Option<String>) -> Result<Vec<yara::YaraMatch>, String> {
+    yara::scan_with_optional_rules(&paths, rules_path.as_deref())
+}
+
+#[tauri::command]
+pub fn yara_builtin_rule_count() -> Result<usize, String> {
+    Ok(yara::builtin_rules().len())
+}
+
+// ─── Anti-Forensics ───
+
+#[tauri::command]
+pub fn analyze_antiforensics_mft(image_path: String) -> Result<Vec<antiforensics::AntiForensicsFinding>, String> {
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let entries = ntfs::parse_mft(&image_path, &cancel)?;
+    Ok(antiforensics::analyze_mft_entries(&entries, &image_path))
+}
+
+#[tauri::command]
+pub fn analyze_antiforensics_files(paths: Vec<String>) -> Result<Vec<antiforensics::AntiForensicsFinding>, String> {
+    Ok(antiforensics::scan_evidence_files(&paths))
+}
+
+// ─── Browser Artifacts ───
+
+#[tauri::command]
+pub fn scan_browser_artifacts(root: String) -> Result<Vec<browser::BrowserScanResult>, String> {
+    browser::scan_browser_artifacts(&root)
+}
+
+#[tauri::command]
+pub fn analyze_browser_db(path: String) -> Result<browser::BrowserScanResult, String> {
+    browser::analyze_browser_db(&path)
+}
+
+// ─── NSRL Lookup ───
+
+#[tauri::command]
+pub fn nsrl_lookup_file(path: String) -> Result<nsrl::NsrlLookupResult, String> {
+    nsrl::lookup_file(&path)
+}
+
+#[tauri::command]
+pub fn nsrl_lookup_hash(sha256: String) -> Result<nsrl::NsrlLookupResult, String> {
+    nsrl::lookup_sha256(&sha256)
+}
+
+#[tauri::command]
+pub fn nsrl_import(path: String) -> Result<usize, String> {
+    nsrl::import_nsrl_file(&path)
+}
+
+#[tauri::command]
+pub fn nsrl_seed_builtin() -> Result<usize, String> {
+    nsrl::seed_builtin_nsrl()
+}
+
+#[tauri::command]
+pub fn nsrl_stats() -> Result<serde_json::Value, String> {
+    nsrl::nsrl_stats()
+}
+
+// ─── Memory / Volatility Bridge ───
+
+#[tauri::command]
+pub fn parse_volatility_json(path: String) -> Result<memory::MemoryAnalysisResult, String> {
+    memory::parse_volatility_json(&path)
+}
+
+// ─── Super Timeline ───
+
+#[tauri::command]
+pub fn get_super_timeline(case_id: String) -> Result<Vec<timeline::SuperTimelineEvent>, String> {
+    timeline::build_super_timeline(&case_id)
+}
+
+// ─── Deleted file recovery ───
+
+#[tauri::command]
+pub fn list_deleted_mft(image_path: String) -> Result<Vec<ntfs::MftEntry>, String> {
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let entries = ntfs::parse_mft(&image_path, &cancel)?;
+    Ok(entries.into_iter().filter(|e| e.is_deleted).collect())
+}
+
+#[tauri::command]
+pub fn recover_deleted_carve(image_path: String, output_dir: String) -> Result<carving::CarvingResult, String> {
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    std::fs::create_dir_all(&output_dir).map_err(|e| e.to_string())?;
+    carving::carve_files(&image_path, &output_dir, &cancel)
 }
 
 #[derive(Debug, Serialize, Deserialize)]

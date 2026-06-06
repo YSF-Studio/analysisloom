@@ -1,14 +1,22 @@
 //! AnalysisLoom forensic engine — pure Rust, no external package deps.
 
+pub mod antiforensics;
+pub mod browser;
 pub mod carving;
 pub mod encryption;
 pub mod evidence;
 pub mod hashing;
+pub mod memory;
+pub mod nsrl;
 pub mod ntfs;
 pub mod preview;
 pub mod progress;
+pub mod registry;
 pub mod report;
+pub mod search;
 pub mod sqlite;
+pub mod timeline;
+pub mod yara;
 
 use once_cell::sync::Lazy;
 use std::sync::atomic::AtomicBool;

@@ -112,6 +112,8 @@ pub fn parse_mft(
         let mut fn_created = None;
         let mut fn_modified = None;
         let mut file_size = 0u64;
+        let mut has_data = false;
+        let mut attributes = vec![];
 
         // Walk attributes starting at offset 56
         let attr_offset = u16::from_le_bytes([buf[20], buf[21]]) as usize;
@@ -138,7 +140,16 @@ pub fn parse_mft(
                 u32::from_le_bytes([buf[pos + 16], buf[pos + 17], buf[pos + 18], buf[pos + 19]])
                     as usize;
 
-            let _attr_header_size = if !resident { 64 } else { 24 + name_len * 2 };
+            let attr_name = if name_len > 0 && pos + 24 + name_len * 2 <= buf.len() {
+                Some(String::from_utf16_lossy(
+                    &buf[pos + 24..pos + 24 + name_len * 2]
+                        .chunks(2)
+                        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                        .collect::<Vec<u16>>(),
+                ))
+            } else {
+                None
+            };
 
             match attr_type {
                 0x10 => {
@@ -151,13 +162,13 @@ pub fn parse_mft(
                     }
                 }
                 0x80 => {
-                    // $DATA (unnamed stream → file size)
-                    if resident {
-                        file_size = content_size as u64;
-                    } else if content_offset + 56 <= buf.len() {
+                    has_data = true;
+                    let stream_size = if resident {
+                        content_size as u64
+                    } else if content_offset + 56 <= buf.len() + pos {
                         let data_pos = pos + content_offset;
                         if data_pos + 56 <= buf.len() {
-                            file_size = u64::from_le_bytes([
+                            u64::from_le_bytes([
                                 buf[data_pos + 48],
                                 buf[data_pos + 49],
                                 buf[data_pos + 50],
@@ -166,9 +177,22 @@ pub fn parse_mft(
                                 buf[data_pos + 53],
                                 buf[data_pos + 54],
                                 buf[data_pos + 55],
-                            ]);
+                            ])
+                        } else {
+                            0
                         }
+                    } else {
+                        0
+                    };
+                    if attr_name.is_none() {
+                        file_size = stream_size;
                     }
+                    attributes.push(FileAttribute {
+                        attr_type: "$DATA".into(),
+                        name: attr_name.clone(),
+                        size: stream_size,
+                        resident,
+                    });
                 }
                 0x30 if resident && content_offset + 66 <= buf.len() => {
                     // $FILE_NAME
@@ -221,8 +245,8 @@ pub fn parse_mft(
                 si_accessed,
                 fn_created,
                 fn_modified,
-                has_data: false,
-                attributes: vec![],
+                has_data,
+                attributes,
             });
         }
 

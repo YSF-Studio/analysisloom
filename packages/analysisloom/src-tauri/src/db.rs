@@ -58,9 +58,19 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
             note TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS nsrl_hashes (
+            sha256 TEXT PRIMARY KEY,
+            file_name TEXT,
+            product TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_nsrl_sha256 ON nsrl_hashes(sha256);
     ",
     )
     .expect("Schema creation failed");
+    let _ = conn.execute(
+        "INSERT OR IGNORE INTO nsrl_hashes (sha256, file_name, product) VALUES ('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'empty', 'NIST Empty File')",
+        [],
+    );
     Mutex::new(conn)
 });
 

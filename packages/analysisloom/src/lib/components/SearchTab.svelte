@@ -26,7 +26,7 @@
     searched = true;
     try {
       results = await timeoutPromise(
-        invoke("keyword_search", { caseId: activeCase.id, query }),
+        invoke("unified_search", { caseId: activeCase.id, query }),
         60000
       );
       msg = `✅ ${results.length} matches found`;
@@ -43,15 +43,15 @@
 </script>
 
 <div class="search-panel">
-  <h3>Keyword Search</h3>
-  <p class="hint">Regex-powered search across evidence files in the active case</p>
+  <h3>Search</h3>
+  <p class="hint">Keyword/regex or hex byte patterns — prefix hex with <code>hex:</code> (e.g. hex:FF D8 FF)</p>
   <div class="row">
     <label class="sr-only" for="search-query">Search query</label>
     <input
       id="search-query"
       type="search"
       bind:value={query}
-      placeholder="password|secret|key|token"
+      placeholder="password | hex:FF D8 FF | 504B0304"
       disabled={busy}
       onkeydown={(e) => e.key === "Enter" && search()}
     />

@@ -9,6 +9,12 @@ export const VIEW_META = {
   search: { icon: "◈", label: "Search" },
   bookmarks: { icon: "🔖", label: "Key Findings" },
   encrypted: { icon: "🔐", label: "Encrypted" },
+  registry: { icon: "📋", label: "Registry" },
+  yara: { icon: "🦠", label: "YARA Scanner" },
+  antiforensics: { icon: "🕵️", label: "Anti-Forensics" },
+  browser: { icon: "🌐", label: "Browser Artifacts" },
+  nsrl: { icon: "📚", label: "NSRL Lookup" },
+  memory: { icon: "🧠", label: "Memory Bridge" },
   report: { icon: "▭", label: "Report" },
   about: { icon: "ⓘ", label: "About" },
 };

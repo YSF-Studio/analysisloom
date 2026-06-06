@@ -1,36 +1,69 @@
 <script>
-let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
-let events = $state([]);
+  import { invoke } from "@tauri-apps/api/core";
 
-async function loadTimeline() {
-  busy = true;
-  try {
-    const { invoke } = await import("@tauri-apps/api/core");
-    events = await timeoutPromise(invoke("get_timeline", { caseId: activeCase?.id }), 30000);
-  } catch(e) {}
-  busy = false;
-}
+  let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
+  let events = $state([]);
+  let superMode = $state(true);
+
+  async function loadTimeline() {
+    if (!activeCase?.id) return;
+    busy = true;
+    try {
+      if (superMode) {
+        events = await timeoutPromise(invoke("get_super_timeline", { caseId: activeCase.id }), 30000);
+        msg = `✅ Super Timeline: ${events.length} correlated events`;
+      } else {
+        events = await timeoutPromise(invoke("get_timeline", { caseId: activeCase.id }), 30000);
+        msg = `✅ ${events.length} timeline events`;
+      }
+    } catch (e) {
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    }
+    busy = false;
+  }
 </script>
 
-<div>
-  <h3>📊 Timeline Analysis</h3>
-  <button onclick={loadTimeline} disabled={busy||!activeCase} class="btn-primary">Load Timeline</button>
-  {#if events.length}
-  <div class="timeline">
-    {#each events.slice(0, 100) as evt}
-      <div class="event"><span class="ts">{evt.timestamp}</span><span class="type">{evt.eventType}</span><span>{evt.filePath}</span></div>
-    {/each}
+<div class="timeline-panel">
+  <div class="head">
+    <h3>Timeline Analysis</h3>
+    <label class="toggle">
+      <input type="checkbox" bind:checked={superMode} />
+      Super Timeline (multi-source correlation)
+    </label>
+    <button onclick={loadTimeline} disabled={busy || !activeCase} class="btn-primary">Load Timeline</button>
   </div>
+  {#if events.length}
+    <div class="timeline">
+      <div class="thead">
+        <span>Time</span><span>Source</span><span>Category</span><span>Event</span><span>Path</span>
+      </div>
+      {#each events.slice(0, 200) as evt}
+        <div class="event sev-{evt.severity || 'info'}">
+          <span class="ts">{evt.timestamp}</span>
+          <span class="src">{evt.source || "—"}</span>
+          <span class="cat">{evt.category || evt.eventType}</span>
+          <span class="type">{evt.eventType || evt.event_type}</span>
+          <span class="path">{evt.filePath || evt.file_path || ""}</span>
+        </div>
+      {/each}
+    </div>
   {:else if !busy && activeCase}
-    <p class="empty">No timeline events yet. Parse an NTFS image first.</p>
+    <p class="empty">Load Super Timeline to correlate NTFS, registry, browser, YARA, and memory events</p>
   {/if}
 </div>
+
 <style>
-h3 { margin:0 0 16px; font-size:16px; }
-.btn-primary { padding:8px 16px; background:var(--primary); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; }
-.timeline { margin-top:16px; font-size:12px; }
-.event { display:flex; gap:12px; padding:4px 0; border-bottom:1px solid var(--border); }
-.ts { color:var(--text-secondary); white-space:nowrap; min-width:140px; }
-.type { font-weight:600; min-width:80px; }
-.empty { margin-top:16px; color:var(--text-secondary); font-size:13px; }
+  .timeline-panel { height: 100%; }
+  .head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  h3 { margin: 0; font-size: 15px; }
+  .toggle { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+  .timeline { font-size: 11px; border: 1px solid var(--divider); border-radius: 8px; overflow: auto; max-height: 70vh; }
+  .thead, .event { display: grid; grid-template-columns: 140px 90px 80px 1fr 1.5fr; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--divider); }
+  .thead { font-weight: 600; color: var(--text-secondary); position: sticky; top: 0; background: rgba(0,0,0,0.4); }
+  .ts { color: var(--text-secondary); white-space: nowrap; }
+  .src { font-weight: 600; }
+  .cat { color: var(--primary); font-size: 10px; }
+  .path { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); }
+  .sev-high { background: rgba(239, 68, 68, 0.05); }
+  .empty { color: var(--text-muted); font-size: 12px; }
 </style>
