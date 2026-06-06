@@ -568,18 +568,6 @@
     return () => { unlisten?.(); };
   });
 
-  async function windowAction(action) {
-    try {
-      const win = getCurrentWindow();
-      if (action === "close") await win.close();
-      else if (action === "minimize") await win.minimize();
-      else if (action === "maximize") await win.toggleMaximize();
-    } catch (err) {
-      console.error("windowAction failed:", action, err);
-      msg = `⚠️ Window control failed (${action})`;
-    }
-  }
-
   function handleGlobalKeydown(e) {
     const mod = e.metaKey || e.ctrlKey;
     if (!mod) return;
@@ -611,13 +599,8 @@
   class="app-shell platform-{platform}"
   style="--sidebar-w: {sidebarWidth}px; --inspector-w: {inspectorWidth}px"
 >
-  <header class="titlebar">
-    <div class="traffic-lights window-controls" role="group" aria-label="Window controls">
-      <button type="button" class="tl red" title="Close" aria-label="Close" onclick={() => windowAction("close")}></button>
-      <button type="button" class="tl yellow" title="Minimize" aria-label="Minimize" onclick={() => windowAction("minimize")}></button>
-      <button type="button" class="tl green" title="Zoom" aria-label="Zoom" onclick={() => windowAction("maximize")}></button>
-    </div>
-    <div class="titlebar-brand" data-tauri-drag-region>
+  <header class="titlebar" aria-label="Application toolbar">
+    <div class="titlebar-brand">
       <img src="/logo.svg" class="title-logo" alt="" />
       <span class="title-text">AnalysisLoom</span>
     </div>
@@ -640,8 +623,6 @@
         <button class="search-clear" onclick={() => searchQuery = ""} aria-label="Clear">✕</button>
       {/if}
     </div>
-
-    <div class="titlebar-drag" data-tauri-drag-region aria-hidden="true"></div>
 
     <div class="titlebar-end">
       <button type="button" class="title-btn" onclick={toggleTheme} title="Toggle light/dark theme">{theme === "dark" ? "☀" : "☾"}</button>
@@ -881,7 +862,6 @@
 <style>
   .titlebar-brand {
     display: flex; align-items: center; gap: 8px; margin-right: 8px;
-    -webkit-app-region: no-drag;
   }
   .title-logo { width: 18px; height: 18px; border-radius: 4px; }
   .title-text { font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: -0.2px; }
@@ -889,15 +869,7 @@
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
   }
-  .traffic-lights .tl {
-    width: 12px; height: 12px; border-radius: 50%; border: none; padding: 0;
-    cursor: pointer; -webkit-app-region: no-drag; app-region: no-drag;
-    position: relative; z-index: 2;
-  }
-  .traffic-lights .tl::before {
-    content: ""; position: absolute; inset: -6px;
-  }
-  .titlebar-nav { display: flex; gap: 2px; -webkit-app-region: no-drag; }
+  .titlebar-nav { display: flex; gap: 2px; }
   .nav-btn {
     width: 26px; height: 24px; border: none; border-radius: 4px;
     background: transparent; color: var(--text-muted); font-size: 16px; cursor: pointer;
@@ -908,7 +880,6 @@
     display: flex; align-items: center; flex: 1; max-width: 440px; margin: 0 auto;
     background: var(--surface-search); border: 1px solid var(--divider);
     border-radius: 8px; padding: 0 12px; height: 30px;
-    -webkit-app-region: no-drag;
   }
   .search-bar:focus-within { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg); }
   .search-icon { margin-right: 8px; color: var(--text-muted); font-size: 14px; }
@@ -919,7 +890,7 @@
   .search-clear { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; }
 
   .titlebar-end {
-    display: flex; align-items: center; gap: 8px; -webkit-app-region: no-drag;
+    display: flex; align-items: center; gap: 8px;
   }
   .title-btn {
     padding: 4px 12px; border-radius: 6px; border: 1px solid var(--divider);

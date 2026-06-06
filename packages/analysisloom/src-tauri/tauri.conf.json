@@ -18,9 +18,7 @@
         "minWidth": 960,
         "minHeight": 600,
         "resizable": true,
-        "decorations": false,
-        "transparent": true,
-        "titleBarStyle": "Overlay"
+        "decorations": true
       }
     ],
     "security": {
