@@ -17,6 +17,7 @@
     mftEntries = [],
     filterParent = 5,
     artifactPath = $bindable(""),
+    highlightTerm = "",
   } = $props();
 
   let previewFile = $state(null);
@@ -258,6 +259,7 @@
               bind:msg
               {timeoutPromise}
               mode={viewerMode}
+              {highlightTerm}
               onPreview={onPreviewLoaded}
             />
           {:else if previewFile}

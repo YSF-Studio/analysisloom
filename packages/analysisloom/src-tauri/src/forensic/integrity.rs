@@ -21,7 +21,18 @@ pub struct HashManifest {
     pub source: Option<String>,
     pub exported_at: Option<String>,
     pub manifest_sha256: Option<String>,
+    pub public_key: Option<String>,
+    pub signature: Option<String>,
     pub files: Vec<ManifestFileEntry>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SignatureVerifyResult {
+    pub verified: bool,
+    pub signed: bool,
+    pub message: String,
+    pub manifest_sha256: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -54,6 +65,153 @@ pub struct HashChainReport {
     pub manifest_file_count: usize,
     pub entries: Vec<HashChainEntry>,
     pub all_verified: bool,
+}
+
+/// Canonical manifest body for Ed25519 signing (CollectionLoom CoC).
+pub fn manifest_signing_bytes(manifest: &HashManifest) -> Result<Vec<u8>, String> {
+    let mut body = manifest.clone();
+    body.signature = None;
+    body.public_key = None;
+    body.manifest_sha256 = None;
+    serde_json::to_vec(&body).map_err(|e| format!("Cannot serialize manifest body: {e}"))
+}
+
+pub fn manifest_body_sha256(manifest: &HashManifest) -> Result<String, String> {
+    let bytes = manifest_signing_bytes(manifest)?;
+    Ok(hashing::multi_hash_buffer(&bytes)
+        .sha256
+        .unwrap_or_default())
+}
+
+pub fn verify_manifest_signature(manifest: &HashManifest) -> SignatureVerifyResult {
+    let (Some(sig_b64), Some(pk_b64)) = (&manifest.signature, &manifest.public_key) else {
+        return SignatureVerifyResult {
+            verified: false,
+            signed: false,
+            message: "Manifest is unsigned — Ed25519 CoC signature not present".into(),
+            manifest_sha256: None,
+        };
+    };
+
+    let digest = match manifest_body_sha256(manifest) {
+        Ok(d) => d,
+        Err(e) => {
+            return SignatureVerifyResult {
+                verified: false,
+                signed: true,
+                message: e,
+                manifest_sha256: None,
+            };
+        }
+    };
+
+    let pk_bytes = match base64::Engine::decode(
+        &base64::engine::general_purpose::STANDARD,
+        pk_b64.trim(),
+    ) {
+        Ok(b) => b,
+        Err(e) => {
+            return SignatureVerifyResult {
+                verified: false,
+                signed: true,
+                message: format!("Invalid publicKey base64: {e}"),
+                manifest_sha256: Some(digest),
+            };
+        }
+    };
+
+    let sig_bytes = match base64::Engine::decode(
+        &base64::engine::general_purpose::STANDARD,
+        sig_b64.trim(),
+    ) {
+        Ok(b) => b,
+        Err(e) => {
+            return SignatureVerifyResult {
+                verified: false,
+                signed: true,
+                message: format!("Invalid signature base64: {e}"),
+                manifest_sha256: Some(digest),
+            };
+        }
+    };
+
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
+    let verifying_key = match VerifyingKey::try_from(pk_bytes.as_slice()) {
+        Ok(k) => k,
+        Err(e) => {
+            return SignatureVerifyResult {
+                verified: false,
+                signed: true,
+                message: format!("Invalid Ed25519 public key: {e}"),
+                manifest_sha256: Some(digest),
+            };
+        }
+    };
+
+    let signature = match Signature::try_from(sig_bytes.as_slice()) {
+        Ok(s) => s,
+        Err(e) => {
+            return SignatureVerifyResult {
+                verified: false,
+                signed: true,
+                message: format!("Invalid Ed25519 signature: {e}"),
+                manifest_sha256: Some(digest),
+            };
+        }
+    };
+
+    // CollectionLoom signs SHA-256(manifest_body) as 32-byte message
+    let msg = hex_decode_sha256(&digest);
+
+    match verifying_key.verify(&msg, &signature) {
+        Ok(()) => SignatureVerifyResult {
+            verified: true,
+            signed: true,
+            message: "Ed25519 signature verified — CollectionLoom chain-of-custody intact".into(),
+            manifest_sha256: Some(digest),
+        },
+        Err(e) => SignatureVerifyResult {
+            verified: false,
+            signed: true,
+            message: format!("Ed25519 signature verification FAILED: {e}"),
+            manifest_sha256: Some(digest),
+        },
+    }
+}
+
+/// Sign manifest for CollectionLoom handoff (used in tests/fixtures).
+pub fn sign_manifest(
+    manifest: &mut HashManifest,
+    signing_key: &ed25519_dalek::SigningKey,
+) -> Result<(), String> {
+    use base64::Engine;
+    use ed25519_dalek::Signer;
+
+    let digest = manifest_body_sha256(manifest)?;
+    let msg = hex_decode_sha256(&digest);
+    let sig = signing_key.sign(&msg);
+    manifest.public_key = Some(
+        base64::engine::general_purpose::STANDARD.encode(signing_key.verifying_key().as_bytes()),
+    );
+    manifest.signature = Some(base64::engine::general_purpose::STANDARD.encode(sig.to_bytes()));
+    manifest.manifest_sha256 = Some(digest);
+    Ok(())
+}
+
+fn hex_decode_sha256(hex_str: &str) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    for (i, chunk) in hex_str.as_bytes().chunks(2).enumerate() {
+        if i >= 32 || chunk.len() != 2 {
+            break;
+        }
+        if let Ok(s) = std::str::from_utf8(chunk) {
+            if let Ok(v) = u8::from_str_radix(s, 16) {
+                out[i] = v;
+            }
+        }
+    }
+    out
 }
 
 pub fn parse_hash_manifest(path: &str) -> Result<HashManifest, String> {
@@ -152,6 +310,8 @@ pub fn build_hash_chain_report(
             source: None,
             exported_at: None,
             manifest_sha256: None,
+            public_key: None,
+            signature: None,
             files: vec![],
         }), path)
         .or_else(|| {

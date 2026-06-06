@@ -127,9 +127,18 @@ export async function invoke(cmd, args = {}) {
     case "get_audit_log":
       return DEMO_AUDIT;
     case "import_hash_manifest":
-      return { fileCount: 2, source: "CollectionLoom", imported: true };
+      return { fileCount: 2, source: "CollectionLoom", imported: true, signatureVerified: true, signed: true, signatureMessage: "Ed25519 verified" };
     case "get_case_manifest":
-      return { loaded: true, source: "CollectionLoom", importedAt: "2026-06-06", fileCount: 2 };
+      return { loaded: true, source: "CollectionLoom", importedAt: "2026-06-06", fileCount: 2, signatureVerified: true };
+    case "seal_case":
+      return { ...DEMO_CASE, status: "sealed", sealedAt: "2026-06-06", sealedBy: "Analyst", sealHash: DEMO_HASHES.sha256 };
+    case "review_finding":
+      return;
+    case "export_bookmark":
+    case "export_finding":
+      return "/tmp/demo-export.html";
+    case "list_findings":
+      return [{ id: 1, description: "Password keyword in evidence", filePath: "/workspace/test-fixtures/secret_password_log.txt", severity: "high", reviewStatus: "pending", createdAt: "2026-06-06" }];
     case "verify_evidence_integrity":
       return {
         verified: true,

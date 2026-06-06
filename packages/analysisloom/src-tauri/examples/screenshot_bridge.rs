@@ -281,6 +281,30 @@ fn dispatch(rt: &tokio::runtime::Runtime, cmd: &str, args: &Value) -> Result<Val
         )?)),
         "list_case_notes" => Ok(serde_json::to_value(commands::list_case_notes(arg_str(args, "caseId")?)?)
             .map_err(|e| e.to_string())?),
+        "seal_case" => Ok(serde_json::to_value(commands::seal_case(
+            arg_str(args, "caseId")?,
+            arg_str(args, "operator")?,
+        )?)
+        .map_err(|e| e.to_string())?),
+        "review_finding" => {
+            commands::review_finding(
+                args.get("findingId").and_then(|v| v.as_i64()).unwrap_or(0),
+                arg_str(args, "status")?,
+                arg_str(args, "reviewer")?,
+                arg_opt_str(args, "note"),
+            )?;
+            Ok(Value::Null)
+        }
+        "export_bookmark" => Ok(json!(commands::export_bookmark(
+            arg_str(args, "caseId")?,
+            args.get("bookmarkId").and_then(|v| v.as_i64()).unwrap_or(0),
+            arg_str(args, "outputPath")?,
+        )?)),
+        "export_finding" => Ok(json!(commands::export_finding(
+            arg_str(args, "caseId")?,
+            args.get("findingId").and_then(|v| v.as_i64()).unwrap_or(0),
+            arg_str(args, "outputPath")?,
+        )?)),
         _ => Err(format!("unknown command: {cmd}")),
     }
 }

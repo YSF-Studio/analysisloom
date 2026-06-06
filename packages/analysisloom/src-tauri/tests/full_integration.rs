@@ -148,6 +148,7 @@ fn full_forensic_pipeline_with_random_fixtures() {
     let import = import_hash_manifest(case.id.clone(), manifest_path.to_string_lossy().to_string())
         .expect("import_hash_manifest");
     assert_eq!(import["fileCount"], 2);
+    assert_eq!(import["signatureVerified"], true);
 
     let verify_ok = verify_evidence_integrity(
         case.id.clone(),
@@ -175,6 +176,60 @@ fn full_forensic_pipeline_with_random_fixtures() {
     assert!(note_id > 0);
     let notes = list_case_notes(case.id.clone()).expect("list_case_notes");
     assert_eq!(notes.len(), 1);
+
+    let findings_list = list_findings(case.id.clone()).expect("list_findings");
+    assert!(!findings_list.is_empty());
+    let finding_id = findings_list[0].id;
+    review_finding(
+        finding_id,
+        "approved".into(),
+        "Peer Reviewer".into(),
+        Some("Confirmed during integration test".into()),
+    )
+    .expect("review_finding");
+    let reviewed = list_findings(case.id.clone()).expect("list_findings reviewed");
+    assert_eq!(reviewed[0].review_status.as_deref(), Some("approved"));
+
+    let bm_id = add_bookmark(
+        case.id.clone(),
+        ws.evidence_txt.to_string_lossy().to_string(),
+        0,
+        Some("export-test".into()),
+        Some("bookmark for export".into()),
+    )
+    .expect("add_bookmark for export");
+    let export_bm_path = ws.root.join("bookmark_export.html");
+    export_bookmark(
+        case.id.clone(),
+        bm_id,
+        export_bm_path.to_string_lossy().to_string(),
+    )
+    .expect("export_bookmark");
+    assert!(export_bm_path.exists());
+
+    let export_finding_path = ws.root.join("finding_export.html");
+    export_finding(
+        case.id.clone(),
+        finding_id,
+        export_finding_path.to_string_lossy().to_string(),
+    )
+    .expect("export_finding");
+    assert!(export_finding_path.exists());
+
+    let sealed = seal_case(case.id.clone(), "Test Analyst".into()).expect("seal_case");
+    assert_eq!(sealed.status, "sealed");
+    assert!(sealed.seal_hash.is_some());
+
+    let seal_block = add_evidence(
+        case.id.clone(),
+        ws.evidence_png.to_string_lossy().to_string(),
+        "image".into(),
+        None,
+        None,
+        None,
+        None,
+    );
+    assert!(seal_block.is_err(), "sealed case should block add_evidence");
 
     // ─── Reports ───
     let html_report = generate_case_report(case.id.clone(), "html".into()).expect("html report");

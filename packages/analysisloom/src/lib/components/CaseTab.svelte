@@ -59,7 +59,7 @@
       >
         <strong>{c.name}</strong>
         <span class="meta">{c.id} | {c.createdAt}</span>
-        <span class="status">{c.status}</span>
+        <span class="status" class:sealed={c.status === "sealed"}>{c.status}</span>
       </button>
     {/each}
   </div>
@@ -82,6 +82,7 @@
   .case-card:hover { background: var(--card-hover); }
   .case-card.active { border-color: var(--primary); background: var(--primary-bg); }
   .meta { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
-  .status { margin-left: auto; font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--success-bg); color: var(--success); }
+  .status { margin-left: auto; font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--success-bg); color: var(--success); text-transform: uppercase; }
+  .status.sealed { background: rgba(245,158,11,0.15); color: var(--warn, #f59e0b); }
   .empty { color: var(--text-muted); font-size: 12px; }
 </style>

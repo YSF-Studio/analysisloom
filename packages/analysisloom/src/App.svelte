@@ -63,6 +63,8 @@
   let dragOver = $state(false);
   let integrityStatus = $state(null);
 
+  const caseSealed = $derived(activeCase?.status === "sealed");
+
   function timeoutPromise(promise, ms) {
     let timer;
     const timeout = new Promise((_, reject) => {
@@ -407,6 +409,10 @@
   }
 
   async function handleAddEvidence() {
+    if (caseSealed) {
+      msg = "🔒 Case is sealed — cannot add evidence";
+      return;
+    }
     if (!selectedFile || !activeCase?.id) {
       msg = "⚠️ Select a case and file first";
       return;
@@ -739,6 +745,7 @@
           onFileSelect={onFileSelect}
           onOpenSqlite={onOpenSqlite}
           onMftLoaded={onMftLoaded}
+          highlightTerm={searchQuery}
         />
       {:else if activeView === "timeline"}
         <TimelineTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
@@ -753,7 +760,7 @@
       {:else if activeView === "search"}
         <SearchTab bind:activeCase bind:busy bind:msg {timeoutPromise} initialQuery={searchQuery} />
       {:else if activeView === "bookmarks"}
-        <BookmarkTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+        <BookmarkTab bind:activeCase bind:busy bind:msg {timeoutPromise} {caseSealed} />
       {:else if activeView === "encrypted"}
         <EncryptedTab
           bind:activeCase bind:busy bind:msg bind:imagePath
@@ -808,6 +815,7 @@
         {integrityStatus}
         caseId={activeCase?.id}
         selectedFile={artifactPath || selectedFile || ""}
+        {caseSealed}
         onAddEvidence={handleAddEvidence}
         onOpenArtifact={onOpenArtifact}
       />

@@ -2,7 +2,15 @@
   import { invoke } from "@tauri-apps/api/core";
   import { open, save } from "@tauri-apps/plugin-dialog";
 
-  let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
+  let {
+    activeCase = $bindable(),
+    busy = $bindable(),
+    msg = $bindable(),
+    timeoutPromise,
+  } = $props();
+
+  const isSealed = $derived(activeCase?.status === "sealed");
+  let sealing = $state(false);
 
   let format = $state("html");
   let generating = $state(false);
@@ -92,12 +100,31 @@
         path: picked,
       });
       manifestInfo = await invoke("get_case_manifest", { caseId: activeCase.id });
-      msg = `✅ Manifest imported — ${result.fileCount} files from ${result.source}`;
+      const sig = result.signatureVerified ? " (Ed25519 verified)" : "";
+      msg = `✅ Manifest imported — ${result.fileCount} files from ${result.source}${sig}`;
       await loadAuditLog();
     } catch (e) {
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
     }
     importingManifest = false;
+  }
+
+  async function sealCase() {
+    if (!activeCase?.id || isSealed) return;
+    const operator = activeCase.operator || "Analyst";
+    if (!confirm(`Seal case "${activeCase.name}" as completed and immutable?\n\nOperator: ${operator}`)) {
+      return;
+    }
+    sealing = true;
+    try {
+      const updated = await invoke("seal_case", { caseId: activeCase.id, operator });
+      activeCase = updated;
+      msg = `🔒 Case sealed — digest ${updated.sealHash?.slice(0, 16) || ""}…`;
+      await loadAuditLog();
+    } catch (e) {
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    }
+    sealing = false;
   }
 
   // Load audit log when case changes
@@ -160,11 +187,25 @@
         {#if manifestInfo?.loaded}
           <span class="manifest-badge">
             ✓ {manifestInfo.fileCount} files from {manifestInfo.source}
+            {#if manifestInfo.signatureVerified} — Ed25519 signed{/if}
           </span>
         {:else}
           <span class="manifest-badge warn">No acquisition manifest — integrity verify on load disabled</span>
         {/if}
       </div>
+
+      {#if isSealed}
+        <div class="sealed-banner">
+          🔒 Case sealed {activeCase.sealedAt ? `on ${activeCase.sealedAt}` : ""}
+          {#if activeCase.sealHash}
+            — digest <code>{activeCase.sealHash.slice(0, 24)}…</code>
+          {/if}
+        </div>
+      {:else}
+        <button class="btn-seal" onclick={sealCase} disabled={sealing}>
+          {sealing ? "🔒 Sealing…" : "🔒 Seal Case (Complete & Immutable)"}
+        </button>
+      {/if}
 
       {#if bundlePath}
         <div class="report-link bundle">
@@ -273,6 +314,19 @@
   .manifest-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
   .manifest-badge { font-size: 11px; color: var(--success); }
   .manifest-badge.warn { color: var(--warn, #f59e0b); }
+  .btn-seal {
+    margin-top: 10px; padding: 10px 20px; width: 100%;
+    background: rgba(245,158,11,0.12); border: 2px solid var(--warn, #f59e0b);
+    color: var(--warn, #f59e0b); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .btn-seal:hover:not(:disabled) { background: rgba(245,158,11,0.2); }
+  .btn-seal:disabled { opacity: 0.5; cursor: not-allowed; }
+  .sealed-banner {
+    margin-top: 10px; padding: 10px 14px; border-radius: 8px;
+    background: rgba(245,158,11,0.1); border: 1px solid var(--warn, #f59e0b);
+    font-size: 12px; color: var(--warn, #f59e0b);
+  }
+  .sealed-banner code { font-family: var(--mono); font-size: 10px; }
   .report-link.bundle { background: rgba(59,130,246,0.08); border-color: var(--primary); }
 
   .report-link {

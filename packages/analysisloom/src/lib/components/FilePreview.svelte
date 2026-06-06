@@ -1,7 +1,16 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
+  import { highlightSegments } from "../highlight.js";
 
-  let { filePath, busy = $bindable(), msg = $bindable(), timeoutPromise, onPreview, mode = "preview" } = $props();
+  let {
+    filePath,
+    busy = $bindable(),
+    msg = $bindable(),
+    timeoutPromise,
+    onPreview,
+    mode = "preview",
+    highlightTerm = "",
+  } = $props();
 
   let preview = $state(null);
   let loading = $state(false);
@@ -106,7 +115,7 @@
         <dt>Extension</dt><dd>{preview.extension}</dd>
       </dl>
     {:else if mode === "strings" && preview.preview?.Text}
-      <pre class="text-view strings-view">{preview.preview.Text}</pre>
+      <pre class="text-view strings-view">{#each highlightSegments(preview.preview.Text, highlightTerm) as seg}{#if seg.match}<mark class="hl">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</pre>
     {:else if mode === "strings"}
       <pre class="text-view strings-view dim">No printable strings found</pre>
     {:else if mode === "hex" && preview.preview?.HexDump}
@@ -139,7 +148,7 @@
         </div>
       </div>
     {:else if preview.preview?.Text}
-      <pre class="text-view">{preview.preview.Text}</pre>
+      <pre class="text-view">{#each highlightSegments(preview.preview.Text, highlightTerm) as seg}{#if seg.match}<mark class="hl">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</pre>
     {:else if preview.preview?.Image}
       <div class="image-view">
         <img src="data:image/png;base64,{preview.preview.Image.data_base64}" alt="preview" />
@@ -226,6 +235,7 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .preview { display: flex; flex-direction: column; height: 100%; }
   .text-view { flex: 1; overflow: auto; background: #0d0d0d; border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: "SF Mono","Menlo","Cascadia Code",monospace; font-size: 12px; line-height: 1.5; color: #d4d4d4; white-space: pre-wrap; word-break: break-all; }
+  mark.hl { background: rgba(245,158,11,0.35); color: #fbbf24; padding: 0 1px; border-radius: 2px; }
 
   /* ─── Hex Toolbar ─── */
   .hex-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: #111; border: 1px solid var(--border); border-radius: 6px 6px 0 0; gap: 8px; flex-shrink: 0; }

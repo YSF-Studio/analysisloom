@@ -93,6 +93,20 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
         "ALTER TABLE audit_log ADD COLUMN entry_hash TEXT DEFAULT ''",
         [],
     );
+    let _ = conn.execute("ALTER TABLE cases ADD COLUMN sealed_at TEXT", []);
+    let _ = conn.execute("ALTER TABLE cases ADD COLUMN sealed_by TEXT", []);
+    let _ = conn.execute("ALTER TABLE cases ADD COLUMN seal_hash TEXT", []);
+    let _ = conn.execute(
+        "ALTER TABLE case_manifest ADD COLUMN signature_verified INTEGER DEFAULT 0",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE findings ADD COLUMN review_status TEXT DEFAULT 'pending'",
+        [],
+    );
+    let _ = conn.execute("ALTER TABLE findings ADD COLUMN reviewer TEXT", []);
+    let _ = conn.execute("ALTER TABLE findings ADD COLUMN reviewed_at TEXT", []);
+    let _ = conn.execute("ALTER TABLE findings ADD COLUMN review_note TEXT", []);
     let _ = conn.execute(
         "INSERT OR IGNORE INTO nsrl_hashes (sha256, file_name, product) VALUES ('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'empty', 'NIST Empty File')",
         [],

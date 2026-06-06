@@ -3,6 +3,7 @@
 pub mod antiforensics;
 pub mod browser;
 pub mod bundle;
+pub mod case_guard;
 pub mod carving;
 pub mod encryption;
 pub mod evtx;

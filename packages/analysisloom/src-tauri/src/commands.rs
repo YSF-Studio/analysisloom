@@ -1,17 +1,24 @@
 use crate::forensic::{
-    self, antiforensics, browser, bundle, carving, encryption, evidence, evtx, hashing, integrity,
-    macos, memory, nsrl, ntfs, pcap, preview, registry, report, report_meta, sqlite, timeline,
-    yara, ProgressState,
+    self, antiforensics, browser, bundle, case_guard, carving, encryption, evidence, evtx,
+    hashing, integrity, macos, memory, nsrl, ntfs, pcap, preview, registry, report, report_meta,
+    sqlite, timeline, yara, ProgressState,
 };
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Case {
     pub id: String,
     pub name: String,
     pub operator: Option<String>,
     pub created_at: String,
     pub status: String,
+    #[serde(default)]
+    pub sealed_at: Option<String>,
+    #[serde(default)]
+    pub sealed_by: Option<String>,
+    #[serde(default)]
+    pub seal_hash: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -41,6 +48,14 @@ pub struct Finding {
     pub file_path: String,
     pub severity: String,
     pub created_at: Option<String>,
+    #[serde(default)]
+    pub review_status: Option<String>,
+    #[serde(default)]
+    pub reviewer: Option<String>,
+    #[serde(default)]
+    pub reviewed_at: Option<String>,
+    #[serde(default)]
+    pub review_note: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -59,7 +74,7 @@ pub fn list_cases() -> Result<Vec<Case>, String> {
     let db = crate::db::conn();
     let mut stmt = db
         .prepare(
-            "SELECT id, name, operator, created_at, status FROM cases ORDER BY created_at DESC",
+            "SELECT id, name, operator, created_at, status, sealed_at, sealed_by, seal_hash FROM cases ORDER BY created_at DESC",
         )
         .map_err(|e| e.to_string())?;
     let cases = stmt
@@ -70,6 +85,9 @@ pub fn list_cases() -> Result<Vec<Case>, String> {
                 operator: row.get(2)?,
                 created_at: row.get(3)?,
                 status: row.get(4)?,
+                sealed_at: row.get(5)?,
+                sealed_by: row.get(6)?,
+                seal_hash: row.get(7)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -94,6 +112,9 @@ pub fn create_case(name: String, operator: String) -> Result<Case, String> {
         operator: Some(operator),
         created_at: now,
         status: "active".into(),
+        sealed_at: None,
+        sealed_by: None,
+        seal_hash: None,
     })
 }
 
@@ -101,7 +122,7 @@ pub fn create_case(name: String, operator: String) -> Result<Case, String> {
 pub fn get_case(id: String) -> Result<Case, String> {
     let db = crate::db::conn();
     db.query_row(
-        "SELECT id, name, operator, created_at, status FROM cases WHERE id = ?1",
+        "SELECT id, name, operator, created_at, status, sealed_at, sealed_by, seal_hash FROM cases WHERE id = ?1",
         [&id],
         |row| {
             Ok(Case {
@@ -110,10 +131,87 @@ pub fn get_case(id: String) -> Result<Case, String> {
                 operator: row.get(2)?,
                 created_at: row.get(3)?,
                 status: row.get(4)?,
+                sealed_at: row.get(5)?,
+                sealed_by: row.get(6)?,
+                seal_hash: row.get(7)?,
             })
         },
     )
     .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn seal_case(case_id: String, operator: String) -> Result<Case, String> {
+    case_guard::ensure_case_mutable(&case_id)?;
+    let seal_hash = compute_case_seal_hash(&case_id)?;
+
+    {
+        let db = crate::db::conn();
+        db.execute(
+            "UPDATE cases SET status = 'sealed', sealed_at = datetime('now'), sealed_by = ?2, seal_hash = ?3 WHERE id = ?1",
+            rusqlite::params![case_id, operator, seal_hash],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    let _ = log_action(
+        case_id.clone(),
+        "SEAL_CASE".into(),
+        format!("Case sealed by {operator} — digest {seal_hash}"),
+    );
+
+    get_case(case_id)
+}
+
+fn compute_case_seal_hash(case_id: &str) -> Result<String, String> {
+    let db = crate::db::conn();
+    let mut parts = vec![];
+
+    let mut estmt = db
+        .prepare("SELECT sha256 FROM evidence_items WHERE case_id = ?1 ORDER BY source_path")
+        .map_err(|e| e.to_string())?;
+    for row in estmt
+        .query_map([case_id], |row| row.get::<_, Option<String>>(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+    {
+        if let Some(h) = row {
+            parts.push(h);
+        }
+    }
+
+    let mut fstmt = db
+        .prepare("SELECT id, description, file_path, severity, review_status FROM findings WHERE case_id = ?1 ORDER BY id")
+        .map_err(|e| e.to_string())?;
+    for row in fstmt
+        .query_map([case_id], |row| {
+            Ok(format!(
+                "{}|{}|{}|{}|{}",
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, Option<String>>(4)?.unwrap_or_else(|| "pending".into()),
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+    {
+        parts.push(row);
+    }
+
+    let last_audit: String = db
+        .query_row(
+            "SELECT entry_hash FROM audit_log WHERE case_id = ?1 ORDER BY id DESC LIMIT 1",
+            [case_id],
+            |row| row.get(0),
+        )
+        .unwrap_or_default();
+    parts.push(last_audit);
+
+    Ok(hashing::multi_hash_buffer(parts.join("\n").as_bytes())
+        .sha256
+        .unwrap_or_default())
 }
 
 #[tauri::command]
@@ -194,6 +292,7 @@ pub fn add_evidence(
     tag: Option<String>,
     note: Option<String>,
 ) -> Result<String, String> {
+    case_guard::ensure_case_mutable(&case_id)?;
     let db = crate::db::conn();
     let id = evidence::EvidenceId::new("EVD").to_string();
     let now = chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string();
@@ -269,7 +368,7 @@ pub fn list_findings(case_id: String) -> Result<Vec<Finding>, String> {
     let db = crate::db::conn();
     let mut stmt = db
         .prepare(
-            "SELECT id, description, file_path, severity FROM findings WHERE case_id = ?1 ORDER BY id DESC",
+            "SELECT id, description, file_path, severity, created_at, review_status, reviewer, reviewed_at, review_note FROM findings WHERE case_id = ?1 ORDER BY id DESC",
         )
         .map_err(|e| e.to_string())?;
     let items = stmt
@@ -279,7 +378,11 @@ pub fn list_findings(case_id: String) -> Result<Vec<Finding>, String> {
                 description: row.get(1)?,
                 file_path: row.get(2)?,
                 severity: row.get(3)?,
-                created_at: None,
+                created_at: row.get(4)?,
+                review_status: row.get(5)?,
+                reviewer: row.get(6)?,
+                reviewed_at: row.get(7)?,
+                review_note: row.get(8)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -310,6 +413,7 @@ pub fn record_timeline_event(
     file_path: String,
     event_type: String,
 ) -> Result<(), String> {
+    case_guard::ensure_case_mutable(&case_id)?;
     crate::db::conn()
         .execute(
             "INSERT INTO timeline_events (case_id, timestamp, source, file_path, event_type) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -487,7 +591,7 @@ pub fn generate_case_report(case_id: String, format: String) -> Result<String, S
         // Get case info
         let case: Case = db
         .query_row(
-            "SELECT id, name, operator, created_at, status FROM cases WHERE id = ?1",
+            "SELECT id, name, operator, created_at, status, sealed_at, sealed_by, seal_hash FROM cases WHERE id = ?1",
             [&case_id],
             |row| {
                 Ok(Case {
@@ -496,6 +600,9 @@ pub fn generate_case_report(case_id: String, format: String) -> Result<String, S
                     operator: row.get(2)?,
                     created_at: row.get(3)?,
                     status: row.get(4)?,
+                    sealed_at: row.get(5)?,
+                    sealed_by: row.get(6)?,
+                    seal_hash: row.get(7)?,
                 })
             },
         )
@@ -541,15 +648,16 @@ pub fn generate_case_report(case_id: String, format: String) -> Result<String, S
 
     // Get findings
     let mut stmt = db
-        .prepare("SELECT description, file_path, severity FROM findings WHERE case_id = ?1")
+        .prepare("SELECT description, file_path, severity, review_status FROM findings WHERE case_id = ?1")
         .map_err(|e| e.to_string())?;
     let findings: Vec<String> = stmt
         .query_map([&case_id], |row| {
             Ok(format!(
-                "[{}] {} — {}",
+                "[{}] {} — {} (review: {})",
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(3)?.unwrap_or_else(|| "pending".into()),
             ))
         })
         .map_err(|e| e.to_string())?
@@ -1006,51 +1114,79 @@ fn html_escape(s: &str) -> String {
 
 #[tauri::command]
 pub fn import_hash_manifest(case_id: String, path: String) -> Result<serde_json::Value, String> {
+    case_guard::ensure_case_mutable(&case_id)?;
     let manifest = integrity::parse_hash_manifest(&path)?;
+    let sig_result = integrity::verify_manifest_signature(&manifest);
+
+    if sig_result.signed && !sig_result.verified {
+        return Err(format!(
+            "Manifest signature verification failed — {}",
+            sig_result.message
+        ));
+    }
+
     let file_count = manifest.files.len();
     let source = manifest
         .source
         .clone()
         .unwrap_or_else(|| "CollectionLoom".into());
     let json = serde_json::to_string(&manifest).map_err(|e| e.to_string())?;
+    let sig_verified = if sig_result.signed && sig_result.verified {
+        1
+    } else {
+        0
+    };
 
     {
         let db = crate::db::conn();
         db.execute(
-            "INSERT INTO case_manifest (case_id, manifest_json, source, file_count) VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT(case_id) DO UPDATE SET manifest_json = ?2, source = ?3, file_count = ?4, imported_at = datetime('now')",
-            rusqlite::params![case_id, json, source, file_count as i64],
+            "INSERT INTO case_manifest (case_id, manifest_json, source, file_count, signature_verified) VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(case_id) DO UPDATE SET manifest_json = ?2, source = ?3, file_count = ?4, signature_verified = ?5, imported_at = datetime('now')",
+            rusqlite::params![case_id, json, source, file_count as i64, sig_verified],
         )
         .map_err(|e| e.to_string())?;
     }
 
-    let _ = log_action(
-        case_id.clone(),
-        "IMPORT_MANIFEST".into(),
-        format!("hash_manifest.json — {file_count} files from {source}"),
-    );
+    let detail = if sig_result.verified {
+        format!("hash_manifest.json — {file_count} files, Ed25519 signature verified")
+    } else {
+        format!("hash_manifest.json — {file_count} files (unsigned manifest)")
+    };
+    let _ = log_action(case_id.clone(), "IMPORT_MANIFEST".into(), detail);
+
+    if sig_result.verified {
+        let _ = log_action(
+            case_id.clone(),
+            "MANIFEST_SIG_OK".into(),
+            sig_result.message.clone(),
+        );
+    }
 
     Ok(serde_json::json!({
         "fileCount": file_count,
         "source": source,
         "imported": true,
+        "signatureVerified": sig_result.verified,
+        "signed": sig_result.signed,
+        "signatureMessage": sig_result.message,
     }))
 }
 
 #[tauri::command]
 pub fn get_case_manifest(case_id: String) -> Result<serde_json::Value, String> {
     let db = crate::db::conn();
-    let row: Result<(String, String, i64), _> = db.query_row(
-        "SELECT source, imported_at, file_count FROM case_manifest WHERE case_id = ?1",
+    let row: Result<(String, String, i64, i64), _> = db.query_row(
+        "SELECT source, imported_at, file_count, COALESCE(signature_verified, 0) FROM case_manifest WHERE case_id = ?1",
         [case_id],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
     );
     match row {
-        Ok((source, imported_at, file_count)) => Ok(serde_json::json!({
+        Ok((source, imported_at, file_count, sig_verified)) => Ok(serde_json::json!({
             "loaded": true,
             "source": source,
             "importedAt": imported_at,
             "fileCount": file_count,
+            "signatureVerified": sig_verified == 1,
         })),
         Err(_) => Ok(serde_json::json!({ "loaded": false })),
     }
@@ -1090,6 +1226,7 @@ pub fn append_case_note(
     body: String,
     file_path: Option<String>,
 ) -> Result<i64, String> {
+    case_guard::ensure_case_mutable(&case_id)?;
     let id = {
         let db = crate::db::conn();
         db.execute(
@@ -1110,6 +1247,218 @@ pub fn append_case_note(
 #[tauri::command]
 pub fn list_case_notes(case_id: String) -> Result<Vec<serde_json::Value>, String> {
     list_case_notes_inner(&case_id)
+}
+
+// ─── Peer Review (ISO 27042) ───
+
+#[tauri::command]
+pub fn review_finding(
+    finding_id: i64,
+    status: String,
+    reviewer: String,
+    note: Option<String>,
+) -> Result<(), String> {
+    let allowed = ["approved", "rejected", "needs_revision", "pending"];
+    if !allowed.contains(&status.as_str()) {
+        return Err(format!("Invalid review status: {status}"));
+    }
+
+    let case_id: String = {
+        let db = crate::db::conn();
+        db.query_row(
+            "SELECT case_id FROM findings WHERE id = ?1",
+            [finding_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Finding not found: {e}"))?
+    };
+
+    case_guard::ensure_case_mutable(&case_id)?;
+
+    {
+        let db = crate::db::conn();
+        db.execute(
+            "UPDATE findings SET review_status = ?1, reviewer = ?2, reviewed_at = datetime('now'), review_note = ?3 WHERE id = ?4",
+            rusqlite::params![status, reviewer, note, finding_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    let _ = log_action(
+        case_id,
+        "FINDING_REVIEW".into(),
+        format!("Finding #{finding_id} → {status} by {reviewer}"),
+    );
+    Ok(())
+}
+
+// ─── Single Finding Export ───
+
+fn build_single_export_html(
+    title: &str,
+    case_name: &str,
+    file_path: &str,
+    body: &str,
+    meta: &str,
+    visual: Option<&ReportVisual>,
+) -> String {
+    let visual_html = visual
+        .map(|v| visuals_html(std::slice::from_ref(v)))
+        .unwrap_or_default();
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>{title}</title>
+<style>
+  body {{ font-family: -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px;
+         background: #0a0a0a; color: #e0e0e0; }}
+  h1 {{ border-bottom: 2px solid #3b82f6; padding-bottom: 8px; font-size: 18px; }}
+  .meta {{ color: #888; font-size: 12px; margin-bottom: 20px; }}
+  .body {{ background: #111; border: 1px solid #333; border-radius: 8px; padding: 14px; font-size: 13px; }}
+  .mono {{ font-family: ui-monospace, monospace; word-break: break-all; }}
+  .visual {{ background: #111; border: 1px solid #333; border-radius: 8px; padding: 12px; margin: 12px 0; }}
+  .visual img {{ max-width: 100%; }}
+  pre.excerpt {{ background: #0d0d0d; padding: 10px; border-radius: 6px; white-space: pre-wrap; font-size: 11px; }}
+</style></head><body>
+  <h1>{title}</h1>
+  <div class="meta"><strong>Case:</strong> {case_name}<br/><strong>File:</strong> <span class="mono">{file_path}</span><br/>{meta}</div>
+  <div class="body">{body}</div>
+  {visual_html}
+  <p style="font-size:11px;color:#555;margin-top:32px">Exported by AnalysisLoom — YSF Studio</p>
+</body></html>"#,
+        title = html_escape(title),
+        case_name = html_escape(case_name),
+        file_path = html_escape(file_path),
+        meta = html_escape(meta),
+        body = html_escape(body),
+        visual_html = visual_html,
+    )
+}
+
+fn collect_single_visual(file_path: &str, title: &str) -> Option<ReportVisual> {
+    if is_image_path(file_path) {
+        if let Ok(preview) = preview::preview_file(file_path) {
+            if let preview::PreviewContent::Image { data_base64, .. } = preview.preview {
+                return Some(ReportVisual {
+                    title: title.into(),
+                    file_path: file_path.into(),
+                    visual_type: "image".into(),
+                    content: data_base64,
+                });
+            }
+        }
+    }
+    if let Ok(preview) = preview::preview_file(file_path) {
+        if let preview::PreviewContent::Text(text) = preview.preview {
+            let excerpt: String = text.chars().take(1200).collect();
+            return Some(ReportVisual {
+                title: title.into(),
+                file_path: file_path.into(),
+                visual_type: "text".into(),
+                content: excerpt,
+            });
+        }
+    }
+    None
+}
+
+#[tauri::command]
+pub fn export_bookmark(
+    case_id: String,
+    bookmark_id: i64,
+    output_path: String,
+) -> Result<String, String> {
+    let (case_name, file_path, tag, note, offset): (String, String, Option<String>, String, i64) = {
+        let db = crate::db::conn();
+        db.query_row(
+            "SELECT c.name, b.file_path, b.tag, COALESCE(b.note,''), b.offset FROM bookmarks b JOIN cases c ON c.id = b.case_id WHERE b.id = ?1 AND b.case_id = ?2",
+            rusqlite::params![bookmark_id, case_id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
+        )
+        .map_err(|e| format!("Bookmark not found: {e}"))?
+    };
+
+    let title = tag.unwrap_or_else(|| "Bookmark".into());
+    let meta = format!("Type: Bookmark | Offset: 0x{offset:x}");
+    let body = if note.is_empty() {
+        format!("Bookmarked evidence file: {file_path}")
+    } else {
+        note
+    };
+    let visual = collect_single_visual(&file_path, &title);
+    let html = build_single_export_html(&title, &case_name, &file_path, &body, &meta, visual.as_ref());
+    std::fs::write(&output_path, &html).map_err(|e| format!("Write error: {e}"))?;
+
+    let _ = log_action(
+        case_id,
+        "EXPORT_BOOKMARK".into(),
+        format!("#{bookmark_id} — {file_path}"),
+    );
+    Ok(output_path)
+}
+
+#[tauri::command]
+pub fn export_finding(
+    case_id: String,
+    finding_id: i64,
+    output_path: String,
+) -> Result<String, String> {
+    let (case_name, file_path, description, severity, review_status, reviewer): (
+        String,
+        String,
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+    ) = {
+        let db = crate::db::conn();
+        db.query_row(
+            "SELECT c.name, f.file_path, f.description, f.severity, f.review_status, f.reviewer FROM findings f JOIN cases c ON c.id = f.case_id WHERE f.id = ?1 AND f.case_id = ?2",
+            rusqlite::params![finding_id, case_id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                ))
+            },
+        )
+        .map_err(|e| format!("Finding not found: {e}"))?
+    };
+
+    let title = format!("[{severity}] Finding");
+    let meta = format!(
+        "Severity: {severity} | Review: {} | Reviewer: {}",
+        review_status.unwrap_or_else(|| "pending".into()),
+        reviewer.unwrap_or_else(|| "—".into()),
+    );
+    let visual = collect_single_visual(&file_path, &description);
+    let html = build_single_export_html(
+        &title,
+        &case_name,
+        &file_path,
+        &description,
+        &meta,
+        visual.as_ref(),
+    );
+    std::fs::write(&output_path, &html).map_err(|e| format!("Write error: {e}"))?;
+
+    let _ = log_action(
+        case_id,
+        "EXPORT_FINDING".into(),
+        format!("#{finding_id} — {file_path}"),
+    );
+    Ok(output_path)
 }
 
 // ─── Audit Logging ───
@@ -1165,6 +1514,7 @@ pub fn add_bookmark(
     tag: Option<String>,
     note: Option<String>,
 ) -> Result<i64, String> {
+    case_guard::ensure_case_mutable(&case_id)?;
     let db = crate::db::conn();
     db.execute(
         "INSERT INTO bookmarks (case_id, file_path, offset, tag, note) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -1199,6 +1549,14 @@ pub fn list_bookmarks(case_id: String) -> Result<Vec<serde_json::Value>, String>
 
 #[tauri::command]
 pub fn delete_bookmark(id: i64) -> Result<(), String> {
+    let case_id: String = crate::db::conn()
+        .query_row(
+            "SELECT case_id FROM bookmarks WHERE id = ?1",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Bookmark not found: {e}"))?;
+    case_guard::ensure_case_mutable(&case_id)?;
     crate::db::conn()
         .execute("DELETE FROM bookmarks WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
@@ -1352,7 +1710,7 @@ pub fn export_case_bundle(case_id: String, output_path: String) -> Result<bundle
 
         let case: Case = db
         .query_row(
-            "SELECT id, name, operator, created_at, status FROM cases WHERE id = ?1",
+            "SELECT id, name, operator, created_at, status, sealed_at, sealed_by, seal_hash FROM cases WHERE id = ?1",
             [&case_id],
             |row| {
                 Ok(Case {
@@ -1361,6 +1719,9 @@ pub fn export_case_bundle(case_id: String, output_path: String) -> Result<bundle
                     operator: row.get(2)?,
                     created_at: row.get(3)?,
                     status: row.get(4)?,
+                    sealed_at: row.get(5)?,
+                    sealed_by: row.get(6)?,
+                    seal_hash: row.get(7)?,
                 })
             },
         )

@@ -248,9 +248,10 @@ pub fn write_v2_extras(dest: &Path) {
     write_macos_profile(&dest.join("macos_profile"));
 }
 
-/// CollectionLoom-style hash_manifest.json for integrity verification tests.
+/// CollectionLoom-style signed hash_manifest.json for integrity verification tests.
 pub fn write_hash_manifest(dest: &Path, evidence_txt: &Path, evidence_png: &Path) -> PathBuf {
-    use crate::forensic::hashing;
+    use crate::forensic::{hashing, integrity};
+    use ed25519_dalek::SigningKey;
 
     let txt_hash = hashing::multi_hash_file(evidence_txt.to_string_lossy().as_ref())
         .ok()
@@ -261,28 +262,43 @@ pub fn write_hash_manifest(dest: &Path, evidence_txt: &Path, evidence_png: &Path
         .and_then(|h| h.sha256)
         .unwrap_or_default();
 
-    let manifest = serde_json::json!({
-        "source": "CollectionLoom",
-        "exportedAt": chrono::Utc::now().to_rfc3339(),
-        "files": [
-            {
-                "path": evidence_txt.to_string_lossy(),
-                "relativePath": "secret_password_log.txt",
-                "sha256": txt_hash,
-                "sizeBytes": std::fs::metadata(evidence_txt).map(|m| m.len()).unwrap_or(0),
+    let mut manifest = integrity::HashManifest {
+        source: Some("CollectionLoom".into()),
+        exported_at: Some(chrono::Utc::now().to_rfc3339()),
+        manifest_sha256: None,
+        public_key: None,
+        signature: None,
+        files: vec![
+            integrity::ManifestFileEntry {
+                path: Some(evidence_txt.to_string_lossy().to_string()),
+                relative_path: Some("secret_password_log.txt".into()),
+                sha256: txt_hash,
+                size_bytes: Some(std::fs::metadata(evidence_txt).map(|m| m.len()).unwrap_or(0)),
+                acquired_at: None,
             },
-            {
-                "path": evidence_png.to_string_lossy(),
-                "relativePath": "photo_evidence.png",
-                "sha256": png_hash,
-                "sizeBytes": std::fs::metadata(evidence_png).map(|m| m.len()).unwrap_or(0),
-            }
-        ]
-    });
+            integrity::ManifestFileEntry {
+                path: Some(evidence_png.to_string_lossy().to_string()),
+                relative_path: Some("photo_evidence.png".into()),
+                sha256: png_hash,
+                size_bytes: Some(std::fs::metadata(evidence_png).map(|m| m.len()).unwrap_or(0)),
+                acquired_at: None,
+            },
+        ],
+    };
+
+    // Deterministic test keypair (RFC 8032 / ed25519-dalek test vector)
+    let signing_key = SigningKey::from_bytes(&[
+        157, 97, 177, 157, 239, 253, 90, 96, 186, 132, 74, 219, 218, 87, 0, 97, 130, 95, 34, 63,
+        147, 44, 47, 64, 71, 73, 119, 149, 182, 168, 40, 94,
+    ]);
+    integrity::sign_manifest(&mut manifest, &signing_key).expect("sign manifest");
 
     let path = dest.join("hash_manifest.json");
-    std::fs::write(&path, serde_json::to_string_pretty(&manifest).unwrap())
-        .expect("write hash_manifest.json");
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&manifest).expect("serialize manifest"),
+    )
+    .expect("write hash_manifest.json");
     path
 }
 

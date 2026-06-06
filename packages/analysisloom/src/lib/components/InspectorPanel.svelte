@@ -11,6 +11,7 @@
     integrityStatus = null,
     caseId = null,
     selectedFile = "",
+    caseSealed = false,
     onAddEvidence,
     onOpenArtifact,
     onNoteSaved,
@@ -123,8 +124,8 @@
       </section>
 
       <section class="form-section">
-        <button class="btn-evidence" onclick={() => onAddEvidence?.()}>
-          Add to Evidence ↗
+        <button class="btn-evidence" onclick={() => onAddEvidence?.()} disabled={caseSealed}>
+          {caseSealed ? "🔒 Case Sealed" : "Add to Evidence ↗"}
         </button>
         {#if metadata?.source === "mft"}
           <button class="btn-artifact" onclick={() => onOpenArtifact?.()}>
@@ -183,7 +184,7 @@
             placeholder="Document observations during examination..."
             rows="3"
           ></textarea>
-          <button class="btn-save-note" onclick={saveCaseNote} disabled={savingNote || !caseNoteDraft.trim()}>
+          <button class="btn-save-note" onclick={saveCaseNote} disabled={caseSealed || savingNote || !caseNoteDraft.trim()}>
             {savingNote ? "Saving…" : "Save to Case Log"}
           </button>
           {#if caseNotes.length > 0}
@@ -259,7 +260,8 @@
     background: var(--primary-bg); border: 1px solid var(--primary);
     color: var(--primary); margin-bottom: 6px;
   }
-  .btn-evidence:hover { background: var(--primary-hover); }
+  .btn-evidence:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-evidence:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-artifact {
     background: transparent; border: 1px solid var(--divider);
     color: var(--text-secondary);
