@@ -32,6 +32,11 @@ fn main() {
         println!("  {name} → {}", dst.display());
     }
 
+    fixtures_gen::write_screenshot_extras(&dest);
+    println!("  SYSTEM → {}", dest.join("SYSTEM").display());
+    println!("  volatility.json → {}", dest.join("volatility.json").display());
+    println!("  browser_profile/ → {}", dest.join("browser_profile").display());
+
     println!("\n✅ Fixtures exported to {} (seed={seed})", dest.display());
     println!("   NTFS image: {}", dest.join("random_ntfs.dd").display());
     println!("   SQLite DB:  {}", dest.join("messages.db").display());

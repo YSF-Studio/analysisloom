@@ -283,8 +283,9 @@ npm run test:gui           # validate production bundle strings
 
 ### Regenerate screenshots (maintainers)
 
+Screenshots are captured in **light theme** with the **real Rust backend** processing files from `test-fixtures/` (disk image, SQLite, browser History, registry hive, Volatility JSON).
+
 ```bash
-# Requires: xvfb, xdotool, imagemagick
 bash scripts/capture-screenshots.sh
 ```
 

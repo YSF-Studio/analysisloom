@@ -47,6 +47,7 @@
 }
 
 html.theme-light {
+  --brand-navy: #f5f5f7;
   --bg: #f5f5f7;
   --card: rgba(255, 255, 255, 0.92);
   --card-hover: rgba(0, 0, 0, 0.04);
@@ -62,6 +63,22 @@ html.theme-light {
 html.theme-light .titlebar {
   background: rgba(255, 255, 255, 0.95);
   border-bottom: 1px solid var(--divider);
+}
+html.theme-light .sidebar {
+  background: rgba(255, 255, 255, 0.96);
+}
+html.theme-light .inspector-pane {
+  background: rgba(250, 250, 252, 0.98);
+}
+html.theme-light .statusbar {
+  background: rgba(255, 255, 255, 0.95);
+}
+html.theme-light input,
+html.theme-light textarea,
+html.theme-light select {
+  background: #ffffff;
+  color: var(--text);
+  border-color: var(--divider);
 }
 
 *, *::before, *::after { box-sizing: border-box; }

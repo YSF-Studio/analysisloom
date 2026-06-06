@@ -209,6 +209,7 @@ fn write_evidence_text(path: &Path, rng: &mut StdRng) {
     let mut lines = vec![
         "CONFIDENTIAL forensic export".into(),
         "user password=RandomP@ss123!".into(),
+        "powershell -NoProfile -enc SQBFAFgA".into(),
         "api_token=sk-live-".to_string() + &hex::encode(&rng.gen::<[u8; 8]>()),
     ];
     for i in 0..rng.gen_range(5..20) {
@@ -227,6 +228,67 @@ fn write_minimal_png(path: &Path) {
         0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
     ];
     std::fs::write(path, png).expect("write png");
+}
+
+/// Extra fixtures for README screenshots (browser DB, registry hive, Volatility JSON).
+pub fn write_screenshot_extras(dest: &Path) {
+    std::fs::create_dir_all(dest.join("carved_out")).expect("create carved_out");
+    write_minimal_system_hive(&dest.join("SYSTEM"));
+    write_volatility_json(&dest.join("volatility.json"));
+    write_browser_profile(&dest.join("browser_profile"));
+}
+
+fn write_minimal_system_hive(path: &Path) {
+    let mut data = vec![0u8; 16384];
+    data[0..4].copy_from_slice(b"regf");
+    let file_size = data.len() as u32;
+    data[0x28..0x2c].copy_from_slice(&file_size.to_le_bytes());
+    std::fs::write(path, &data).expect("write SYSTEM hive");
+}
+
+fn write_volatility_json(path: &Path) {
+    let json = r#"{
+  "windows.pslist.PsList": [
+    {"PID": 4, "ImageFileName": "System", "PPID": 0, "CreateTime": "2026-06-01 08:00:00"},
+    {"PID": 512, "ImageFileName": "explorer.exe", "PPID": 480, "CommandLine": "C:\\Windows\\explorer.exe"},
+    {"PID": 2048, "ImageFileName": "powershell.exe", "PPID": 512, "CommandLine": "powershell -enc SQBFAFgA"}
+  ],
+  "windows.netscan.NetScan": [
+    {"PID": 2048, "Proto": "TCP", "LocalAddr": "192.168.1.10:49152", "ForeignAddr": "185.220.101.45:443", "State": "ESTABLISHED"}
+  ]
+}"#;
+    std::fs::write(path, json).expect("write volatility.json");
+}
+
+fn write_browser_profile(root: &Path) {
+    let history = root.join("Google/Chrome/User Data/Default/History");
+    std::fs::create_dir_all(history.parent().expect("history parent")).expect("create browser dirs");
+    let _ = std::fs::remove_file(&history);
+    let conn = rusqlite::Connection::open(&history).expect("open chrome history");
+    conn.execute_batch(
+        "CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT, title TEXT, visit_count INTEGER, last_visit_time INTEGER);
+         CREATE TABLE downloads (id INTEGER PRIMARY KEY, target_path TEXT, tab_url TEXT, start_time INTEGER);",
+    )
+    .expect("chrome schema");
+    conn.execute(
+        "INSERT INTO urls (url, title, visit_count, last_visit_time) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![
+            "https://mail.google.com",
+            "Gmail",
+            42i64,
+            133_000_000_000_000i64
+        ],
+    )
+    .expect("insert url");
+    conn.execute(
+        "INSERT INTO downloads (target_path, tab_url, start_time) VALUES (?1, ?2, ?3)",
+        rusqlite::params![
+            "/Users/Downloads/tool.exe",
+            "https://cdn.example.com/tool.exe",
+            132_000_000_000_000i64
+        ],
+    )
+    .expect("insert download");
 }
 
 mod hex {

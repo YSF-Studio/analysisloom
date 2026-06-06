@@ -55,7 +55,7 @@
   let tabs = $state([...DEFAULT_TABS]);
   let sidebarWidth = $state(220);
   let inspectorWidth = $state(320);
-  let theme = $state("dark");
+  let theme = $state(import.meta.env.VITE_SCREENSHOT_LIGHT ? "light" : "dark");
   let evidencePaths = $state([]);
   let dragOver = $state(false);
 
@@ -448,9 +448,41 @@
     platform = detectPlatform();
   });
 
+  async function bootstrapScreenshot() {
+    if (import.meta.env.VITE_SCREENSHOT_LIGHT) {
+      theme = "light";
+      document.documentElement.classList.add("theme-light");
+    }
+    window.__goToView = setView;
+    window.__setLightTheme = () => {
+      theme = "light";
+      document.documentElement.classList.add("theme-light");
+    };
+
+    if (import.meta.env.VITE_SCREENSHOT_REAL) {
+      const dir = import.meta.env.VITE_FIXTURES_DIR || "/workspace/test-fixtures";
+      const fixture = (name) => `${dir}/${name}`;
+      try {
+        await invoke("nsrl_seed_builtin");
+      } catch {
+        /* optional */
+      }
+      await loadDemoFixtures({
+        ntfs: fixture("random_ntfs.dd"),
+        luks: fixture("luks_volume.dd"),
+        carve: fixture("carve_source.dd"),
+        sqlite: fixture("messages.db"),
+        evidence: fixture("secret_password_log.txt"),
+        png: fixture("photo_evidence.png"),
+      });
+      return;
+    }
+    bootstrapScreenshotDemo();
+  }
+
   $effect(() => {
     if (import.meta.env.VITE_SCREENSHOT) {
-      bootstrapScreenshotDemo();
+      bootstrapScreenshot();
       return;
     }
     invoke("demo_fixtures")
@@ -458,6 +490,12 @@
         if (fixtures) loadDemoFixtures(fixtures);
       })
       .catch(() => {});
+  });
+
+  $effect(() => {
+    if (import.meta.env.VITE_SCREENSHOT_LIGHT) {
+      document.documentElement.classList.add("theme-light");
+    }
   });
 
   $effect(() => {
@@ -497,7 +535,7 @@
     else if (action === "maximize") await win.toggleMaximize();
   }
 
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && !import.meta.env.VITE_SCREENSHOT) {
     window.__goToView = setView;
   }
 </script>

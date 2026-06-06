@@ -68,6 +68,10 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
     )
     .expect("Schema creation failed");
     let _ = conn.execute(
+        "ALTER TABLE findings ADD COLUMN created_at TEXT DEFAULT (datetime('now'))",
+        [],
+    );
+    let _ = conn.execute(
         "INSERT OR IGNORE INTO nsrl_hashes (sha256, file_name, product) VALUES ('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'empty', 'NIST Empty File')",
         [],
     );
