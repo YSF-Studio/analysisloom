@@ -217,22 +217,40 @@ Application info, feature list, and chain-of-custody disclaimer.
 
 ## 🚀 Quick Start
 
-**Prerequisites:** Node.js 20+, Rust stable (1.85+), and Linux build deps:
+**Prerequisites:** Node.js 20+, Rust stable (1.85+), and platform build tools:
 
 ```bash
+# macOS
+xcode-select --install   # if not already installed
+rustc --version          # install from https://rustup.rs if missing
+
 # Linux (Ubuntu/Debian)
 sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
   patchelf libssl-dev build-essential pkg-config
+
+# Windows
+# Install Rust (https://rustup.rs) and WebView2 (included in Windows 10/11)
 ```
 
 ```bash
 git clone https://github.com/YSF-Studio/analysisloom.git
 cd analysisloom
 npm install
-npm run dev:analysisloom
+npm run dev              # development (alias: npm run tauri:dev)
+npm run tauri:build      # production build
 ```
 
+Run from the **repository root** — scripts are defined in the root `package.json` and delegate to `packages/analysisloom`.
+
 AnalysisLoom is distributed as **source only** — build and run locally on Windows, macOS, or Linux. Pre-built binaries are not published.
+
+**Production binary location after build:**
+
+| Platform | Path |
+|----------|------|
+| macOS | `packages/analysisloom/src-tauri/target/release/analysisloom` |
+| Linux | `packages/analysisloom/src-tauri/target/release/analysisloom` |
+| Windows | `packages/analysisloom/src-tauri/target/release/analysisloom.exe` |
 
 ### Try with sample fixtures
 

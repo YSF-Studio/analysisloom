@@ -6,8 +6,12 @@
     "puppeteer": "^24.0.0"
   },
   "scripts": {
+    "dev": "npm run dev:analysisloom",
+    "build": "npm run build:analysisloom",
     "dev:analysisloom": "cd packages/analysisloom && npm run tauri dev",
     "build:analysisloom": "cd packages/analysisloom && npm run tauri build",
+    "tauri:dev": "npm run dev:analysisloom",
+    "tauri:build": "npm run build:analysisloom",
     "test:all": "cd packages/analysisloom/src-tauri && cargo test",
     "test:integration": "cd packages/analysisloom/src-tauri && cargo test --test full_integration -- --nocapture",
     "test:fixtures": "cd packages/analysisloom/src-tauri && cargo run --example export_fixtures -- ../../test-fixtures",
