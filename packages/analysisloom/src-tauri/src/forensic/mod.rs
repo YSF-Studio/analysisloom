@@ -1,6 +1,7 @@
 //! AnalysisLoom forensic engine — pure Rust, no external package deps.
 
 pub mod carving;
+pub mod encryption;
 pub mod evidence;
 pub mod hashing;
 pub mod ntfs;

@@ -129,8 +129,14 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); }
   border-right: 1px solid var(--divider);
 }
 
+.pane-resize-v {
+  width: 4px; cursor: col-resize; flex-shrink: 0;
+  background: transparent; transition: background 0.12s;
+}
+.pane-resize-v:hover { background: var(--primary); }
+
 .sidebar {
-  width: var(--sidebar-w); min-width: var(--sidebar-w);
+  width: var(--sidebar-w); min-width: var(--sidebar-w); max-width: 400px;
   background: rgba(12, 12, 12, 0.78);
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid var(--divider);
@@ -138,7 +144,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); }
 }
 
 .inspector-pane {
-  width: var(--inspector-w); min-width: var(--inspector-w);
+  width: var(--inspector-w); min-width: var(--inspector-w); max-width: 480px;
   background: rgba(10, 10, 10, 0.88);
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border-left: 1px solid var(--divider);

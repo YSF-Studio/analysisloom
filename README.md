@@ -48,6 +48,14 @@ npm run dev:analysisloom
 
 Or download the latest release from the [Releases](https://github.com/YSF-Studio/analysisloom/releases) page.
 
+### Creating a release
+
+Push a version tag to trigger the release workflow (builds Linux/macOS/Windows, SBOM, provenance attestation):
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
 ## 🔒 Security & DevSecOps
 
 - **Offline-first:** no telemetry; all forensic processing runs locally

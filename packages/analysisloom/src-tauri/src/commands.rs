@@ -1,5 +1,5 @@
 use crate::forensic::{
-    self, carving, evidence, hashing, ntfs, preview, report, sqlite, ProgressState,
+    self, carving, encryption, evidence, hashing, ntfs, preview, report, sqlite, ProgressState,
 };
 use serde::{Deserialize, Serialize};
 
@@ -401,6 +401,13 @@ pub fn sqlite_run_query(
     limit: Option<u32>,
 ) -> Result<sqlite::SqliteQueryResult, String> {
     sqlite::run_select(&path, &query, limit.unwrap_or(100))
+}
+
+// ─── Encryption Detection ───
+
+#[tauri::command]
+pub fn detect_encrypted(image_path: String) -> Result<Vec<encryption::EncryptedFinding>, String> {
+    encryption::detect_encrypted(&image_path)
 }
 
 // ─── Report Generation ───

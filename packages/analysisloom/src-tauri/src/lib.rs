@@ -74,6 +74,7 @@ pub fn run() {
             commands::sqlite_table_columns,
             commands::sqlite_query_table,
             commands::sqlite_run_query,
+            commands::detect_encrypted,
             commands::generate_case_report,
             commands::log_action,
             commands::get_audit_log,

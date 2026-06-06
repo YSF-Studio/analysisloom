@@ -13,8 +13,11 @@
   import InspectorPanel from "./lib/components/InspectorPanel.svelte";
   import SourceTree from "./lib/components/SourceTree.svelte";
   import StatusBar from "./lib/components/StatusBar.svelte";
+  import TabBar from "./lib/components/TabBar.svelte";
+  import EncryptedTab from "./lib/components/EncryptedTab.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { buildMftTree, isSqliteArtifact } from "./lib/mftTree.js";
+  import { VIEW_META, DEFAULT_TABS } from "./lib/viewRegistry.js";
 
   let msg = $state("");
   let busy = $state(false);
@@ -43,6 +46,9 @@
   let fileBrowser = $state(null);
   let progressStatus = $state("");
   let encryptedCount = $state(0);
+  let tabs = $state([...DEFAULT_TABS]);
+  let sidebarWidth = $state(220);
+  let inspectorWidth = $state(320);
 
   function timeoutPromise(promise, ms) {
     let timer;
@@ -247,8 +253,42 @@
     busy = false;
   }
 
-  function setView(id) {
+  function openTab(id) {
+    const meta = VIEW_META[id];
+    if (!meta) return;
+    if (!tabs.find((t) => t.id === id)) {
+      tabs = [...tabs, { id, icon: meta.icon, label: meta.label }];
+    }
     activeView = id;
+  }
+
+  function setView(id) {
+    openTab(id);
+  }
+
+  function startPaneDrag(side, e) {
+    const startX = e.clientX;
+    const startSidebar = sidebarWidth;
+    const startInspector = inspectorWidth;
+    function onMove(ev) {
+      const dx = ev.clientX - startX;
+      if (side === "sidebar") {
+        sidebarWidth = Math.max(160, Math.min(400, startSidebar + dx));
+      } else {
+        inspectorWidth = Math.max(240, Math.min(480, startInspector - dx));
+      }
+    }
+    function onUp() {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    e.preventDefault();
   }
 
   $effect(() => {
@@ -275,7 +315,10 @@
   }
 </script>
 
-<div class="app-shell platform-{platform}">
+<div
+  class="app-shell platform-{platform}"
+  style="--sidebar-w: {sidebarWidth}px; --inspector-w: {inspectorWidth}px"
+>
   <header class="titlebar">
     <div class="traffic-lights" aria-hidden="true">
       <button class="tl red" title="Close" aria-label="Close" onclick={() => windowAction("close")}></button>
@@ -324,6 +367,8 @@
     </div>
   </header>
 
+  <TabBar bind:tabs bind:activeView />
+
   <div class="workspace">
     <aside class="sidebar" role="navigation" aria-label="Sources and views">
       <div class="sidebar-section">
@@ -364,7 +409,7 @@
         <button class="nav-item" class:active={activeView === "bookmarks"} onclick={() => setView("bookmarks")}>
           <span>🔖</span> Key Findings {#if findingCount}<span class="count pill-info">{findingCount}</span>{/if}
         </button>
-        <button class="nav-item" disabled title="Encrypted volume detection — coming soon">
+        <button class="nav-item" class:active={activeView === "encrypted"} onclick={() => setView("encrypted")}>
           <span>🔐</span> Encrypted {#if encryptedCount}<span class="count pill-high">{encryptedCount}</span>{/if}
         </button>
         <button class="nav-item" class:active={activeView === "report"} onclick={() => setView("report")}>
@@ -376,7 +421,15 @@
       </div>
     </aside>
 
-    <main class="workspace-main" class:padded={activeView !== "files" && activeView !== "sqlite"}>
+    <div
+      class="pane-resize-v"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize sidebar"
+      onpointerdown={(e) => startPaneDrag("sidebar", e)}
+    ></div>
+
+    <main class="workspace-main" class:padded={activeView !== "files" && activeView !== "sqlite" && activeView !== "encrypted"}>
       {#if activeView === "cases"}
         <CaseTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "files"}
@@ -409,12 +462,26 @@
         <SearchTab bind:activeCase bind:busy bind:msg {timeoutPromise} initialQuery={searchQuery} />
       {:else if activeView === "bookmarks"}
         <BookmarkTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "encrypted"}
+        <EncryptedTab
+          bind:activeCase bind:busy bind:msg bind:imagePath
+          {timeoutPromise}
+          onCountChange={(n) => encryptedCount = n}
+        />
       {:else if activeView === "report"}
         <ReportTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "about"}
         <DisclaimerTab />
       {/if}
     </main>
+
+    <div
+      class="pane-resize-v"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize inspector"
+      onpointerdown={(e) => startPaneDrag("inspector", e)}
+    ></div>
 
     <aside class="inspector-pane">
       <div class="inspector-head">
@@ -443,6 +510,7 @@
     {findingCount}
     {bookmarkCount}
     {progressStatus}
+    tabCount={tabs.length}
     onAuditClick={() => setView("report")}
   />
 
@@ -539,7 +607,8 @@
   }
   .workspace-main.padded > :global(*) { overflow: visible; }
   .workspace-main :global(.file-browser),
-  .workspace-main :global(.sqlite-manager) { height: 100%; }
+  .workspace-main :global(.sqlite-manager),
+  .workspace-main :global(.encrypted-panel) { height: 100%; }
 
   .nav-item:disabled { opacity: 0.4; cursor: default; }
 

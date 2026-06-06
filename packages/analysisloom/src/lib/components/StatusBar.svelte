@@ -8,6 +8,7 @@
     findingCount = 0,
     bookmarkCount = 0,
     progressStatus = "",
+    tabCount = 1,
     onAuditClick,
   } = $props();
 
@@ -46,6 +47,7 @@
     {/if}
   </div>
   <div class="sb-right">
+    {#if tabCount > 1}<span class="dim">{tabCount} tabs</span>{/if}
     <span class="offline-badge">Offline</span>
     <button class="audit-link" onclick={() => onAuditClick?.()} title="View audit report">ISO 27042</button>
     <span class="time mono">{time}</span>
