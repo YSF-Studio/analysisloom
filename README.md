@@ -232,7 +232,22 @@ npm install
 npm run dev:analysisloom
 ```
 
-Or download a pre-built binary from [Releases](https://github.com/YSF-Studio/analysisloom/releases).
+Download installers and portable builds from [Releases](https://github.com/YSF-Studio/analysisloom/releases). Each release ships **installer** and **portable** packages for Windows, macOS, and Linux.
+
+| Platform | Installer | Portable |
+|----------|-----------|----------|
+| **Windows** | `AnalysisLoom-{version}-windows-x64.msi` or `-setup.exe` (NSIS) | `AnalysisLoom-{version}-windows-x64-portable.zip` — extract and run `AnalysisLoom.exe` |
+| **macOS** | `AnalysisLoom-{version}-macos-{arch}.dmg` — drag to Applications | `AnalysisLoom-{version}-macos-{arch}-portable.zip` — unzip and open `AnalysisLoom.app` |
+| **Linux** | `AnalysisLoom-{version}-linux-{arch}.deb` — `sudo dpkg -i …` | `AnalysisLoom-{version}-linux-{arch}-portable.AppImage` (chmod +x, run directly) |
+
+**Requirements:** WebView2 on Windows (included in Windows 10/11), macOS 10.15+, Linux with `libwebkit2gtk-4.1` and `libayatana-appindicator3`.
+
+Build locally:
+
+```bash
+npm run build:release      # Tauri bundle (installer targets)
+npm run package:release    # Collect installers + portable archives → dist/releases/
+```
 
 ### Try with sample fixtures
 
