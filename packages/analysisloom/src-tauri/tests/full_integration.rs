@@ -152,6 +152,31 @@ fn full_forensic_pipeline_with_random_fixtures() {
     let about = about_info();
     assert_eq!(about["appName"], "AnalysisLoom");
 
+    // ─── V2: EVTX, macOS, PCAP, bundle export ───
+    fixtures_gen::write_v2_extras(&ws.root);
+
+    let evtx = parse_evtx_log(ws.root.join("Security.evtx").to_string_lossy().to_string())
+        .expect("parse_evtx_log");
+    assert!(!evtx.events.is_empty(), "EVTX should yield security events");
+    println!("EVTX events: {}", evtx.events.len());
+
+    let pcap = analyze_pcap(ws.root.join("capture.pcap").to_string_lossy().to_string())
+        .expect("analyze_pcap");
+    assert!(pcap.packets_parsed > 0, "PCAP should parse packets");
+    println!("PCAP flows: {}", pcap.flows.len());
+
+    let macos = scan_macos_artifacts(ws.root.join("macos_profile").to_string_lossy().to_string())
+        .expect("scan_macos_artifacts");
+    assert!(!macos.is_empty());
+    println!("macOS artifact sources: {}", macos.len());
+
+    let bundle_out = ws.root.join("case_bundle.zip");
+    let bundle = export_case_bundle(case.id.clone(), bundle_out.to_string_lossy().to_string())
+        .expect("export_case_bundle");
+    assert!(std::path::Path::new(&bundle.zip_path).exists());
+    assert!(bundle.file_count >= 1);
+    println!("Bundle files: {}", bundle.file_count);
+
     // ─── Async carving commands ───
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {

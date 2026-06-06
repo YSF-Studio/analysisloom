@@ -236,6 +236,16 @@ pub fn write_screenshot_extras(dest: &Path) {
     write_minimal_system_hive(&dest.join("SYSTEM"));
     write_volatility_json(&dest.join("volatility.json"));
     write_browser_profile(&dest.join("browser_profile"));
+    write_synthetic_evtx(&dest.join("Security.evtx"));
+    write_synthetic_pcap(&dest.join("capture.pcap"));
+    write_macos_profile(&dest.join("macos_profile"));
+}
+
+/// V2 forensic test fixtures.
+pub fn write_v2_extras(dest: &Path) {
+    write_synthetic_evtx(&dest.join("Security.evtx"));
+    write_synthetic_pcap(&dest.join("capture.pcap"));
+    write_macos_profile(&dest.join("macos_profile"));
 }
 
 fn write_minimal_system_hive(path: &Path) {
@@ -258,6 +268,111 @@ fn write_volatility_json(path: &Path) {
   ]
 }"#;
     std::fs::write(path, json).expect("write volatility.json");
+}
+
+fn write_synthetic_evtx(path: &Path) {
+    let mut data = vec![0u8; 16384];
+    data[0..7].copy_from_slice(b"ElfFile");
+    data[7] = 0;
+    let xml = r#"
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Microsoft-Windows-Security-Auditing"/>
+    <EventID>4624</EventID>
+    <TimeCreated SystemTime="2026-06-06T10:00:00.0000000Z"/>
+    <Channel>Security</Channel>
+    <Level>0</Level>
+    <EventRecordID>1001</EventRecordID>
+  </System>
+  <EventData><Data>Administrator</Data><Data>10.0.0.5</Data></EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <EventID>4688</EventID>
+    <TimeCreated SystemTime="2026-06-06T10:01:00.0000000Z"/>
+    <Channel>Security</Channel>
+    <EventRecordID>1002</EventRecordID>
+  </System>
+  <EventData><Data>powershell.exe</Data></EventData>
+</Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <EventID>4104</EventID>
+    <TimeCreated SystemTime="2026-06-06T10:02:00.0000000Z"/>
+    <Channel>Microsoft-Windows-PowerShell/Operational</Channel>
+    <EventRecordID>1003</EventRecordID>
+  </System>
+  <EventData><Data>Invoke-Expression</Data></EventData>
+</Event>"#;
+    let off = 4096;
+    let xml_bytes = xml.as_bytes();
+    let len = xml_bytes.len().min(data.len() - off);
+    data[off..off + len].copy_from_slice(&xml_bytes[..len]);
+    std::fs::write(path, &data).expect("write evtx");
+}
+
+fn write_synthetic_pcap(path: &Path) {
+    let mut buf = vec![];
+    // PCAP global header (little-endian)
+    buf.extend_from_slice(&0xa1b2_c3d4u32.to_le_bytes());
+    buf.extend_from_slice(&2u16.to_le_bytes());
+    buf.extend_from_slice(&4u16.to_le_bytes());
+    buf.extend_from_slice(&0i32.to_le_bytes());
+    buf.extend_from_slice(&0u32.to_le_bytes());
+    buf.extend_from_slice(&65535u32.to_le_bytes());
+    buf.extend_from_slice(&1u32.to_le_bytes()); // LINKTYPE_ETHERNET
+
+    // Ethernet + IPv4 + TCP packet (SYN to 443)
+    let pkt = vec![
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x08, 0x00,
+        0x45, 0x00, 0x00, 0x28, 0x00, 0x01, 0x00, 0x00, 0x40, 0x06, 0x00, 0x00,
+        192, 168, 1, 10, 185, 220, 101, 45,
+        0xc0, 0x10, 0x01, 0xbb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x50, 0x02,
+        0xff, 0xff, 0x00, 0x00,
+    ];
+    let ts_sec = 1_700_000_000u32;
+    let incl = pkt.len() as u32;
+    buf.extend_from_slice(&ts_sec.to_le_bytes());
+    buf.extend_from_slice(&0u32.to_le_bytes());
+    buf.extend_from_slice(&incl.to_le_bytes());
+    buf.extend_from_slice(&incl.to_le_bytes());
+    buf.extend_from_slice(&pkt);
+
+    std::fs::write(path, buf).expect("write pcap");
+}
+
+fn write_macos_profile(root: &Path) {
+    let kc = root.join("Library/Application Support/KnowledgeC.db");
+    std::fs::create_dir_all(kc.parent().expect("kc parent")).expect("macos dirs");
+    let _ = std::fs::remove_file(&kc);
+    let conn = rusqlite::Connection::open(&kc).expect("knowledgec");
+    conn.execute_batch(
+        "CREATE TABLE ZOBJECT (Z_PK INTEGER PRIMARY KEY, ZSTARTDATE REAL, ZSTREAMNAME TEXT);
+         CREATE TABLE ZHISTORYITEM (Z_PK INTEGER PRIMARY KEY, ZTITLE TEXT, ZURL TEXT);",
+    )
+    .expect("kc schema");
+    conn.execute(
+        "INSERT INTO ZOBJECT (ZSTARTDATE, ZSTREAMNAME) VALUES (738000.0, '/Applications/Safari.app')",
+        [],
+    )
+    .expect("kc insert");
+    conn.execute(
+        "INSERT INTO ZHISTORYITEM (ZTITLE, ZURL) VALUES ('Forensic Search', 'https://github.com')",
+        [],
+    )
+    .expect("history insert");
+
+    let plist_path = root.join("Library/Preferences/com.apple.loginwindow.plist");
+    std::fs::create_dir_all(plist_path.parent().expect("plist parent")).expect("plist dir");
+    let plist_xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>lastUserName</key><string>forensic_analyst</string>
+  <key>GuestEnabled</key><false/>
+</dict></plist>"#;
+    std::fs::write(&plist_path, plist_xml).expect("write plist");
+
+    std::fs::create_dir_all(root.join("Library/Logs/DiagnosticMessages.logarchive")).expect("logarchive");
 }
 
 fn write_browser_profile(root: &Path) {

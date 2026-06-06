@@ -140,6 +140,12 @@ pub fn run() {
             commands::get_super_timeline,
             commands::list_deleted_mft,
             commands::recover_deleted_carve,
+            commands::parse_evtx_log,
+            commands::scan_evtx_directory,
+            commands::scan_macos_artifacts,
+            commands::analyze_macos_plist,
+            commands::analyze_pcap,
+            commands::export_case_bundle,
         ])
         .run(tauri::generate_context!())
         .expect("error while running AnalysisLoom");

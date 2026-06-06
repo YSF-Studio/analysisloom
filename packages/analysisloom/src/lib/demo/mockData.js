@@ -141,11 +141,42 @@ export const DEMO_SUPER_TIMELINE = [
   { timestamp: "2026-06-06 10:33:20", source: "Browser", category: "browser", filePath: "/evidence/Chrome/History", eventType: "browser_2", severity: "info" },
 ];
 
+export const DEMO_EVTX = {
+  logPath: "/workspace/test-fixtures/Security.evtx",
+  events: [
+    { eventId: 4624, timestamp: "2026-06-06T10:00:00Z", channel: "Security", provider: "Microsoft-Windows-Security-Auditing", level: "Info", message: "Administrator | 10.0.0.5", recordId: 1001, forensicRelevance: "Successful Logon" },
+    { eventId: 4688, timestamp: "2026-06-06T10:01:00Z", channel: "Security", provider: "Microsoft-Windows-Security-Auditing", level: "Info", message: "powershell.exe", recordId: 1002, forensicRelevance: "Process Creation" },
+    { eventId: 4104, timestamp: "2026-06-06T10:02:00Z", channel: "Microsoft-Windows-PowerShell/Operational", provider: "PowerShell", level: "Info", message: "Invoke-Expression", recordId: 1003, forensicRelevance: "PowerShell Script Block" },
+  ],
+  recordsParsed: 3,
+  channel: "Security",
+};
+
+export const DEMO_MACOS = [
+  {
+    sourcePath: "/workspace/test-fixtures/macos_profile/Library/Application Support/KnowledgeC.db",
+    artifacts: [
+      { artifactType: "user_activity", path: "/workspace/test-fixtures/macos_profile/Library/Application Support/KnowledgeC.db", key: "738000.0", value: "/Applications/Safari.app", timestamp: "2026-06-06T10:00:00Z", category: "knowledgec", forensicRelevance: "KnowledgeC — user activity timeline" },
+      { artifactType: "plist", path: "/workspace/test-fixtures/macos_profile/Library/Preferences/com.apple.loginwindow.plist", key: "lastUserName", value: "forensic_analyst", timestamp: "2026-06-06T10:00:00Z", category: "login", forensicRelevance: "macOS Preferences plist" },
+    ],
+    sourcesScanned: 2,
+  },
+];
+
+export const DEMO_PCAP = {
+  filePath: "/workspace/test-fixtures/capture.pcap",
+  flows: [
+    { protocol: "TCP", srcIp: "192.168.1.10", dstIp: "185.220.101.45", srcPort: 49168, dstPort: 443, packetCount: 1, bytes: 54, firstSeen: "1700000000.000000", lastSeen: "1700000000.000000", info: "HTTPS/TLS" },
+  ],
+  packetsParsed: 1,
+  durationSecs: 0,
+};
+
 export const DEMO_ABOUT = {
   appName: "AnalysisLoom",
   version: "0.1.0",
   developer: "YSF Studio — Built with ❤️ by Yusuf Shalahuddin",
-  build: "V1.5 Master Build — All Features Unlocked",
+  build: "V2 Forensic Workstation — All Features Unlocked",
   features: [
     "Forensic-grade NTFS/MFT Parser & File Browser",
     "File Carving with multi-format signature detection",

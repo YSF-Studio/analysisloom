@@ -2,12 +2,16 @@
 
 pub mod antiforensics;
 pub mod browser;
+pub mod bundle;
 pub mod carving;
 pub mod encryption;
+pub mod evtx;
 pub mod evidence;
 pub mod hashing;
+pub mod macos;
 pub mod memory;
 pub mod nsrl;
+pub mod pcap;
 pub mod ntfs;
 pub mod preview;
 pub mod progress;

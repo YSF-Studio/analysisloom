@@ -21,6 +21,9 @@
   import BrowserTab from "./lib/components/BrowserTab.svelte";
   import NsrlTab from "./lib/components/NsrlTab.svelte";
   import MemoryTab from "./lib/components/MemoryTab.svelte";
+  import EvtxTab from "./lib/components/EvtxTab.svelte";
+  import MacosTab from "./lib/components/MacosTab.svelte";
+  import PcapTab from "./lib/components/PcapTab.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { buildMftTree, isSqliteArtifact } from "./lib/mftTree.js";
   import { VIEW_META, DEFAULT_TABS } from "./lib/viewRegistry.js";
@@ -653,6 +656,19 @@
       </div>
 
       <div class="sidebar-section">
+        <div class="section-head">FORENSICS V2</div>
+        <button class="nav-item" class:active={activeView === "evtx"} onclick={() => setView("evtx")}>
+          <span>📜</span> Event Log (EVTX)
+        </button>
+        <button class="nav-item" class:active={activeView === "macos"} onclick={() => setView("macos")}>
+          <span>🍎</span> macOS Artifacts
+        </button>
+        <button class="nav-item" class:active={activeView === "pcap"} onclick={() => setView("pcap")}>
+          <span>📡</span> PCAP Network
+        </button>
+      </div>
+
+      <div class="sidebar-section">
         <div class="section-head">EVIDENCE</div>
         <button class="nav-item" class:active={activeView === "bookmarks"} onclick={() => setView("bookmarks")}>
           <span>🔖</span> Key Findings {#if findingCount}<span class="count pill-info">{findingCount}</span>{/if}
@@ -732,6 +748,12 @@
         <NsrlTab bind:busy bind:msg {timeoutPromise} selectedFile={selectedFile || artifactPath || ""} />
       {:else if activeView === "memory"}
         <MemoryTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "evtx"}
+        <EvtxTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "macos"}
+        <MacosTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "pcap"}
+        <PcapTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "report"}
         <ReportTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "about"}

@@ -15,6 +15,9 @@ export const VIEW_META = {
   browser: { icon: "🌐", label: "Browser Artifacts" },
   nsrl: { icon: "📚", label: "NSRL Lookup" },
   memory: { icon: "🧠", label: "Memory Bridge" },
+  evtx: { icon: "📜", label: "Event Log" },
+  macos: { icon: "🍎", label: "macOS Artifacts" },
+  pcap: { icon: "📡", label: "PCAP Network" },
   report: { icon: "▭", label: "Report" },
   about: { icon: "ⓘ", label: "About" },
 };

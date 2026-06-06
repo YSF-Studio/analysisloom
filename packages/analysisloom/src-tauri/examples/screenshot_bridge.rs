@@ -247,6 +247,21 @@ fn dispatch(rt: &tokio::runtime::Runtime, cmd: &str, args: &Value) -> Result<Val
         "parse_volatility_json" => Ok(serde_json::to_value(commands::parse_volatility_json(arg_str(args, "path")?)?)
             .map_err(|e| e.to_string())?),
         "about_info" => Ok(commands::about_info()),
+        "parse_evtx_log" => Ok(serde_json::to_value(commands::parse_evtx_log(arg_str(args, "path")?)?)
+            .map_err(|e| e.to_string())?),
+        "scan_evtx_directory" => Ok(serde_json::to_value(commands::scan_evtx_directory(arg_str(args, "dir")?)?)
+            .map_err(|e| e.to_string())?),
+        "scan_macos_artifacts" => Ok(serde_json::to_value(commands::scan_macos_artifacts(arg_str(args, "root")?)?)
+            .map_err(|e| e.to_string())?),
+        "analyze_macos_plist" => Ok(serde_json::to_value(commands::analyze_macos_plist(arg_str(args, "path")?)?)
+            .map_err(|e| e.to_string())?),
+        "analyze_pcap" => Ok(serde_json::to_value(commands::analyze_pcap(arg_str(args, "path")?)?)
+            .map_err(|e| e.to_string())?),
+        "export_case_bundle" => Ok(serde_json::to_value(commands::export_case_bundle(
+            arg_str(args, "caseId")?,
+            arg_str(args, "outputPath")?,
+        )?)
+        .map_err(|e| e.to_string())?),
         _ => Err(format!("unknown command: {cmd}")),
     }
 }

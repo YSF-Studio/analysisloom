@@ -60,6 +60,13 @@ if (!existsSync(assets)) {
       "parse_volatility_json",
       "get_super_timeline",
       "unified_search",
+      "parse_evtx_log",
+      "scan_macos_artifacts",
+      "analyze_pcap",
+      "export_case_bundle",
+      "Event Log",
+      "macOS Artifacts",
+      "PCAP Network",
     ];
     for (const needle of required) {
       if (!bundle.includes(needle)) {
@@ -81,7 +88,8 @@ if (!existsSync(registryPath)) {
   const expected = [
     "cases", "files", "timeline", "carving", "sqlite",
     "search", "bookmarks", "encrypted", "registry", "yara",
-    "antiforensics", "browser", "nsrl", "memory", "report", "about",
+    "antiforensics", "browser", "nsrl", "memory", "evtx", "macos", "pcap",
+    "report", "about",
   ];
   for (const id of expected) {
     if (!mod.VIEW_META[id]) fail(`VIEW_META missing: ${id}`);

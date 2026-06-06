@@ -20,6 +20,9 @@ import {
   DEMO_NSRL,
   DEMO_MEMORY,
   DEMO_SUPER_TIMELINE,
+  DEMO_EVTX,
+  DEMO_MACOS,
+  DEMO_PCAP,
 } from "./mockData.js";
 
 let carvingDone = false;
@@ -101,6 +104,18 @@ export async function invoke(cmd, args = {}) {
       return { hashCount: 1503 };
     case "parse_volatility_json":
       return DEMO_MEMORY;
+    case "parse_evtx_log":
+      return DEMO_EVTX;
+    case "scan_evtx_directory":
+      return [DEMO_EVTX];
+    case "scan_macos_artifacts":
+      return DEMO_MACOS;
+    case "analyze_macos_plist":
+      return DEMO_MACOS[0];
+    case "analyze_pcap":
+      return DEMO_PCAP;
+    case "export_case_bundle":
+      return { zipPath: "/tmp/demo_bundle.zip", fileCount: 2, manifestSha256: DEMO_HASHES.sha256, totalBytes: 4096 };
     case "recover_deleted_carve":
       return { filesFound: DEMO_CARVED.length, files: DEMO_CARVED, bytesScanned: 262144 };
     case "add_bookmark":

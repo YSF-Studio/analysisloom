@@ -1,11 +1,14 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
+  import { save } from "@tauri-apps/plugin-dialog";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
 
   let format = $state("html");
   let generating = $state(false);
+  let bundling = $state(false);
   let reportPath = $state("");
+  let bundlePath = $state("");
   let auditLog = $state([]);
 
   async function generateReport() {
@@ -32,6 +35,28 @@
     busy = false;
   }
 
+  async function exportBundle() {
+    if (!activeCase?.id) return;
+    const dest = await save({
+      defaultPath: `analysisloom_${activeCase.id.slice(0, 8)}_bundle.zip`,
+      filters: [{ name: "ZIP Bundle", extensions: ["zip"] }],
+    });
+    if (!dest) return;
+    bundling = true;
+    try {
+      const result = await timeoutPromise(
+        invoke("export_case_bundle", { caseId: activeCase.id, outputPath: dest }),
+        180000
+      );
+      bundlePath = result.zipPath;
+      msg = `✅ Bundle exported — ${result.fileCount} files, manifest ${result.manifestSha256.slice(0, 16)}…`;
+      await loadAuditLog();
+    } catch (e) {
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    }
+    bundling = false;
+  }
+
   async function loadAuditLog() {
     if (!activeCase?.id) return;
     try {
@@ -54,7 +79,7 @@
 <div class="report-container">
   <h3>📄 Forensic Report</h3>
   <p class="subtitle">
-    Generate a comprehensive forensic report (PDF or HTML) from case data — timeline, evidence, findings, and audit trail.
+    Generate HTML/PDF reports or export a full evidence bundle (ZIP with manifest hashes, evidence files, and reports).
   </p>
 
   {#if !activeCase?.id}
@@ -84,6 +109,20 @@
       <button class="btn-generate" onclick={generateReport} disabled={generating}>
         {generating ? '🔄 Generating...' : '📄 Generate Report'}
       </button>
+
+      <button class="btn-bundle" onclick={exportBundle} disabled={bundling}>
+        {bundling ? '🔄 Packaging...' : '📦 Export Evidence Bundle (ZIP)'}
+      </button>
+
+      {#if bundlePath}
+        <div class="report-link bundle">
+          <span class="icon">📦</span>
+          <div>
+            <strong>Bundle saved:</strong><br />
+            <code>{bundlePath}</code>
+          </div>
+        </div>
+      {/if}
 
       {#if reportPath}
         <div class="report-link">
@@ -124,6 +163,7 @@
         <li><strong>Evidence Items</strong> — All acquired items with hashes</li>
         <li><strong>Findings</strong> — Tagged findings with severity</li>
         <li><strong>Audit Trail</strong> — Complete action log with timestamps</li>
+        <li><strong>Evidence Bundle (ZIP)</strong> — Selected evidence files + SHA-256 manifest + HTML/PDF report</li>
       </ul>
     </div>
   {/if}
@@ -159,6 +199,15 @@
   }
   .btn-generate:hover:not(:disabled) { filter: brightness(1.1); }
   .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-bundle {
+    padding: 10px 24px; background: transparent; color: var(--primary);
+    border: 2px solid var(--primary); border-radius: 8px; font-size: 13px; font-weight: 600;
+    cursor: pointer; margin-top: 8px; margin-left: 8px; transition: background 0.15s;
+  }
+  .btn-bundle:hover:not(:disabled) { background: var(--primary-bg); }
+  .btn-bundle:disabled { opacity: 0.4; cursor: not-allowed; }
+  .report-link.bundle { background: rgba(59,130,246,0.08); border-color: var(--primary); }
 
   .report-link {
     display: flex; align-items: flex-start; gap: 10px;

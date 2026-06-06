@@ -88,6 +88,9 @@ fn categorize_source(source: &str) -> String {
         s if s.contains("CARV") => "carving",
         s if s.contains("YARA") => "malware",
         s if s.contains("ANTI") => "antiforensics",
+        s if s.contains("EVTX") || s.contains("EVENT") => "windows",
+        s if s.contains("MACOS") || s.contains("MAC OS") => "macos",
+        s if s.contains("PCAP") || s.contains("NETWORK") => "network",
         _ => "general",
     }
     .into()
@@ -95,8 +98,8 @@ fn categorize_source(source: &str) -> String {
 
 fn severity_for_event(source: &str) -> String {
     match source.to_uppercase().as_str() {
-        s if s.contains("YARA") || s.contains("ANTI") => "high",
-        s if s.contains("ENCRYPT") => "medium",
+        s if s.contains("YARA") || s.contains("ANTI") || s.contains("EVTX") => "high",
+        s if s.contains("ENCRYPT") || s.contains("PCAP") => "medium",
         _ => "info",
     }
     .into()

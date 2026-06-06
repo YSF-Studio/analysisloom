@@ -33,10 +33,26 @@
 | **NSRL Lookup** | ✅ V1.5 | NIST hash set import & known-good filtering |
 | **Memory Bridge** | ✅ V1.5 | Import Volatility 3 JSON — processes & network connections |
 | **Hex Search** | ✅ V1.5 | Byte pattern search (`hex:FF D8 FF`) across evidence files |
-| **Super Timeline** | ✅ V2 | Multi-source correlated timeline (NTFS, registry, browser, YARA, memory) |
+| **Windows EVTX Parser** | ✅ V2 | Security event log — 4624/4625 logon, 4688 process, 4104 PowerShell, 7045 service |
+| **macOS Artifact Analyzer** | ✅ V2 | KnowledgeC.db, Unified Log (.logarchive), plist, Spotlight, DataDetectors, TCC |
+| **PCAP Network Analyzer** | ✅ V2 | TCP/UDP/DNS/HTTP flow reconstruction from packet captures |
+| **Evidence Bundle Export** | ✅ V2 | ZIP package — evidence files + SHA-256 manifest + HTML/PDF report |
+| **Super Timeline** | ✅ V2 | Multi-source correlated timeline (NTFS, registry, browser, YARA, memory, EVTX, PCAP) |
 | **Deleted Recovery** | ✅ V2 | Recover deleted files from NTFS browser via integrated carving |
 | **Theme Toggle** | ✅ V2 | Light / dark mode (☀/☾ in titlebar) |
 | **Drag & Drop** | ✅ V2 | Drop evidence files onto workspace — auto-hash in Inspector |
+
+### V2 Backlog (Nice to Have)
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| **Prefetch + Jump Lists + LNK parser** | 🟡 | Program execution traces and recent-file shortcuts (Windows) |
+| **Steganography detection** | 🟡 | LSB analysis in images, metadata anomalies |
+| **Email forensics (PST/OST)** | 🟡 | Corporate cases often require mailbox parsing |
+| **Chat artifacts** | 🟡 | WhatsApp, Telegram, Signal SQLite databases |
+| **Linux auditd + bash history** | 🟡 | Auth logs, command history, audit trail on Linux endpoints |
+| **Plugin SDK** | 🟢 | Rust trait interface for community forensic extensions |
+| **Timeline visualization** | 🟢 | Graphical Gantt-style multi-source timeline view |
 
 ### Architecture
 

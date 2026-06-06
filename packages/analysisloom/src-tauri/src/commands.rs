@@ -1,6 +1,6 @@
 use crate::forensic::{
-    self, antiforensics, browser, carving, encryption, evidence, hashing, memory, nsrl, ntfs,
-    preview, registry, report, sqlite, timeline, yara, ProgressState,
+    self, antiforensics, browser, bundle, carving, encryption, evidence, evtx, hashing, macos,
+    memory, nsrl, ntfs, pcap, preview, registry, report, sqlite, timeline, yara, ProgressState,
 };
 use serde::{Deserialize, Serialize};
 
@@ -918,6 +918,237 @@ pub fn recover_deleted_carve(image_path: String, output_dir: String) -> Result<c
     carving::carve_files(&image_path, &output_dir, &cancel)
 }
 
+// ─── V2: Windows EVTX ───
+
+#[tauri::command]
+pub fn parse_evtx_log(path: String) -> Result<evtx::EvtxScanResult, String> {
+    evtx::parse_evtx_file(&path)
+}
+
+#[tauri::command]
+pub fn scan_evtx_directory(dir: String) -> Result<Vec<evtx::EvtxScanResult>, String> {
+    evtx::scan_evtx_directory(&dir)
+}
+
+// ─── V2: macOS Artifacts ───
+
+#[tauri::command]
+pub fn scan_macos_artifacts(root: String) -> Result<Vec<macos::MacosScanResult>, String> {
+    macos::scan_macos_artifacts(&root)
+}
+
+#[tauri::command]
+pub fn analyze_macos_plist(path: String) -> Result<macos::MacosScanResult, String> {
+    macos::analyze_macos_plist(&path)
+}
+
+// ─── V2: PCAP Network ───
+
+#[tauri::command]
+pub fn analyze_pcap(path: String) -> Result<pcap::PcapScanResult, String> {
+    pcap::analyze_pcap(&path)
+}
+
+// ─── V2: Evidence Bundle Export ───
+
+#[tauri::command]
+pub fn export_case_bundle(case_id: String, output_path: String) -> Result<bundle::BundleExportResult, String> {
+    let (case, evidence_rows, findings_json, audit_json, timeline, evidence_lines, finding_lines, audit_lines) = {
+        let db = crate::db::conn();
+
+        let case: Case = db
+        .query_row(
+            "SELECT id, name, operator, created_at, status FROM cases WHERE id = ?1",
+            [&case_id],
+            |row| {
+                Ok(Case {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    operator: row.get(2)?,
+                    created_at: row.get(3)?,
+                    status: row.get(4)?,
+                })
+            },
+        )
+        .map_err(|e| format!("Case not found: {e}"))?;
+
+    let mut estmt = db
+        .prepare("SELECT source_path, type, sha256, size_bytes FROM evidence_items WHERE case_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let evidence_rows: Vec<(String, String, Option<String>, i64)> = estmt
+        .query_map([&case_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, i64>(3).unwrap_or(0),
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let mut fstmt = db
+        .prepare("SELECT id, description, file_path, severity FROM findings WHERE case_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let findings: Vec<serde_json::Value> = fstmt
+        .query_map([&case_id], |row| {
+            Ok(serde_json::json!({
+                "id": row.get::<_, i64>(0)?,
+                "description": row.get::<_, String>(1)?,
+                "filePath": row.get::<_, String>(2)?,
+                "severity": row.get::<_, String>(3)?,
+            }))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+    let findings_json =
+        serde_json::to_string_pretty(&findings).map_err(|e| e.to_string())?;
+
+    let mut astmt = db.prepare(
+        "SELECT timestamp, action, detail FROM audit_log WHERE case_id = ?1 ORDER BY timestamp DESC LIMIT 100",
+    ).map_err(|e| e.to_string())?;
+    let audit: Vec<serde_json::Value> = astmt
+        .query_map([&case_id], |row| {
+            Ok(serde_json::json!({
+                "timestamp": row.get::<_, String>(0)?,
+                "action": row.get::<_, String>(1)?,
+                "detail": row.get::<_, String>(2)?,
+            }))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+    let audit_json = serde_json::to_string_pretty(&audit).map_err(|e| e.to_string())?;
+
+    let mut tstmt = db.prepare(
+        "SELECT timestamp, source, file_path, event_type FROM timeline_events WHERE case_id = ?1 ORDER BY timestamp DESC LIMIT 100",
+    ).map_err(|e| e.to_string())?;
+    let timeline: Vec<String> = tstmt
+        .query_map([&case_id], |row| {
+            Ok(format!(
+                "{} | {} | {} ({})",
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(1)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let evidence_lines: Vec<String> = evidence_rows
+        .iter()
+        .map(|(p, t, sha, sz)| {
+            format!(
+                "{} ({}) — {} bytes — SHA256: {}",
+                p,
+                t,
+                sz,
+                sha.clone().unwrap_or_default()
+            )
+        })
+        .collect();
+
+    let finding_lines: Vec<String> = findings
+        .iter()
+        .filter_map(|f| {
+            Some(format!(
+                "[{}] {} — {}",
+                f.get("severity")?.as_str()?,
+                f.get("description")?.as_str()?,
+                f.get("filePath")?.as_str()?,
+            ))
+        })
+        .collect();
+
+    let audit_lines: Vec<String> = audit
+        .iter()
+        .filter_map(|a| {
+            Some(format!(
+                "{} | {} — {}",
+                a.get("timestamp")?.as_str()?,
+                a.get("action")?.as_str()?,
+                a.get("detail")?.as_str()?,
+            ))
+        })
+        .collect();
+
+        (
+            case,
+            evidence_rows,
+            findings_json,
+            audit_json,
+            timeline,
+            evidence_lines,
+            finding_lines,
+            audit_lines,
+        )
+    };
+
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string();
+    let html = generate_html_report(&case, &timeline, &evidence_lines, &finding_lines, &audit_lines, &now);
+
+    let pdf_bytes = (|| {
+        let sections = vec![
+            report::ReportSection {
+                heading: "Case Information".into(),
+                content: format!(
+                    "Case: {}\nOperator: {}\nStatus: {}\nCreated: {}",
+                    case.name,
+                    case.operator.clone().unwrap_or_default(),
+                    case.status,
+                    case.created_at
+                ),
+            },
+            report::ReportSection {
+                heading: "Timeline".into(),
+                content: timeline.join("\n"),
+            },
+            report::ReportSection {
+                heading: "Evidence".into(),
+                content: evidence_lines.join("\n"),
+            },
+        ];
+        report::generate_pdf_report(&report::PdfReport {
+            title: format!("Forensic Analysis Report — {}", case.name),
+            evidence_id: case_id.clone(),
+            operator: case.operator.clone().unwrap_or_default(),
+            case_name: case.name.clone(),
+            device: "AnalysisLoom Workstation".into(),
+            date: now.clone(),
+            sections,
+        })
+        .ok()
+    })();
+
+    let operator = case.operator.clone().unwrap_or_else(|| "Analyst".into());
+    let result = bundle::create_case_bundle(
+        &case_id,
+        &case.name,
+        &operator,
+        &output_path,
+        &evidence_rows,
+        &html,
+        pdf_bytes.as_deref(),
+        &findings_json,
+        &audit_json,
+    )?;
+
+    log_action(
+        case_id,
+        "EXPORT_BUNDLE".into(),
+        format!(
+            "{} files, manifest {}",
+            result.file_count, result.manifest_sha256
+        ),
+    )?;
+
+    Ok(result)
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DemoFixtures {
@@ -956,11 +1187,15 @@ pub fn about_info() -> serde_json::Value {
         "appName": "AnalysisLoom",
         "version": "0.1.0",
         "developer": "YSF Studio — Built with ❤️ by Yusuf Shalahuddin",
-        "build": "V1.5 Master Build — All Features Unlocked",
+        "build": "V2 Forensic Workstation — All Features Unlocked",
         "features": [
             "Forensic-grade NTFS/MFT Parser & File Browser",
             "File Carving with multi-format signature detection",
             "Super Timeline — multi-source event correlation",
+            "Windows EVTX Event Log Parser (4624/4625/4688/4104)",
+            "macOS Artifact Analyzer (plist, KnowledgeC, Unified Logs)",
+            "PCAP Network Analyzer (TCP/UDP/DNS flow reconstruction)",
+            "Evidence Bundle ZIP Export (files + manifest + report)",
             "Registry Analyzer (SAM / SYSTEM / SOFTWARE / NTUSER.DAT)",
             "Built-in YARA Scanner with custom .yar rule loading",
             "Anti-Forensics Detection (timestomp, ADS, extension mismatch)",
@@ -970,7 +1205,6 @@ pub fn about_info() -> serde_json::Value {
             "Hex & Keyword Search across case evidence",
             "SQLite Artifact Browser & Case Management with Audit Trail",
             "Encrypted Volume Detection (LUKS, BitLocker, high-entropy)",
-            "Chain of Custody tracking with SHA-256 verification",
             "100% Offline — Zero Data Collection. All processing runs locally."
         ],
         "disclaimer": "This software is provided 'AS-IS'. Results should be independently verified before use in legal proceedings.",
