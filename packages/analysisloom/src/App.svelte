@@ -1,4 +1,6 @@
 <script>
+  import { invoke } from "@tauri-apps/api/core";
+  import { open } from "@tauri-apps/plugin-dialog";
   import CaseTab from "./lib/components/CaseTab.svelte";
   import FileBrowserTab from "./lib/components/FileBrowserTab.svelte";
   import CarvingTab from "./lib/components/CarvingTab.svelte";
@@ -10,9 +12,11 @@
   import DisclaimerTab from "./lib/components/DisclaimerTab.svelte";
   import InspectorPanel from "./lib/components/InspectorPanel.svelte";
   import SourceTree from "./lib/components/SourceTree.svelte";
+  import { buildMftTree, isSqliteArtifact } from "./lib/mftTree.js";
 
   let msg = $state("");
   let busy = $state(false);
+  let hashLoading = $state(false);
   let activeCase = $state(null);
   let selectedFile = $state(null);
   let inspectorMeta = $state(null);
@@ -22,31 +26,19 @@
   let density = $state("compact");
   let activeView = $state("files");
   let platform = $state("unknown");
-  let imagePath = $state("/dev/sda");
+  let imagePath = $state("");
+  let artifactPath = $state("");
+  let sqliteDbPath = $state("");
   let fileCount = $state(0);
   let bookmarkCount = $state(0);
   let findingCount = $state(0);
 
-  let sources = $state([
-    {
-      id: "disk1",
-      name: "/dev/sda (E01)",
-      icon: "💽",
-      children: [
-        { id: "win", name: "Windows/", icon: "📁", path: "/Windows" },
-        { id: "users", name: "Users/", icon: "📁", path: "/Users" },
-      ],
-    },
-    {
-      id: "mobile1",
-      name: "Mobile Dump (Ext4)",
-      icon: "📱",
-      children: [
-        { id: "data", name: "data/", icon: "📁", path: "/data" },
-      ],
-    },
-  ]);
+  let sources = $state([]);
+  let mftCache = $state({});
+  let mftEntries = $state([]);
+  let filterParent = $state(5);
   let selectedSource = $state(null);
+  let fileBrowser = $state(null);
 
   function timeoutPromise(promise, ms) {
     let timer;
@@ -64,14 +56,124 @@
     return "unknown";
   }
 
-  function onFileSelect(path, meta) {
-    selectedFile = path;
+  async function onFileSelect(path, meta, localPath) {
+    selectedFile = localPath || path;
     inspectorMeta = meta ?? null;
+
+    if (localPath) {
+      hashLoading = true;
+      try {
+        const hashes = await invoke("hash_file", { path: localPath });
+        inspectorMeta = { ...inspectorMeta, ...hashes, source: "disk" };
+      } catch (e) {
+        msg = `⚠️ Hash failed: ${typeof e === "string" ? e : String(e)}`;
+      }
+      hashLoading = false;
+    }
   }
 
   function onSourceSelect(source) {
-    if (source?.path) imagePath = "/dev/sda";
+    if (!source) return;
     activeView = "files";
+    const imgId = source.imageId;
+    const src = sources.find((s) => s.id === imgId);
+    if (src?.path) imagePath = src.path;
+    mftEntries = mftCache[imgId] || [];
+    filterParent = source.isRoot ? 5 : source.recordNumber;
+    selectedSource = source;
+  }
+
+  function onMftLoaded(entries, path) {
+    let src = sources.find((s) => s.path === path);
+    if (!src) {
+      const id = `img-${Date.now()}`;
+      src = {
+        id,
+        name: path.split(/[/\\]/).pop() || path,
+        icon: "💽",
+        path,
+        entryCount: entries.length,
+        children: buildMftTree(entries),
+      };
+      sources = [...sources, src];
+      mftCache = { ...mftCache, [id]: entries };
+      selectedSource = { id: `${id}-root`, imageId: id, recordNumber: 5, name: path, isRoot: true };
+    } else {
+      mftCache = { ...mftCache, [src.id]: entries };
+      sources = sources.map((s) =>
+        s.id === src.id
+          ? { ...s, entryCount: entries.length, children: buildMftTree(entries) }
+          : s
+      );
+    }
+    mftEntries = entries;
+    fileCount = entries.length;
+    filterParent = 5;
+  }
+
+  async function onAddImage() {
+    const picked = await open({
+      multiple: false,
+      filters: [
+        { name: "Disk Image", extensions: ["dd", "raw", "img", "e01", "aff"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+    });
+    if (!picked) return;
+
+    imagePath = picked;
+    busy = true;
+    try {
+      const entries = await timeoutPromise(invoke("parse_mft", { imagePath: picked }), 120000);
+      onMftLoaded(entries, picked);
+      activeView = "files";
+      msg = `✅ ${entries.length} MFT entries loaded`;
+      if (activeCase?.id) {
+        invoke("log_action", { caseId: activeCase.id, action: "ADD_SOURCE", detail: picked }).catch(() => {});
+      }
+    } catch (e) {
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    }
+    busy = false;
+  }
+
+  function onOpenSqlite(filename) {
+    msg = `🗄️ Open local copy of ${filename} via SQLite Manager or Inspector`;
+    activeView = "sqlite";
+  }
+
+  async function onOpenArtifact() {
+    const picked = await open({
+      multiple: false,
+      filters: [
+        { name: "Evidence Files", extensions: ["*"] },
+        { name: "SQLite", extensions: ["db", "sqlite", "sqlite3"] },
+      ],
+    });
+    if (!picked) return;
+
+    artifactPath = picked;
+    selectedFile = picked;
+    hashLoading = true;
+    busy = true;
+    try {
+      const [hashes, preview] = await Promise.all([
+        invoke("hash_file", { path: picked }),
+        timeoutPromise(invoke("preview_file", { path: picked }), 30000),
+      ]);
+      inspectorMeta = { ...preview.metadata, ...hashes, source: "disk" };
+      msg = `✅ Loaded artifact: ${picked.split(/[/\\]/).pop()}`;
+      if (isSqliteArtifact(picked)) {
+        sqliteDbPath = picked;
+        activeView = "sqlite";
+      } else {
+        activeView = "files";
+      }
+    } catch (e) {
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    }
+    hashLoading = false;
+    busy = false;
   }
 
   function handleSearchSubmit() {
@@ -163,7 +265,13 @@
     <aside class="sidebar">
       <div class="sidebar-section">
         <div class="section-head">SOURCES</div>
-        <SourceTree bind:sources bind:selectedSource onSelect={onSourceSelect} />
+        <SourceTree
+          bind:sources
+          bind:selectedSource
+          onSelect={onSourceSelect}
+          onAddImage={onAddImage}
+          loading={busy}
+        />
       </div>
 
       <div class="sidebar-section">
@@ -207,15 +315,26 @@
         <CaseTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "files"}
         <FileBrowserTab
-          bind:activeCase bind:busy bind:msg bind:imagePath
-          {timeoutPromise} {density} {onFileSelect}
+          bind:this={fileBrowser}
+          bind:activeCase
+          bind:busy
+          bind:msg
+          bind:imagePath
+          bind:artifactPath
+          {timeoutPromise}
+          {density}
+          {mftEntries}
+          filterParent={filterParent}
+          onFileSelect={onFileSelect}
+          onOpenSqlite={onOpenSqlite}
+          onMftLoaded={onMftLoaded}
         />
       {:else if activeView === "timeline"}
         <TimelineTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "carving"}
         <CarvingTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "sqlite"}
-        <SqliteTab bind:activeCase bind:busy bind:msg />
+        <SqliteTab bind:activeCase bind:busy bind:msg bind:dbPath={sqliteDbPath} {timeoutPromise} />
       {:else if activeView === "search"}
         <SearchTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "bookmarks"}
@@ -238,7 +357,9 @@
         visible={true}
         bind:note={inspectorNote}
         bind:tags={inspectorTags}
+        {hashLoading}
         onAddEvidence={handleAddEvidence}
+        onOpenArtifact={onOpenArtifact}
       />
     </aside>
   </div>

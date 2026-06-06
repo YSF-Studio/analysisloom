@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::forensic::{self, carving, evidence, ntfs, preview, report, ProgressState};
+use crate::forensic::{self, carving, evidence, hashing, ntfs, preview, report, sqlite, ProgressState};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Case {
@@ -157,11 +157,38 @@ pub fn keyword_search(case_id: String, query: String) -> Result<Vec<SearchResult
     Ok(results)
 }
 
-// ─── File Preview ───
+// ─── File Preview & Hashing ───
 
 #[tauri::command]
 pub fn preview_file(path: String) -> Result<preview::PreviewResult, String> {
     preview::preview_file(&path)
+}
+
+#[tauri::command]
+pub fn hash_file(path: String) -> Result<hashing::HashSet, String> {
+    hashing::multi_hash_file(&path)
+}
+
+// ─── SQLite Artifact Browser ───
+
+#[tauri::command]
+pub fn sqlite_db_info(path: String) -> Result<sqlite::SqliteDbInfo, String> {
+    sqlite::db_info(&path)
+}
+
+#[tauri::command]
+pub fn sqlite_table_columns(path: String, table: String) -> Result<Vec<sqlite::SqliteColumn>, String> {
+    sqlite::table_columns(&path, &table)
+}
+
+#[tauri::command]
+pub fn sqlite_query_table(path: String, table: String, limit: Option<u32>) -> Result<sqlite::SqliteQueryResult, String> {
+    sqlite::query_table(&path, &table, limit.unwrap_or(100))
+}
+
+#[tauri::command]
+pub fn sqlite_run_query(path: String, query: String, limit: Option<u32>) -> Result<sqlite::SqliteQueryResult, String> {
+    sqlite::run_select(&path, &query, limit.unwrap_or(100))
 }
 
 // ─── Report Generation ───

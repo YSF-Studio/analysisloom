@@ -2,10 +2,23 @@
   import { invoke } from "@tauri-apps/api/core";
   import FilePreview from "./FilePreview.svelte";
   import SegmentedControl from "./SegmentedControl.svelte";
+  import { isSqliteArtifact } from "../mftTree.js";
 
-  let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise, density, onFileSelect, imagePath = $bindable("") } = $props();
+  let {
+    activeCase,
+    busy = $bindable(),
+    msg = $bindable(),
+    timeoutPromise,
+    density,
+    onFileSelect,
+    onOpenSqlite,
+    onMftLoaded,
+    imagePath = $bindable(""),
+    mftEntries = [],
+    filterParent = 5,
+    artifactPath = $bindable(""),
+  } = $props();
 
-  let entries = $state([]);
   let previewFile = $state(null);
   let previewPath = $state("");
   let sortCol = $state("filename");
@@ -19,6 +32,10 @@
     { id: "strings", label: "Strings" },
     { id: "metadata", label: "Metadata" },
   ];
+
+  let entries = $derived(
+    mftEntries.filter((e) => (e.parentRecord ?? 0) === (filterParent ?? 5))
+  );
 
   function startDrag(e) {
     const parent = e.target.closest(".workspace-split");
@@ -44,49 +61,79 @@
     e.preventDefault();
   }
 
-  async function loadMft() {
-    if (!imagePath) return;
+  export async function loadMft() {
+    if (!imagePath) return [];
     busy = true;
     try {
-      entries = await timeoutPromise(invoke("parse_mft", { imagePath }), 60000);
-      msg = `✅ ${entries.length} entries loaded`;
+      const result = await timeoutPromise(invoke("parse_mft", { imagePath }), 60000);
+      msg = `✅ ${result.length} MFT entries loaded`;
+      onMftLoaded?.(result, imagePath);
       if (activeCase?.id) {
         invoke("log_action", { caseId: activeCase.id, action: "LOAD_MFT", detail: imagePath }).catch(() => {});
       }
+      return result;
     } catch (e) {
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+      return [];
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
 
   function sortBy(col) {
     if (sortCol === col) sortDir = sortDir === "asc" ? "desc" : "asc";
     else { sortCol = col; sortDir = "asc"; }
-    entries = [...entries].sort((a, b) => {
-      let va = a[col], vb = b[col];
+  }
+
+  let sortedEntries = $derived.by(() => {
+    const list = [...entries];
+    list.sort((a, b) => {
+      let va = a[sortCol], vb = b[sortCol];
       if (typeof va === "string") va = va.toLowerCase();
       if (typeof vb === "string") vb = vb.toLowerCase();
       if (va < vb) return sortDir === "asc" ? -1 : 1;
       if (va > vb) return sortDir === "asc" ? 1 : -1;
       return 0;
     });
-  }
+    return list;
+  });
 
-  function selectFile(entry) {
+  async function selectFile(entry) {
     previewFile = entry.filename || "unnamed";
-    previewPath = imagePath;
-    onFileSelect?.(entry.filename || previewFile, {
+    const localPath = artifactPath || "";
+    previewPath = localPath;
+
+    const baseMeta = {
       size: entry.fileSize,
       modified: entry.siModified || entry.fnModified || "—",
       created: entry.siCreated || entry.fnCreated || "—",
       permissions: entry.isDeleted ? "Deleted" : "Active",
       isDir: !!entry.isDirectory,
-      md5: entry.md5,
-      sha1: entry.sha1,
-      sha256: entry.sha256,
-      magicMatch: entry.magicMatch,
-      entropy: entry.entropy,
-    });
+      recordNumber: entry.recordNumber,
+      parentRecord: entry.parentRecord,
+      source: "mft",
+    };
+
+    onFileSelect?.(entry.filename || previewFile, baseMeta, localPath || null);
+
+    if (localPath) {
+      try {
+        const hashes = await invoke("hash_file", { path: localPath });
+        onFileSelect?.(localPath, { ...baseMeta, ...hashes, source: "disk" }, localPath);
+      } catch {
+        /* hash unavailable */
+      }
+    }
+
+    if (!entry.isDirectory && isSqliteArtifact(entry.filename)) {
+      onOpenSqlite?.(entry.filename);
+    }
+  }
+
+  function onPreviewLoaded(result) {
+    if (!result?.metadata) return;
+    const path = result.path || previewPath || previewFile;
+    onFileSelect?.(path, { ...result.metadata, source: "preview" }, result.path);
   }
 
   function formatDate(t) {
@@ -119,17 +166,24 @@
     if (sortCol !== col) return "";
     return sortDir === "asc" ? " ▲" : " ▼";
   }
+
+  $effect(() => {
+    if (artifactPath) {
+      previewPath = artifactPath;
+      previewFile = artifactPath.split(/[/\\]/).pop() || artifactPath;
+    }
+  });
 </script>
 
 <div class="file-browser">
   <div class="load-row">
     <input type="text" bind:value={imagePath} placeholder="/dev/sda or path to E01/DD image..." disabled={busy} />
-    <button onclick={loadMft} disabled={busy || !imagePath} class="btn-primary">Load</button>
+    <button onclick={() => loadMft()} disabled={busy || !imagePath} class="btn-primary">Load</button>
   </div>
 
   <div class="workspace-split">
     <div class="list-section" style="flex: 0 0 {splitRatio}%">
-      {#if entries.length}
+      {#if sortedEntries.length}
         <div class="finder-table">
           <div class="thead">
             <button class="th" onclick={() => sortBy("filename")}>Name{sortIndicator("filename")}</button>
@@ -137,7 +191,7 @@
             <button class="th right" onclick={() => sortBy("fileSize")}>Size{sortIndicator("fileSize")}</button>
           </div>
           <div class="tbody">
-            {#each entries.slice(0, 500) as e, i}
+            {#each sortedEntries.slice(0, 500) as e}
               <button
                 class="trow"
                 class:deleted={e.isDeleted}
@@ -154,21 +208,34 @@
         </div>
       {:else if busy}
         <div class="empty"><span class="spinner">⏳</span> Parsing filesystem...</div>
+      {:else if mftEntries.length}
+        <div class="empty">No entries in this folder</div>
       {:else}
-        <div class="empty">Select a source or enter a disk image path</div>
+        <div class="empty">Add a source image or enter a disk path</div>
       {/if}
     </div>
 
-    {#if previewFile || entries.length}
-      <div class="resize-handle" onpointerdown={startDrag} title="Drag to resize"></div>
+    {#if previewFile || sortedEntries.length || previewPath}
+      <div class="resize-handle" onpointerdown={startDrag} title="Drag to resize" role="separator"></div>
       <div class="viewer-section" style="flex: 0 0 calc(100% - {splitRatio}%)">
         <div class="viewer-toolbar">
           <SegmentedControl options={modes} bind:value={viewerMode} />
           {#if previewFile}<span class="viewer-file mono">{previewFile}</span>{/if}
         </div>
         <div class="viewer-body">
-          {#if previewFile}
-            <FilePreview filePath={previewPath} bind:busy bind:msg {timeoutPromise} mode={viewerMode} />
+          {#if previewPath}
+            <FilePreview
+              filePath={previewPath}
+              bind:busy
+              bind:msg
+              {timeoutPromise}
+              mode={viewerMode}
+              onPreview={onPreviewLoaded}
+            />
+          {:else if previewFile}
+            <div class="empty small">
+              MFT entry — open a carved/local copy to preview &amp; hash
+            </div>
           {:else}
             <div class="empty small">Select a file to preview</div>
           {/if}
@@ -221,5 +288,5 @@
   .viewer-file { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
   .viewer-body { flex: 1; min-height: 0; overflow: auto; }
   .empty { display: flex; align-items: center; justify-content: center; flex: 1; color: var(--text-muted); font-size: 13px; gap: 6px; }
-  .empty.small { min-height: 80px; font-size: 12px; }
+  .empty.small { min-height: 80px; font-size: 12px; text-align: center; padding: 12px; }
 </style>

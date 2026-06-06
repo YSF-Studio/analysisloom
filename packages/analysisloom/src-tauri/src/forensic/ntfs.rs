@@ -91,13 +91,15 @@ use std::io::{Read, Seek, SeekFrom};
         // Parse $STANDARD_INFORMATION ($SI) and $FILE_NAME ($FN) attributes
         let mut filename = String::new();
         let mut parent = 0u64;
-        let mut is_dir = false;
-        let mut is_deleted = buf[22] & 0x04 != 0; // Bit 2 = in-use flag
+        let flags = u16::from_le_bytes([buf[22], buf[23]]);
+        let mut is_dir = flags & 0x0002 != 0;
+        let is_deleted = flags & 0x0001 == 0;
         let mut si_created = None;
         let mut si_modified = None;
         let mut si_accessed = None;
         let mut fn_created = None;
         let mut fn_modified = None;
+        let mut file_size = 0u64;
 
         // Walk attributes starting at offset 56
         let attr_offset = u16::from_le_bytes([buf[20], buf[21]]) as usize;
@@ -126,6 +128,19 @@ use std::io::{Read, Seek, SeekFrom};
                         si_accessed = Some(ntfs_timestamp(&buf[si_pos + 24..si_pos + 32]));
                     }
                 }
+                0x80 => { // $DATA (unnamed stream → file size)
+                    if resident {
+                        file_size = content_size as u64;
+                    } else if content_offset + 56 <= buf.len() {
+                        let data_pos = pos + content_offset;
+                        if data_pos + 56 <= buf.len() {
+                            file_size = u64::from_le_bytes([
+                                buf[data_pos + 48], buf[data_pos + 49], buf[data_pos + 50], buf[data_pos + 51],
+                                buf[data_pos + 52], buf[data_pos + 53], buf[data_pos + 54], buf[data_pos + 55],
+                            ]);
+                        }
+                    }
+                }
                 0x30 => { // $FILE_NAME
                     if resident && content_offset + 66 <= buf.len() {
                         let fn_pos = pos + content_offset;
@@ -133,7 +148,10 @@ use std::io::{Read, Seek, SeekFrom};
                             buf[fn_pos], buf[fn_pos+1], buf[fn_pos+2], buf[fn_pos+3],
                             buf[fn_pos+4], buf[fn_pos+5], buf[fn_pos+6], buf[fn_pos+7],
                         ]);
-                        is_dir = buf[fn_pos + 56] & 0x02 != 0; // Bit 1 = directory
+                        let fn_flags = u32::from_le_bytes([
+                            buf[fn_pos + 56], buf[fn_pos + 57], buf[fn_pos + 58], buf[fn_pos + 59],
+                        ]);
+                        is_dir = fn_flags & 0x1000_0000 != 0;
                         let fn_len = buf[fn_pos + 64] as usize;
                         if fn_len > 0 && fn_pos + 66 + fn_len * 2 <= buf.len() {
                             filename = String::from_utf16_lossy(
@@ -160,7 +178,7 @@ use std::io::{Read, Seek, SeekFrom};
                 parent_record: parent,
                 is_directory: is_dir,
                 is_deleted,
-                file_size: 0,
+                file_size,
                 si_created, si_modified, si_accessed,
                 fn_created, fn_modified,
                 has_data: false,

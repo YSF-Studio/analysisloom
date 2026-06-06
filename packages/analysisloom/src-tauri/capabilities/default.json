@@ -8,6 +8,12 @@
     "fs:allow-read-file",
     "fs:allow-write-file",
     "dialog:default",
-    { "identifier": "fs:scope", "allow": [{ "path": "$HOME/**" }, { "path": "/mnt/**" }, { "path": "/tmp/**" }] }
+    { "identifier": "fs:scope", "allow": [
+      { "path": "$HOME/**" },
+      { "path": "/mnt/**" },
+      { "path": "/tmp/**" },
+      { "path": "/dev/**" },
+      { "path": "/workspace/**" }
+    ] }
   ]
 }

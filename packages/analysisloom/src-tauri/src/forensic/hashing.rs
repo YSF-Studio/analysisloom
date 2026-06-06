@@ -20,6 +20,36 @@ pub fn multi_hash_buffer(data: &[u8]) -> HashSet {
     }
 }
 
+/// Stream-hash a file on disk (forensic chain-of-custody).
+pub fn multi_hash_file(path: &str) -> Result<HashSet, String> {
+    use std::io::Read;
+
+    let mut file =
+        std::fs::File::open(path).map_err(|e| format!("Cannot open file for hashing: {e}"))?;
+    let mut md5 = Md5::new();
+    let mut sha1 = Sha1::new();
+    let mut sha256 = Sha256::new();
+    let mut buf = [0u8; HASH_BUFFER_SIZE];
+
+    loop {
+        let n = file
+            .read(&mut buf)
+            .map_err(|e| format!("Read error during hashing: {e}"))?;
+        if n == 0 {
+            break;
+        }
+        md5.update(&buf[..n]);
+        sha1.update(&buf[..n]);
+        sha256.update(&buf[..n]);
+    }
+
+    Ok(HashSet {
+        md5: Some(format!("{:x}", md5.finalize())),
+        sha1: Some(format!("{:x}", sha1.finalize())),
+        sha256: Some(format!("{:x}", sha256.finalize())),
+    })
+}
+
 pub fn compute_entropy(data: &[u8]) -> f64 {
     if data.is_empty() {
         return 0.0;
@@ -56,4 +86,20 @@ pub fn check_magic_bytes(data: &[u8]) -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_file_streams_bytes() {
+        let path = std::env::temp_dir().join("analysisloom_hash_test.bin");
+        let data = b"forensic chain of custody";
+        std::fs::write(&path, data).unwrap();
+        let hashes = multi_hash_file(path.to_str().unwrap()).unwrap();
+        let mem = multi_hash_buffer(data);
+        assert_eq!(hashes.sha256, mem.sha256);
+        let _ = std::fs::remove_file(&path);
+    }
 }

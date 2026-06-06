@@ -7,6 +7,7 @@ pub mod ntfs;
 pub mod carving;
 pub mod preview;
 pub mod report;
+pub mod sqlite;
 
 use once_cell::sync::Lazy;
 use std::sync::atomic::AtomicBool;
