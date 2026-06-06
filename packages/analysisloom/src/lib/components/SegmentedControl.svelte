@@ -18,7 +18,7 @@
 <style>
   .segmented {
     display: inline-flex;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-subtle);
     border: 1px solid var(--divider);
     border-radius: 7px;
     padding: 2px;
@@ -39,12 +39,8 @@
   .segment:hover { color: var(--text); }
   .segment.active {
     background: var(--primary);
-    color: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    color: var(--text-on-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     font-weight: 600;
-  }
-  :global(html.theme-light) .segment.active {
-    background: var(--primary);
-    color: #fff;
   }
 </style>

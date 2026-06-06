@@ -115,7 +115,7 @@
     display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px;
     padding: 8px 12px; font-size: 11px; border-bottom: 1px solid var(--divider);
   }
-  .carved-head { position: sticky; top: 0; background: rgba(0,0,0,0.35); font-weight: 600; color: var(--text-secondary); }
+  .carved-head { position: sticky; top: 0; background: var(--surface-header); font-weight: 600; color: var(--text-secondary); }
   .carved-row:hover { background: var(--primary-bg); }
   .mono { font-family: var(--mono); }
 </style>

@@ -114,7 +114,7 @@
     font-size: 12px; text-align: left; cursor: pointer;
   }
   .source-root:hover, .source-child:hover {
-    background: rgba(255, 255, 255, 0.04); color: var(--text);
+    background: var(--surface-subtle); color: var(--text);
   }
   .source-child.active {
     background: var(--primary-bg); color: var(--primary); font-weight: 600;
@@ -134,6 +134,6 @@
   }
   .badge {
     font-size: 9px; padding: 1px 5px; border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06); color: var(--text-muted);
+    background: var(--surface-muted); color: var(--text-muted);
   }
 </style>

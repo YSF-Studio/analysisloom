@@ -208,21 +208,21 @@
   }
   .toolbar label { font-size: 11px; color: var(--text-muted); display: flex; gap: 6px; align-items: center; }
   .toolbar select {
-    background: rgba(0, 0, 0, 0.25); border: 1px solid var(--divider);
+    background: var(--surface-muted); border: 1px solid var(--divider);
     color: var(--text); border-radius: 6px; padding: 4px 8px; font-size: 12px;
   }
   .meta { font-size: 11px; }
   .table-wrap {
     flex: 1; min-height: 0; overflow: auto;
     border: 1px solid var(--divider); border-radius: 8px;
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--surface-inset);
   }
   .sql-thead, .sql-row {
     display: grid; padding: 8px 12px; gap: 8px; font-size: 12px;
     border-bottom: 1px solid var(--divider);
   }
   .sql-thead {
-    position: sticky; top: 0; background: rgba(0, 0, 0, 0.35);
+    position: sticky; top: 0; background: var(--surface-header);
     font-weight: 600; color: var(--text-secondary); font-size: 11px;
   }
   .sql-row:hover { background: var(--primary-bg); }
@@ -237,7 +237,7 @@
   }
   .viewer-content {
     min-height: 80px; max-height: 140px; overflow: auto;
-    background: rgba(0, 0, 0, 0.2); border: 1px solid var(--divider);
+    background: var(--surface-code); color: var(--text-code); border: 1px solid var(--divider);
     border-radius: 8px; padding: 10px 12px;
   }
   .preview-text, .mono { font-family: var(--mono); font-size: 11px; margin: 0; }

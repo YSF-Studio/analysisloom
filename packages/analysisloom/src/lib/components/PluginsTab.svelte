@@ -77,5 +77,5 @@
   .desc { display: block; font-size: 10px; color: var(--text-secondary); margin-top: 4px; }
   .row { display: flex; gap: 8px; margin-bottom: 8px; }
   input { flex: 1; font-size: 12px; }
-  .output { font-size: 10px; font-family: var(--mono); background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; overflow: auto; max-height: 40vh; }
+  .output { font-size: 10px; font-family: var(--mono); color: var(--text-code); background: var(--surface-code); padding: 10px; border-radius: 6px; overflow: auto; max-height: 40vh; border: 1px solid var(--divider); }
 </style>

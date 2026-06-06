@@ -69,7 +69,7 @@
   .stats { display: flex; gap: 16px; font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
   .events { font-size: 11px; border: 1px solid var(--divider); border-radius: 8px; overflow: auto; max-height: 70vh; }
   .thead, .ev { display: grid; grid-template-columns: 100px 100px 80px 1fr; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--divider); }
-  .thead { font-weight: 600; color: var(--text-secondary); position: sticky; top: 0; background: rgba(0,0,0,0.4); }
+  .thead { font-weight: 600; color: var(--text-secondary); position: sticky; top: 0; background: var(--surface-header); }
   .type { font-weight: 600; font-size: 10px; text-transform: uppercase; }
   .type-auth_failure { background: rgba(239, 68, 68, 0.05); }
   .cmd { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); }

@@ -153,7 +153,7 @@
     gap: 8px; padding: 6px 10px; align-items: start;
   }
   .findings-head {
-    background: rgba(0, 0, 0, 0.25); font-weight: 600; font-size: 10px;
+    background: var(--surface-muted); font-weight: 600; font-size: 10px;
     color: var(--text-secondary); text-transform: uppercase;
   }
   .finding-row { border-top: 1px solid var(--divider); }

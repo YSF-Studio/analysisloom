@@ -17,7 +17,7 @@
   .skeleton-row { display: grid; gap: 10px; }
   .skeleton-cell {
     height: 14px; border-radius: 4px;
-    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%);
+    background: linear-gradient(90deg, var(--surface-skeleton-a) 25%, var(--surface-skeleton-b) 50%, var(--surface-skeleton-a) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.4s ease-in-out infinite;
   }

@@ -118,7 +118,7 @@
     border-bottom: 1px solid var(--divider);
   }
   .findings-head {
-    position: sticky; top: 0; background: rgba(0, 0, 0, 0.35);
+    position: sticky; top: 0; background: var(--surface-header);
     font-weight: 600; color: var(--text-secondary); font-size: 11px;
   }
   .finding-row:hover { background: var(--primary-bg); }

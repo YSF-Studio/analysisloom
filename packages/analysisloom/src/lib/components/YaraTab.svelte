@@ -111,7 +111,7 @@
   }
   .head {
     font-weight: 600; font-size: 11px; color: var(--text-secondary);
-    position: sticky; top: 0; background: rgba(0, 0, 0, 0.35); z-index: 1;
+    position: sticky; top: 0; background: var(--surface-header); z-index: 1;
     border-bottom: 1px solid var(--divider);
   }
   .row-match { border-bottom: 1px solid var(--divider); }
@@ -120,17 +120,17 @@
   .mono { font-family: var(--mono); font-size: 11px; }
   .file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .snippet-row {
-    padding: 8px 12px 10px; background: rgba(0, 0, 0, 0.2);
+    padding: 8px 12px 10px; background: var(--surface-muted);
     border-bottom: 1px solid var(--divider);
   }
   .snippet-label { font-size: 10px; color: var(--text-muted); display: block; margin-bottom: 4px; }
   .snippet-label code { color: var(--primary); }
   .snippet {
-    margin: 0; padding: 8px; border-radius: 6px; background: #0d0d0d;
+    margin: 0; padding: 8px; border-radius: 6px; background: var(--surface-code); color: var(--text-code);
     font-family: var(--mono); font-size: 10px; white-space: pre-wrap; word-break: break-all;
-    color: var(--text-secondary); max-height: 80px; overflow: auto;
+    max-height: 80px; overflow: auto;
   }
-  mark.hl { background: rgba(245, 158, 11, 0.35); color: #fbbf24; padding: 0 1px; border-radius: 2px; }
+  mark.hl { background: var(--mark-bg); color: var(--text-highlight); padding: 0 1px; border-radius: 2px; }
   .snippet-btn {
     padding: 2px 8px; font-size: 10px; border-radius: 4px;
     border: 1px solid var(--divider); background: transparent;

@@ -91,7 +91,7 @@
     gap: 0;
     height: 32px;
     padding: 0 8px;
-    background: rgba(12, 12, 12, 0.8);
+    background: var(--surface-tabbar);
     border-bottom: 1px solid var(--divider);
     overflow-x: auto;
     scroll-behavior: smooth;
@@ -115,9 +115,9 @@
     transition: background 0.12s, color 0.12s;
     flex-shrink: 0;
   }
-  .tab:hover { background: rgba(255, 255, 255, 0.04); color: var(--text-secondary); }
+  .tab:hover { background: var(--surface-tab-hover); color: var(--text-secondary); }
   .tab.active {
-    background: rgba(20, 20, 20, 0.95);
+    background: var(--surface-tab-active);
     color: var(--text);
     border: 1px solid var(--divider);
     border-bottom-color: transparent;

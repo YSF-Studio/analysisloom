@@ -895,7 +895,7 @@
 
   .search-bar {
     display: flex; align-items: center; flex: 1; max-width: 440px; margin: 0 auto;
-    background: rgba(255, 255, 255, 0.05); border: 1px solid var(--divider);
+    background: var(--surface-search); border: 1px solid var(--divider);
     border-radius: 8px; padding: 0 12px; height: 30px;
     -webkit-app-region: no-drag;
   }

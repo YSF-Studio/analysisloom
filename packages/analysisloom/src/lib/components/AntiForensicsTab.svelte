@@ -108,7 +108,7 @@
     gap: 8px; padding: 8px 12px; align-items: center;
   }
   .list-head {
-    position: sticky; top: 0; background: rgba(0, 0, 0, 0.35);
+    position: sticky; top: 0; background: var(--surface-header);
     font-weight: 600; font-size: 11px; color: var(--text-secondary);
     border-bottom: 1px solid var(--divider);
   }

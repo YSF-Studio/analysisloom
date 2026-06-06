@@ -286,11 +286,11 @@
   }
   .pill:hover { border-color: var(--primary); color: var(--text); }
   .pill.active {
-    background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600;
+    background: var(--primary); border-color: var(--primary); color: var(--text-on-primary); font-weight: 600;
   }
 
   .btn-generate {
-    padding: 10px 24px; background: var(--primary); color: #fff;
+    padding: 10px 24px; background: var(--primary); color: var(--text-on-primary);
     border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
     cursor: pointer; margin-top: 4px; transition: filter 0.15s;
   }
@@ -345,7 +345,7 @@
   .audit-table { max-height: 240px; overflow-y: auto; }
   .audit-row {
     display: grid; grid-template-columns: 140px 120px 1fr; gap: 8px;
-    padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.03);
+    padding: 6px 4px; border-bottom: 1px solid var(--divider);
     font-size: 11px;
   }
   .audit-time { color: var(--text-muted); font-family: var(--mono); }

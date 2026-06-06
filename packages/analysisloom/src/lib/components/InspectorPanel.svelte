@@ -242,7 +242,7 @@
   .htab.active { background: var(--primary-bg); color: var(--primary); }
   .hash-box {
     font-size: 10px; color: var(--text-secondary);
-    background: rgba(0, 0, 0, 0.25); border: 1px solid var(--divider);
+    background: var(--surface-muted); border: 1px solid var(--divider);
     border-radius: 6px; padding: 8px 10px; word-break: break-all;
   }
   .integrity {
@@ -278,12 +278,12 @@
   .link-chip {
     display: inline-flex; align-items: center; gap: 4px;
     padding: 4px 10px; border-radius: 14px;
-    background: rgba(255, 255, 255, 0.05); border: 1px solid var(--divider);
+    background: var(--surface-subtle); border: 1px solid var(--divider);
     color: var(--text-secondary); font-size: 11px; cursor: pointer;
   }
   .dim-chip { cursor: default; opacity: 0.7; }
   .note-field, .tag-field {
-    width: 100%; background: rgba(0, 0, 0, 0.2);
+    width: 100%; background: var(--surface-inset);
     border: 1px solid var(--divider); border-radius: 8px;
     color: var(--text); font-size: 12px; resize: vertical;
   }

@@ -24,7 +24,7 @@
 <style>
   .progress-wrap { margin: 8px 0 12px; }
   .progress-bar {
-    height: 6px; background: rgba(255, 255, 255, 0.06);
+    height: 6px; background: var(--surface-progress);
     border-radius: 4px; overflow: hidden; position: relative;
   }
   .fill {

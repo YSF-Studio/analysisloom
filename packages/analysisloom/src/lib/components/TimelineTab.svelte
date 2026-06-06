@@ -157,13 +157,13 @@
   .toggle { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
   .view-toggle { display: flex; gap: 2px; }
   .view-toggle button { font-size: 11px; padding: 4px 10px; border: 1px solid var(--divider); background: transparent; color: var(--text-secondary); border-radius: 4px; cursor: pointer; }
-  .view-toggle button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .view-toggle button.active { background: var(--primary); color: var(--text-on-primary); border-color: var(--primary); }
   .gantt-wrap { border: 1px solid var(--divider); border-radius: 8px; overflow: auto; max-height: 70vh; }
   .gantt-axis { display: flex; justify-content: space-between; padding: 6px 12px 6px 100px; font-size: 10px; color: var(--text-muted); border-bottom: 1px solid var(--divider); }
   .gantt { padding: 8px 0; }
   .gantt-row { display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: center; padding: 4px 12px; min-height: 28px; }
   .row-label { font-size: 10px; font-weight: 600; text-align: right; overflow: hidden; text-overflow: ellipsis; }
-  .row-track { position: relative; height: 20px; background: rgba(255,255,255,0.03); border-radius: 4px; }
+  .row-track { position: relative; height: 20px; background: var(--surface-subtle); border-radius: 4px; }
   .bar { position: absolute; top: 2px; width: 8px; height: 16px; border-radius: 3px; cursor: pointer; opacity: 0.85; transition: transform 0.15s; }
   .bar:hover { transform: scaleY(1.3); opacity: 1; z-index: 2; }
   .bar-tip { display: none; }
@@ -172,7 +172,7 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; }
   .timeline { font-size: 11px; border: 1px solid var(--divider); border-radius: 8px; overflow: auto; max-height: 70vh; }
   .thead, .event { display: grid; grid-template-columns: 140px 90px 80px 1fr 1.5fr; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--divider); }
-  .thead { font-weight: 600; color: var(--text-secondary); position: sticky; top: 0; background: rgba(0,0,0,0.4); }
+  .thead { font-weight: 600; color: var(--text-secondary); position: sticky; top: 0; background: var(--surface-header); }
   .ts { color: var(--text-secondary); white-space: nowrap; }
   .src { font-weight: 600; }
   .cat { color: var(--primary); font-size: 10px; }

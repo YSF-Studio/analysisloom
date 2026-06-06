@@ -58,7 +58,7 @@
   .statusbar {
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 14px; height: var(--statusbar-h);
-    background: rgba(0, 0, 0, 0.45); border-top: 1px solid var(--divider);
+    background: var(--surface-statusbar); border-top: 1px solid var(--divider);
     font-size: 11px; color: var(--text-secondary); user-select: none; flex-shrink: 0;
   }
   .sb-left, .sb-center, .sb-right { display: flex; align-items: center; gap: 6px; }

@@ -300,10 +300,9 @@
   }
   .thead {
     position: sticky; top: 0; z-index: 2;
-    background: rgba(0, 0, 0, 0.28); border-bottom: 1px solid var(--divider);
+    background: var(--surface-header); border-bottom: 1px solid var(--divider);
     height: 28px; font-size: 11px; font-weight: 600; color: var(--text-secondary);
   }
-  :global(html.theme-light) .thead { background: rgba(255, 255, 255, 0.9); }
   .th { background: none; border: none; color: inherit; cursor: pointer; padding: 0; text-align: left; font: inherit; }
   .th.right { text-align: right; }
   .tbody { overflow-y: auto; }
@@ -320,23 +319,22 @@
   .mono { font-family: var(--mono); }
   .resize-handle {
     height: 6px; cursor: ns-resize; flex-shrink: 0; margin: 2px 0;
-    background: linear-gradient(to bottom, var(--card), rgba(0, 0, 0, 0.35), var(--divider));
+    background: linear-gradient(to bottom, var(--card), var(--surface-muted), var(--divider));
     border-radius: 3px; transition: background 0.15s;
   }
   .resize-handle:hover { background: var(--primary); }
   .viewer-section {
     display: flex; flex-direction: column; min-height: 120px;
     border: 1px solid var(--divider); border-radius: 8px;
-    background: rgba(0, 0, 0, 0.32);
+    background: var(--surface-viewer);
     overflow: hidden;
     transition: background 0.2s ease, border-color 0.2s ease;
   }
-  :global(html.theme-light) .viewer-section { background: rgba(0, 0, 0, 0.04); }
   .viewer-toolbar {
     display: flex; align-items: center; justify-content: space-between;
     padding: 8px 10px; flex-shrink: 0; gap: 12px;
     border-bottom: 1px solid var(--divider);
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--surface-inset);
   }
   .loading-panel { padding: 16px; flex: 1; }
   .loading-label { display: block; text-align: center; margin-top: 8px; font-size: 12px; color: var(--text-muted); }

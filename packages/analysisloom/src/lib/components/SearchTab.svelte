@@ -87,7 +87,7 @@
   .file { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
   .offset { color: var(--text-muted); font-family: var(--mono); font-size: 11px; }
   .ctx { color: var(--text-secondary); font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
-  mark.hl { background: rgba(245,158,11,0.35); color: #fbbf24; padding: 0 1px; border-radius: 2px; }
+  mark.hl { background: var(--mark-bg); color: var(--text-highlight); padding: 0 1px; border-radius: 2px; }
   .empty { color: var(--text-muted); font-size: 12px; padding: 16px 0; }
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;

@@ -29,7 +29,33 @@
 
   --text: #e8edf4;
   --text-secondary: #86868b;
-  --text-muted: #555;
+  --text-muted: #6e6e73;
+  --text-on-primary: #ffffff;
+  --surface-header: rgba(0, 0, 0, 0.35);
+  --surface-muted: rgba(0, 0, 0, 0.2);
+  --surface-inset: rgba(0, 0, 0, 0.15);
+  --surface-code: #0d0d0d;
+  --surface-code-raised: #111111;
+  --surface-code-input: #1a1a1a;
+  --surface-subtle: rgba(255, 255, 255, 0.05);
+  --surface-search: rgba(255, 255, 255, 0.05);
+  --surface-tabbar: rgba(12, 12, 12, 0.8);
+  --surface-tab-active: rgba(20, 20, 20, 0.95);
+  --surface-tab-hover: rgba(255, 255, 255, 0.04);
+  --surface-statusbar: rgba(10, 10, 10, 0.95);
+  --surface-viewer: rgba(0, 0, 0, 0.28);
+  --surface-progress: rgba(255, 255, 255, 0.06);
+  --surface-skeleton-a: rgba(255, 255, 255, 0.04);
+  --surface-skeleton-b: rgba(255, 255, 255, 0.09);
+  --text-code: #d4d4d4;
+  --text-code-dim: #888888;
+  --text-code-offset: #6e6e73;
+  --text-code-accent: #a0c4ff;
+  --text-highlight: #fbbf24;
+  --mark-bg: rgba(245, 158, 11, 0.35);
+  --toast-bg: #0a2418;
+  --toast-error-bg: #240a0a;
+  --toast-warn-bg: #241a0a;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, monospace;
 
@@ -55,9 +81,34 @@ html.theme-light {
   --divider: rgba(0, 0, 0, 0.08);
   --border: rgba(0, 0, 0, 0.1);
   --text: #1d1d1f;
-  --text-secondary: #6e6e73;
-  --text-muted: #86868b;
+  --text-secondary: #424245;
+  --text-muted: #6e6e73;
   --primary-bg: rgba(59, 130, 246, 0.12);
+  --surface-header: rgba(245, 245, 247, 0.98);
+  --surface-muted: rgba(0, 0, 0, 0.04);
+  --surface-inset: rgba(0, 0, 0, 0.06);
+  --surface-code: #f4f5f7;
+  --surface-code-raised: #e8eaed;
+  --surface-code-input: #ffffff;
+  --surface-subtle: rgba(0, 0, 0, 0.04);
+  --surface-search: rgba(0, 0, 0, 0.05);
+  --surface-tabbar: rgba(255, 255, 255, 0.96);
+  --surface-tab-active: #ffffff;
+  --surface-tab-hover: rgba(0, 0, 0, 0.05);
+  --surface-statusbar: rgba(255, 255, 255, 0.95);
+  --surface-viewer: rgba(0, 0, 0, 0.04);
+  --surface-progress: rgba(0, 0, 0, 0.08);
+  --surface-skeleton-a: rgba(0, 0, 0, 0.05);
+  --surface-skeleton-b: rgba(0, 0, 0, 0.1);
+  --text-code: #1d1d1f;
+  --text-code-dim: #6e6e73;
+  --text-code-offset: #86868b;
+  --text-code-accent: #1d4ed8;
+  --text-highlight: #b45309;
+  --mark-bg: rgba(245, 158, 11, 0.28);
+  --toast-bg: #ecfdf5;
+  --toast-error-bg: #fef2f2;
+  --toast-warn-bg: #fffbeb;
 }
 
 html.theme-light .titlebar {
@@ -78,7 +129,18 @@ html.theme-light textarea,
 html.theme-light select {
   background: #ffffff;
   color: var(--text);
-  border-color: var(--divider);
+  border-color: var(--border);
+}
+html.theme-light .workspace-main {
+  background: var(--bg);
+}
+html.theme-light .offline-badge {
+  color: #166534;
+  background: rgba(22, 101, 52, 0.12);
+}
+html.theme-light .case-pill,
+html.theme-light .nav-item.active {
+  color: #1d4ed8;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -120,7 +182,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); }
 }
 .btn:hover { color: var(--text); background: var(--card-hover); }
 .btn-primary {
-  background: var(--primary); color: #fff; border: none;
+  background: var(--primary); color: var(--text-on-primary); border: none;
   padding: 8px 18px; font-weight: 600; font-size: 13px;
 }
 .btn-primary:hover { opacity: 0.9; }
@@ -227,15 +289,23 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); }
 .pill-high { background: var(--warn-bg); color: var(--pill-high); }
 .pill-info { background: var(--accent-bg); color: var(--pill-info); }
 
+mark.hl {
+  background: var(--mark-bg);
+  color: var(--text-highlight);
+  padding: 0 1px;
+  border-radius: 2px;
+}
+
 .toast {
   position: fixed; bottom: 48px; right: 20px;
   padding: 10px 16px; border-radius: var(--radius-lg);
-  background: #0a2418; border: 1px solid var(--success);
+  background: var(--toast-bg); border: 1px solid var(--success);
+  color: var(--text);
   font-size: 13px; max-width: 400px; z-index: 1000;
   animation: slideUp 0.25s ease-out;
 }
-.toast.error { background: #240a0a; border-color: var(--danger); }
-.toast.warn { background: #241a0a; border-color: var(--warn); }
+.toast.error { background: var(--toast-error-bg); border-color: var(--danger); }
+.toast.warn { background: var(--toast-warn-bg); border-color: var(--warn); }
 .toast .close-toast { background: none; border: none; color: inherit; cursor: pointer; margin-left: 10px; }
 
 .empty-state {

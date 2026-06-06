@@ -266,7 +266,7 @@
   .add-form .row { margin-bottom: 8px; }
   .add-form label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
   .add-form input, .add-form textarea { width: 100%; box-sizing: border-box; font-size: 12px; padding: 6px 8px; }
-  .btn-primary { padding: 8px 16px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; }
+  .btn-primary { padding: 8px 16px; background: var(--primary); color: var(--text-on-primary); border: none; border-radius: 8px; font-size: 12px; cursor: pointer; }
   .finding-list, .bm-list { display: flex; flex-direction: column; gap: 8px; }
   .finding-card, .bm-card {
     background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
@@ -277,7 +277,7 @@
   .finding-card.pending { border-left: 3px solid var(--text-muted); }
   .finding-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
   .severity { font-size: 11px; font-weight: 600; color: var(--primary); }
-  .review-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.06); text-transform: uppercase; }
+  .review-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--surface-subtle); color: var(--text-secondary); text-transform: uppercase; }
   .finding-desc { font-size: 12px; margin: 4px 0; color: var(--text); }
   .finding-file { font-size: 10px; font-family: var(--mono); color: var(--text-muted); word-break: break-all; }
   .review-input { width: 100%; margin-top: 6px; font-size: 11px; padding: 4px 8px; box-sizing: border-box; }
@@ -293,7 +293,7 @@
   .bm-header { display: flex; justify-content: space-between; gap: 8px; }
   .bm-file { font-family: var(--mono); font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; }
   .bm-actions { display: flex; gap: 4px; }
-  .btn-delete { background: transparent; border: none; color: #888; cursor: pointer; }
+  .btn-delete { background: transparent; border: none; color: var(--text-muted); cursor: pointer; }
   .bm-tag { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: var(--primary-bg); color: var(--primary); }
   .bm-note { font-size: 11px; color: var(--text-secondary); margin: 4px 0 0; }
   .empty-state, .loading-state { display: flex; flex-direction: column; align-items: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
