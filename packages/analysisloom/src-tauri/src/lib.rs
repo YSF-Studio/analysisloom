@@ -1,8 +1,9 @@
 use tauri::Manager;
 
-mod commands;
-mod db;
-mod forensic;
+pub mod commands;
+pub mod db;
+pub mod forensic;
+pub mod fixtures_gen;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

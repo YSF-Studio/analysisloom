@@ -1,0 +1,187 @@
+//! End-to-end integration: all Tauri commands against randomly generated fixtures.
+
+use analysisloom_lib::commands::*;
+use analysisloom_lib::fixtures_gen;
+use analysisloom_lib::forensic::carving;
+use std::sync::atomic::AtomicBool;
+use std::time::{Duration, Instant};
+
+fn setup_db_home(home: &std::path::Path) {
+    std::fs::create_dir_all(home).expect("create test home");
+    std::env::set_var("HOME", home);
+    analysisloom_lib::db::init().expect("db init");
+}
+
+#[test]
+fn full_forensic_pipeline_with_random_fixtures() {
+    let ws = fixtures_gen::generate_workspace(42);
+    let home = ws.root.join("home");
+    setup_db_home(&home);
+
+    println!("Fixture workspace: {}", ws.root.display());
+
+    // ─── Case management ───
+    let case = create_case("Random Forensic Case".into(), "Test Analyst".into()).expect("create_case");
+    assert!(!case.id.is_empty());
+    let cases = list_cases().expect("list_cases");
+    assert!(cases.iter().any(|c| c.id == case.id));
+    let fetched = get_case(case.id.clone()).expect("get_case");
+    assert_eq!(fetched.name, "Random Forensic Case");
+
+    // ─── NTFS parse ───
+    let mft = parse_mft(ws.ntfs_image.to_string_lossy().to_string()).expect("parse_mft");
+    assert!(!mft.is_empty(), "MFT should contain entries from synthetic image");
+    assert!(mft.iter().any(|e| e.filename.contains("Windows") || e.filename == "."));
+    println!("MFT entries: {}", mft.len());
+
+    // ─── Encryption detection ───
+    let enc_ntfs = detect_encrypted(ws.ntfs_image.to_string_lossy().to_string()).expect("detect_encrypted ntfs");
+    let enc_luks = detect_encrypted(ws.luks_image.to_string_lossy().to_string()).expect("detect_encrypted luks");
+    assert!(!enc_luks.is_empty(), "LUKS image should trigger detection");
+    println!("Encryption findings: ntfs={}, luks={}", enc_ntfs.len(), enc_luks.len());
+
+    // ─── Hash & preview ───
+    let hashes = hash_file(ws.evidence_txt.to_string_lossy().to_string()).expect("hash_file");
+    assert!(hashes.sha256.is_some());
+    let preview = preview_file(ws.evidence_txt.to_string_lossy().to_string()).expect("preview_file txt");
+    assert!(preview.metadata.sha256.is_some());
+    let png_preview = preview_file(ws.evidence_png.to_string_lossy().to_string()).expect("preview_file png");
+    assert_eq!(png_preview.extension, "png");
+
+    // ─── SQLite browser ───
+    let db_info = sqlite_db_info(ws.sqlite_db.to_string_lossy().to_string()).expect("sqlite_db_info");
+    assert!(db_info.tables.contains(&"messages".to_string()));
+    let cols = sqlite_table_columns(
+        ws.sqlite_db.to_string_lossy().to_string(),
+        "messages".into(),
+    )
+    .expect("sqlite_table_columns");
+    assert!(!cols.is_empty());
+    let rows = sqlite_query_table(
+        ws.sqlite_db.to_string_lossy().to_string(),
+        "messages".into(),
+        Some(10),
+    )
+    .expect("sqlite_query_table");
+    assert_eq!(rows.row_count, 10);
+    let custom = sqlite_run_query(
+        ws.sqlite_db.to_string_lossy().to_string(),
+        "SELECT sender, message FROM messages".into(),
+        Some(5),
+    )
+    .expect("sqlite_run_query");
+    assert!(!custom.rows.is_empty());
+
+    // ─── Evidence & timeline ───
+    let ev_id = add_evidence(
+        case.id.clone(),
+        ws.evidence_txt.to_string_lossy().to_string(),
+        "text".into(),
+        hashes.sha256.clone(),
+        Some(preview.metadata.size as i64),
+        Some("high".into()),
+        Some("Random fixture evidence".into()),
+    )
+    .expect("add_evidence");
+    assert!(ev_id.starts_with("EVD-"));
+
+    record_timeline_event(
+        case.id.clone(),
+        chrono::Utc::now().to_rfc3339(),
+        "NTFS".into(),
+        ws.ntfs_image.to_string_lossy().to_string(),
+        format!("mft_loaded_{}", mft.len()),
+    )
+    .expect("record_timeline_event");
+
+    let timeline = get_timeline(case.id.clone()).expect("get_timeline");
+    assert!(!timeline.is_empty());
+
+    let search = keyword_search(case.id.clone(), "password".into()).expect("keyword_search");
+    assert!(!search.is_empty(), "Should find 'password' in evidence text");
+
+    let stats = case_stats(case.id.clone()).expect("case_stats");
+    assert!(stats.evidence_count >= 1);
+    assert!(stats.findings_count >= 1);
+
+    let evidence = list_evidence(case.id.clone()).expect("list_evidence");
+    assert_eq!(evidence.len(), 1);
+    let findings = list_findings(case.id.clone()).expect("list_findings");
+    assert!(!findings.is_empty());
+
+    // ─── Bookmarks & audit ───
+    let bm_id = add_bookmark(
+        case.id.clone(),
+        ws.evidence_txt.to_string_lossy().to_string(),
+        0,
+        Some("suspicious".into()),
+        Some("integration test".into()),
+    )
+    .expect("add_bookmark");
+    let bookmarks = list_bookmarks(case.id.clone()).expect("list_bookmarks");
+    assert!(!bookmarks.is_empty());
+    delete_bookmark(bm_id).expect("delete_bookmark");
+
+    log_action(
+        case.id.clone(),
+        "INTEGRATION_TEST".into(),
+        "full pipeline".into(),
+    )
+    .expect("log_action");
+    let audit = get_audit_log(case.id.clone()).expect("get_audit_log");
+    assert!(!audit.is_empty());
+
+    // ─── Carving (sync) ───
+    let cancel = AtomicBool::new(false);
+    let carve_result = carving::carve_files(
+        ws.carve_image.to_string_lossy().as_ref(),
+        ws.carve_output.to_string_lossy().as_ref(),
+        &cancel,
+    )
+    .expect("carve_files");
+    assert!(carve_result.files_found > 0, "Should carve embedded signatures");
+    println!("Carved files: {}", carve_result.files_found);
+
+    // ─── Reports ───
+    let html_report = generate_case_report(case.id.clone(), "html".into()).expect("html report");
+    assert!(std::path::Path::new(&html_report).exists());
+    let pdf_report = generate_case_report(case.id.clone(), "pdf".into()).expect("pdf report");
+    assert!(std::path::Path::new(&pdf_report).exists());
+
+    // ─── About ───
+    let about = about_info();
+    assert_eq!(about["appName"], "AnalysisLoom");
+
+    // ─── Async carving commands ───
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        start_carving(
+            ws.carve_image.to_string_lossy().to_string(),
+            ws.carve_output.to_string_lossy().to_string(),
+        )
+        .await
+        .expect("start_carving");
+
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            let p = get_carving_progress().expect("get_carving_progress");
+            if p.is_done {
+                break;
+            }
+            if Instant::now() > deadline {
+                cancel_carving();
+                panic!("async carving timed out");
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+        let async_result = get_carving_result();
+        assert!(async_result.is_some());
+        assert!(async_result.unwrap().files_found > 0);
+    });
+
+    // ─── Cleanup case ───
+    delete_case(case.id).expect("delete_case");
+
+    let _ = std::fs::remove_dir_all(&ws.root);
+    println!("✅ Full integration pipeline passed");
+}

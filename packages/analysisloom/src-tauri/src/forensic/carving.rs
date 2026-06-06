@@ -162,12 +162,18 @@ pub fn carve_files(
 fn detect_file_size(data: &[u8], file_type: &str) -> Option<u64> {
     match file_type {
         "PNG" => {
-            // Check IEND chunk at end of PNG
             if data.len() >= 33 {
-                // Width at offset 16, Height at offset 20
                 let w = u32::from_be_bytes([data[16], data[17], data[18], data[19]]);
                 let h = u32::from_be_bytes([data[20], data[21], data[22], data[23]]);
-                Some(w as u64 * h as u64 * 4 + 100) // Rough estimate
+                if w > 0 && h > 0 && w <= 16_384 && h <= 16_384 {
+                    let est = (w as u64)
+                        .saturating_mul(h as u64)
+                        .saturating_mul(4)
+                        .saturating_add(100);
+                    Some(est.min(data.len() as u64).max(256))
+                } else {
+                    Some(8192u64.min(data.len() as u64))
+                }
             } else {
                 None
             }

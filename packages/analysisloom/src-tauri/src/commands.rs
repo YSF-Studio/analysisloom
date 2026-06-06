@@ -116,9 +116,24 @@ pub fn get_case(id: String) -> Result<Case, String> {
 
 #[tauri::command]
 pub fn delete_case(id: String) -> Result<(), String> {
-    crate::db::conn()
-        .execute("DELETE FROM cases WHERE id = ?1", [&id])
+    let db = crate::db::conn();
+    let tx = db.unchecked_transaction().map_err(|e| e.to_string())?;
+    for table in [
+        "evidence_items",
+        "timeline_events",
+        "findings",
+        "audit_log",
+        "bookmarks",
+    ] {
+        tx.execute(
+            &format!("DELETE FROM {table} WHERE case_id = ?1"),
+            [&id],
+        )
         .map_err(|e| e.to_string())?;
+    }
+    tx.execute("DELETE FROM cases WHERE id = ?1", [&id])
+        .map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
 
