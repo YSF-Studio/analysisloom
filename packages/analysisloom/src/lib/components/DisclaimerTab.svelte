@@ -58,19 +58,19 @@ $effect(() => { load(); });
 .hero { text-align: center; margin-bottom: 24px; }
 .hero .icon { font-size: 48px; margin-bottom: 8px; }
 .logo-hero { width: 72px; height: 72px; border-radius: 16px; margin-bottom: 8px; }
-.hero h1 { margin: 0; font-size: 28px; color: #e0e0e0; display: inline; }
+.hero h1 { margin: 0; font-size: 28px; color: var(--text); display: inline; }
 .version { font-size: 14px; color: var(--text-secondary); margin-left: 8px; }
 .subtitle { text-align: center; color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; }
-.card h3 { margin: 0 0 10px; font-size: 15px; color: #ccc; }
+.card h3 { margin: 0 0 10px; font-size: 15px; color: var(--text); }
 .card ul { margin: 0; padding-left: 20px; }
 .card li { font-size: 13px; margin-bottom: 6px; color: var(--text-secondary); line-height: 1.4; }
 .card p { margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 .offline-card { border-left: 3px solid var(--success); }
 .disclaimer-card { border-left: 3px solid var(--warn); }
-.disclaimer-card .disclaimer { font-style: italic; color: #ccc !important; }
+.disclaimer-card .disclaimer { font-style: italic; color: var(--text) !important; }
 .badge { display: inline-block; margin-top: 10px; padding: 4px 12px; background: rgba(34,197,94,0.15); color: var(--success); border-radius: 20px; font-size: 12px; font-weight: 600; }
-.dev { font-weight: 600; color: #e0e0e0 !important; margin-bottom: 4px !important; }
+.dev { font-weight: 600; color: var(--text) !important; margin-bottom: 4px !important; }
 .build { font-size: 12px !important; color: var(--primary) !important; }
 .footer { text-align: center; padding-top: 8px; }
 .footer p { font-size: 11px; color: var(--text-secondary); }

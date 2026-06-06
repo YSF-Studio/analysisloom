@@ -1,6 +1,6 @@
 <script>
 import { invoke } from "@tauri-apps/api/core";
-let { activeCase, busy, msg, timeoutPromise } = $props();
+let { activeCase = $bindable(), busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
 let cases = $state([]);
 let newCaseName = $state("");
 

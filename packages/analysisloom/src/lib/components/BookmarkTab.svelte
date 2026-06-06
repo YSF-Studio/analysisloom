@@ -1,7 +1,7 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
 
-  let { activeCase, busy, msg, timeoutPromise } = $props();
+  let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
 
   let bookmarks = $state([]);
   let loading = $state(false);
@@ -31,14 +31,14 @@
         tag: addTag || null,
         note: addNote || null,
       });
-      msg.set(`✅ Bookmark added: ${addFilePath}`);
+      msg = `✅ Bookmark added: ${addFilePath}`;
       addFilePath = "";
       addTag = "";
       addNote = "";
       showAdd = false;
       await loadBookmarks();
     } catch (e) {
-      msg.set(`❌ ${typeof e === "string" ? e : String(e)}`);
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
     }
   }
 
@@ -46,9 +46,9 @@
     try {
       await invoke("delete_bookmark", { id });
       bookmarks = bookmarks.filter(b => b.id !== id);
-      msg.set("✅ Bookmark deleted");
+      msg = "✅ Bookmark deleted";
     } catch (e) {
-      msg.set(`❌ ${typeof e === "string" ? e : String(e)}`);
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
     }
   }
 

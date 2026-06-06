@@ -2,7 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import FilePreview from "./FilePreview.svelte";
 
-  let { activeCase, busy, msg, timeoutPromise, density } = $props();
+  let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise, density, onFileSelect } = $props();
   let imagePath = $state("");
   let entries = $state([]);
   let previewFile = $state(null);
@@ -46,15 +46,15 @@
 
   async function loadMft() {
     if (!imagePath) return;
-    busy.set(true);
+    busy = true;
     try {
       entries = await timeoutPromise(invoke("parse_mft", { imagePath }), 60000);
-      msg.set(`✅ ${entries.length} entries loaded`);
+      msg = `✅ ${entries.length} entries loaded`;
       if (activeCase?.id) {
         invoke("log_action", { caseId: activeCase.id, action: "LOAD_MFT", detail: imagePath }).catch(() => {});
       }
-    } catch(e) { msg.set(`❌ ${typeof e === "string" ? e : String(e)}`); }
-    busy.set(false);
+    } catch(e) { msg = `❌ ${typeof e === "string" ? e : String(e)}`; }
+    busy = false;
   }
 
   function sortBy(col) {
@@ -73,6 +73,18 @@
   function selectFile(entry) {
     previewFile = entry.filename || "unnamed";
     previewPath = imagePath;
+    onFileSelect?.(entry.filename || previewFile, {
+      size: entry.fileSize,
+      modified: entry.siModified || entry.fnModified || "—",
+      created: entry.siCreated || entry.fnCreated || "—",
+      permissions: entry.isDeleted ? "Deleted" : "Active",
+      isDir: !!entry.isDirectory,
+      md5: entry.md5,
+      sha1: entry.sha1,
+      sha256: entry.sha256,
+      magicMatch: entry.magicMatch,
+      entropy: entry.entropy,
+    });
   }
 
   function formatTime(t) {

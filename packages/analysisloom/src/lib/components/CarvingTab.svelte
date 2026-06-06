@@ -1,6 +1,6 @@
 <script>
 import { invoke } from "@tauri-apps/api/core";
-let { activeCase, busy, msg, timeoutPromise } = $props();
+let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
 let imagePath = $state("");
 let outputDir = $state("/tmp/carved");
 let result = $state(null);

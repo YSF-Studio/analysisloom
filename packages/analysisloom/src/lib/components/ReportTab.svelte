@@ -1,7 +1,7 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
 
-  let { activeCase, busy, msg, timeoutPromise } = $props();
+  let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
 
   let format = $state("html");
   let generating = $state(false);
@@ -26,10 +26,10 @@
       });
     } catch (e) {
       const err = typeof e === 'string' ? e : String(e);
-      msg.set(`❌ ${err}`);
+      msg = `❌ ${err}`;
     }
     generating = false;
-    busy.set(false);
+    busy = false;
   }
 
   async function loadAuditLog() {

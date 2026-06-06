@@ -1,5 +1,5 @@
 <script>
-let { activeCase, busy, msg, timeoutPromise } = $props();
+let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
 let events = $state([]);
 
 async function loadTimeline() {

@@ -5,19 +5,19 @@
   import TimelineTab from "./lib/components/TimelineTab.svelte";
   import SearchTab from "./lib/components/SearchTab.svelte";
   import ReportTab from "./lib/components/ReportTab.svelte";
+  import BookmarkTab from "./lib/components/BookmarkTab.svelte";
   import DisclaimerTab from "./lib/components/DisclaimerTab.svelte";
+  import InspectorPanel from "./lib/components/InspectorPanel.svelte";
 
   let msg = $state("");
   let busy = $state(false);
   let activeCase = $state(null);
+  let selectedFile = $state(null);
+  let inspectorMeta = $state(null);
   let searchQuery = $state("");
   let density = $state("compact");
-
-  // Tab system
-  let tabs = $state([
-    { id: "files", icon: "🗂️", label: "File Browser" }
-  ]);
   let activeView = $state("files");
+  let platform = $state("unknown");
 
   function timeoutPromise(promise, ms) {
     let timer;
@@ -41,6 +41,7 @@
         { id: "timeline", icon: "▦", label: "Timeline" },
         { id: "carving", icon: "◎", label: "Carved Files" },
         { id: "search", icon: "◈", label: "Search" },
+        { id: "bookmarks", icon: "🔖", label: "Bookmarks" },
         { id: "report", icon: "▭", label: "Report" },
       ]
     },
@@ -52,129 +53,150 @@
     }
   ];
 
-  function openTab(id, icon, label) {
-    if (!tabs.find(t => t.id === id)) {
-      tabs = [...tabs, { id, icon, label }];
-    }
-    activeView = id;
+  function detectPlatform() {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes("mac")) return "macos";
+    if (ua.includes("win")) return "windows";
+    if (ua.includes("linux")) return "linux";
+    return "unknown";
   }
 
-  function closeTab(id) {
-    const idx = tabs.findIndex(t => t.id === id);
-    if (idx < 0) return;
-    tabs = tabs.filter(t => t.id !== id);
-    if (activeView === id && tabs.length > 0) {
-      activeView = tabs[Math.min(idx, tabs.length - 1)].id;
-    }
+  function onFileSelect(path, meta) {
+    selectedFile = path;
+    inspectorMeta = meta ?? null;
   }
 
   function handleSearchSubmit() {
     if (searchQuery.trim()) {
-      openTab("search", "🔎", "Search");
+      activeView = "search";
     }
   }
 
+  function clearInspector() {
+    selectedFile = null;
+    inspectorMeta = null;
+  }
+
+  $effect(() => {
+    platform = detectPlatform();
+  });
+
   // Screenshot navigation helper
-  window.__goToView = (id) => { activeView = id; openTab(id, "●", id.charAt(0).toUpperCase()+id.slice(1)); };
-  window.__views = ["cases","files","timeline","carving","search","report","about"];
+  window.__goToView = (id) => { activeView = id; };
+  window.__views = ["cases", "files", "timeline", "carving", "search", "bookmarks", "report", "about"];
 </script>
 
-<div class="app-shell">
-  <!-- macOS Unified Titlebar -->
+<div class="app-shell platform-{platform}">
   <div class="titlebar">
     <div class="traffic-lights">
-      <span class="tl red"></span><span class="tl yellow"></span><span class="tl green"></span>
+      <span class="tl red"></span>
+      <span class="tl yellow"></span>
+      <span class="tl green"></span>
     </div>
     <div class="titlebar-nav">
-      <button class="nav-btn" disabled>‹</button>
-      <button class="nav-btn" disabled>›</button>
+      <button class="nav-btn" disabled title="Back">‹</button>
+      <button class="nav-btn" disabled title="Forward">›</button>
     </div>
     <img src="/logo.svg" class="logo" alt="AnalysisLoom" />
     <span class="title">AnalysisLoom</span>
 
-    <!-- Center Search Bar -->
     <div class="search-bar">
-      <span class="search-icon">🔍</span>
-      <input type="text" placeholder="Keyword / Regex search..."
+      <span class="search-icon" aria-hidden="true">⌕</span>
+      <input
+        type="text"
+        placeholder="Keyword / Regex search..."
         bind:value={searchQuery}
         onkeydown={(e) => e.key === "Enter" && handleSearchSubmit()}
       />
       {#if searchQuery}
-        <button class="search-clear" onclick={() => searchQuery = ""}>✕</button>
+        <button class="search-clear" onclick={() => searchQuery = ""} aria-label="Clear search">✕</button>
       {/if}
     </div>
 
     <div class="titlebar-end">
       {#if activeView === "files"}
-        <button class="toolbar-btn" onclick={() => {
-          const d = ["compact","standard","comfortable"];
-          density = d[(d.indexOf(density) + 1) % 3];
-        }}>≡</button>
+        <button
+          class="toolbar-btn"
+          title="Toggle row density"
+          onclick={() => {
+            const d = ["compact", "standard", "comfortable"];
+            density = d[(d.indexOf(density) + 1) % 3];
+          }}
+        >≡</button>
       {/if}
     </div>
   </div>
 
-  <!-- Tab Bar -->
-  <div class="tab-bar">
-    {#each tabs as tab}
-      <button class="tab" class:active={activeView === tab.id}
-        onclick={() => activeView = tab.id}>
-        <span class="tab-icon">{tab.icon}</span>
-        <span class="tab-label">{tab.label}</span>
-        <span class="tab-close" onclick={(e) => { e.stopPropagation(); closeTab(tab.id); }}>✕</span>
-      </button>
-    {/each}
-  </div>
-
-  <!-- Main Layout -->
-  <div class="three-pane">
-    <!-- Left Sidebar -->
+  <div class="workspace">
     <aside class="sidebar">
       {#each sidebarSections as section}
         <div class="sidebar-group">
           <span class="sidebar-label">{section.label}</span>
           {#each section.items as item}
-            <button class="sidebar-item" class:active={activeView === item.id}
-              onclick={() => openTab(item.id, item.icon, item.label)}>
-              {item.icon} {item.label}
+            <button
+              class="sidebar-item"
+              class:active={activeView === item.id}
+              onclick={() => activeView = item.id}
+            >
+              <span class="sidebar-icon">{item.icon}</span>
+              <span>{item.label}</span>
             </button>
           {/each}
         </div>
       {/each}
     </aside>
 
-    <!-- Center: Main Content -->
-    <div class="main-content">
+    <div class="workspace-main">
       {#if activeView === "cases"}
         <CaseTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "files"}
-        <FileBrowserTab bind:activeCase bind:busy bind:msg {timeoutPromise} {density} />
+        <FileBrowserTab
+          bind:activeCase bind:busy bind:msg
+          {timeoutPromise} {density} {onFileSelect}
+        />
       {:else if activeView === "timeline"}
         <TimelineTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "carving"}
         <CarvingTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "search"}
         <SearchTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "bookmarks"}
+        <BookmarkTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "report"}
         <ReportTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "about"}
         <DisclaimerTab />
       {/if}
     </div>
+
+    {#if inspectorMeta || selectedFile}
+      <aside class="inspector-pane">
+        <div class="inspector-head">
+          <span>Inspector</span>
+          <button class="inspector-close" onclick={clearInspector} aria-label="Close inspector">✕</button>
+        </div>
+        <InspectorPanel metadata={inspectorMeta} visible={true} />
+      </aside>
+    {/if}
   </div>
 
-  <!-- Status Bar -->
   <div class="statusbar">
     <div class="sb-left">
       <span class="status-dot" class:on={!!activeCase} class:busy={busy}></span>
-      {activeCase?.name || "AnalysisLoom"}
-      {#if tabs.length > 1}
-        <span style="opacity:0.4;margin:0 6px">—</span>
-        <span style="font-size:10px">{tabs.length} tabs</span>
+      <span>{activeCase?.name || "AnalysisLoom"}</span>
+      {#if selectedFile}
+        <span style="opacity:0.35">›</span>
+        <span class="file-path" title={selectedFile}>
+          {selectedFile.split("/").pop() || selectedFile}
+        </span>
       {/if}
     </div>
+    <div class="sb-center">
+      {#if busy}<span class="spinner">⏳</span> Processing...{/if}
+    </div>
     <div class="sb-right">
-      <span class="offline-badge">🔒 Offline</span>
+      <span class="offline-badge">Offline</span>
+      <span>ISO 27042</span>
     </div>
   </div>
 
@@ -187,165 +209,67 @@
 </div>
 
 <style>
-:global(body) {
-  margin: 0; padding: 0; overflow: hidden; height: 100vh;
-  background: #0a0a0a; color: #e0e0e0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-}
-:global(*), :global(*::before), :global(*::after) { box-sizing: border-box; }
+  .titlebar-nav { display: flex; gap: 2px; -webkit-app-region: no-drag; }
+  .nav-btn {
+    width: 26px; height: 24px; border: none; border-radius: var(--radius-sm);
+    background: transparent; color: var(--text-muted); font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nav-btn:hover { background: var(--primary-bg); color: var(--text-secondary); }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
 
-.app-shell { display: flex; flex-direction: column; height: 100vh; }
+  .search-bar {
+    display: flex; align-items: center; flex: 1; max-width: 420px; margin: 0 auto;
+    background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0 10px; height: 30px;
+    -webkit-app-region: no-drag;
+  }
+  .search-bar:focus-within { border-color: var(--primary); }
+  .search-icon { font-size: 13px; opacity: 0.5; margin-right: 8px; color: var(--text-secondary); }
+  .search-bar input {
+    flex: 1; background: transparent; border: none; color: var(--text);
+    font-size: 12px; outline: none; padding: 0;
+  }
+  .search-bar input::placeholder { color: var(--text-muted); }
+  .search-clear {
+    background: none; border: none; color: var(--text-muted); cursor: pointer;
+    font-size: 11px; padding: 2px 4px;
+  }
+  .search-clear:hover { color: var(--text); }
 
-/* Titlebar */
-.titlebar {
-  display: flex; align-items: center;
-  height: 44px; padding: 0 10px; gap: 8px;
-  background: rgba(20,20,20,0.95);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  -webkit-app-region: drag;
-}
-.traffic-lights { display: flex; gap: 7px; -webkit-app-region: no-drag; }
-.tl { width: 12px; height: 12px; border-radius: 50%; }
-.tl.red { background: #ff5f57; } .tl.yellow { background: #ffbd2e; } .tl.green { background: #28c840; }
-.titlebar-nav { display: flex; gap: 2px; -webkit-app-region: no-drag; }
-.nav-btn {
-  width: 26px; height: 24px; border: none; border-radius: 4px;
-  background: transparent; color: #666; font-size: 16px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-}
-.nav-btn:hover { background: rgba(255,255,255,0.08); color: #aaa; }
-.nav-btn:disabled { opacity: 0.3; cursor: default; }
-.logo { width: 18px; height: 18px; border-radius: 3px; -webkit-app-region: no-drag; }
-.title { font-size: 13px; font-weight: 600; color: #ccc; -webkit-app-region: no-drag; }
+  .titlebar-end { display: flex; gap: 4px; -webkit-app-region: no-drag; }
+  .toolbar-btn {
+    width: 28px; height: 26px; border: none; border-radius: var(--radius-sm);
+    background: transparent; color: var(--text-secondary); font-size: 14px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .toolbar-btn:hover { background: var(--primary-bg); color: var(--text); }
 
-/* Center Search Bar */
-.search-bar {
-  display: flex; align-items: center; flex: 1; max-width: 400px; margin: 0 auto;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px; padding: 0 10px; height: 28px;
-  -webkit-app-region: no-drag;
-}
-.search-bar:focus-within { border-color: rgba(59,130,246,0.4); }
-.search-icon { font-size: 11px; opacity: 0.4; margin-right: 6px; }
-.search-bar input {
-  flex: 1; background: transparent; border: none; color: #ccc;
-  font-size: 12px; outline: none; padding: 0;
-}
-.search-bar input::placeholder { color: #555; }
-.search-clear {
-  background: none; border: none; color: #666; cursor: pointer;
-  font-size: 11px; padding: 2px 4px;
-}
-.search-clear:hover { color: #aaa; }
+  .sidebar {
+    width: var(--sidebar-w); min-width: var(--sidebar-w);
+    background: var(--brand-navy);
+    border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 8px 0;
+  }
+  .sidebar-group { margin-bottom: 6px; }
+  .sidebar-label {
+    display: block; padding: 8px 16px 4px;
+    font-size: 10px; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.6px;
+  }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 8px;
+    width: calc(100% - 16px); padding: 7px 14px; margin: 1px 8px;
+    border: none; border-radius: var(--radius);
+    background: transparent; color: var(--text-secondary); cursor: pointer;
+    font-size: 12px; text-align: left; transition: all 0.12s;
+  }
+  .sidebar-item:hover { background: var(--card-hover); color: var(--text); }
+  .sidebar-item.active {
+    background: var(--primary-bg); color: var(--primary); font-weight: 600;
+  }
+  .sidebar-icon { width: 16px; text-align: center; font-size: 13px; }
 
-.titlebar-end { display: flex; gap: 4px; -webkit-app-region: no-drag; }
-.toolbar-btn {
-  width: 28px; height: 24px; border: none; border-radius: 4px;
-  background: transparent; color: #888; font-size: 14px;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-}
-.toolbar-btn:hover { background: rgba(255,255,255,0.08); color: #ccc; }
-
-/* Tab Bar */
-.tab-bar {
-  display: flex; align-items: center; gap: 0;
-  height: 32px; padding: 0 8px;
-  background: rgba(12,12,12,0.8);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  overflow-x: auto;
-  flex-shrink: 0;
-}
-.tab-bar::-webkit-scrollbar { height: 0; }
-.tab {
-  display: flex; align-items: center; gap: 6px;
-  padding: 4px 12px; height: 28px;
-  border: none; border-radius: 6px 6px 0 0;
-  background: transparent; color: #888;
-  font-size: 12px; cursor: pointer;
-  white-space: nowrap; transition: all 0.12s;
-  flex-shrink: 0;
-}
-.tab:hover { background: rgba(255,255,255,0.04); color: #ccc; }
-.tab.active {
-  background: #1a1a1a; color: #e0e0e0;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-bottom-color: #1a1a1a;
-}
-.tab-icon { font-size: 12px; }
-.tab-label { font-size: 12px; }
-.tab-close {
-  display: flex; align-items: center; justify-content: center;
-  width: 16px; height: 16px; border-radius: 3px;
-  font-size: 9px; color: #555; margin-left: 4px;
-}
-.tab-close:hover { background: rgba(239,68,68,0.15); color: #ef4444; }
-
-/* Three-Pane */
-.three-pane { display: flex; flex: 1; overflow: hidden; }
-
-/* Sidebar */
-.sidebar {
-  width: 190px; min-width: 190px;
-  background: rgba(12,12,12,0.8);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255,255,255,0.06);
-  overflow-y: auto; padding: 6px 0;
-}
-.sidebar-group { margin-bottom: 4px; }
-.sidebar-label {
-  display: block; padding: 6px 14px 3px;
-  font-size: 10px; font-weight: 700; color: #555;
-  text-transform: uppercase; letter-spacing: 0.5px;
-}
-.sidebar-item {
-  display: flex; align-items: center; gap: 7px;
-  width: calc(100% - 16px); padding: 5px 14px; margin: 0 8px;
-  border: none; border-radius: 5px;
-  background: transparent; color: #999; cursor: pointer;
-  font-size: 12px; text-align: left; transition: all 0.12s;
-}
-.sidebar-item:hover { background: rgba(255,255,255,0.04); color: #ccc; }
-.sidebar-item.active { background: rgba(59,130,246,0.12); color: #3b82f6; font-weight: 600; }
-
-/* Main Content */
-.main-content {
-  flex: 1; overflow-y: auto; padding: 16px 20px;
-}
-
-/* Status Bar */
-.statusbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 14px; height: 26px;
-  background: rgba(10,10,10,0.95);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255,255,255,0.06);
-  font-size: 11px; color: #555;
-}
-.sb-left, .sb-right { display: flex; align-items: center; gap: 6px; }
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background: #444; }
-.status-dot.on { background: #22c55e; box-shadow: 0 0 3px #22c55e; }
-.status-dot.busy { background: #f59e0b; animation: pulse 1s infinite; }
-@keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
-.offline-badge {
-  padding: 0 6px; background: rgba(34,197,94,0.1); color: #22c55e;
-  border-radius: 8px; font-size: 10px; font-weight: 600;
-}
-
-/* Toast */
-.toast {
-  position: fixed; bottom: 44px; right: 20px;
-  padding: 10px 16px; border-radius: 10px;
-  background: #1a2e1a; border: 1px solid #22c55e;
-  font-size: 12px; max-width: 380px; z-index: 1000;
-  animation: slideUp 0.2s ease-out;
-}
-.toast.error { background: #2e1a1a; border-color: #ef4444; }
-.toast.warn { background: #2e2a1a; border-color: #f59e0b; }
-@keyframes slideUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-.close-toast { background: none; border: none; color: inherit; cursor: pointer; margin-left: 10px; }
-
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+  .platform-windows .titlebar,
+  .platform-linux .titlebar { padding-left: 16px; }
 </style>

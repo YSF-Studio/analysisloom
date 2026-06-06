@@ -1,7 +1,7 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
 
-  let { filePath, busy, msg, timeoutPromise, onPreview } = $props();
+  let { filePath, busy = $bindable(), msg = $bindable(), timeoutPromise, onPreview } = $props();
 
   let preview = $state(null);
   let loading = $state(false);
@@ -82,7 +82,7 @@
     if (selectedOffset == null) return;
     const hex = `0x${selectedOffset.toString(16).padStart(8, "0")}`;
     navigator.clipboard?.writeText(hex);
-    msg?.set && msg.set(`📋 Copied: ${hex}`);
+    msg = `📋 Copied: ${hex}`;
   }
 
   function sizeStr(bytes) {
