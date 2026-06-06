@@ -248,6 +248,44 @@ pub fn write_v2_extras(dest: &Path) {
     write_macos_profile(&dest.join("macos_profile"));
 }
 
+/// CollectionLoom-style hash_manifest.json for integrity verification tests.
+pub fn write_hash_manifest(dest: &Path, evidence_txt: &Path, evidence_png: &Path) -> PathBuf {
+    use crate::forensic::hashing;
+
+    let txt_hash = hashing::multi_hash_file(evidence_txt.to_string_lossy().as_ref())
+        .ok()
+        .and_then(|h| h.sha256)
+        .unwrap_or_default();
+    let png_hash = hashing::multi_hash_file(evidence_png.to_string_lossy().as_ref())
+        .ok()
+        .and_then(|h| h.sha256)
+        .unwrap_or_default();
+
+    let manifest = serde_json::json!({
+        "source": "CollectionLoom",
+        "exportedAt": chrono::Utc::now().to_rfc3339(),
+        "files": [
+            {
+                "path": evidence_txt.to_string_lossy(),
+                "relativePath": "secret_password_log.txt",
+                "sha256": txt_hash,
+                "sizeBytes": std::fs::metadata(evidence_txt).map(|m| m.len()).unwrap_or(0),
+            },
+            {
+                "path": evidence_png.to_string_lossy(),
+                "relativePath": "photo_evidence.png",
+                "sha256": png_hash,
+                "sizeBytes": std::fs::metadata(evidence_png).map(|m| m.len()).unwrap_or(0),
+            }
+        ]
+    });
+
+    let path = dest.join("hash_manifest.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&manifest).unwrap())
+        .expect("write hash_manifest.json");
+    path
+}
+
 fn write_minimal_system_hive(path: &Path) {
     let mut data = vec![0u8; 16384];
     data[0..4].copy_from_slice(b"regf");

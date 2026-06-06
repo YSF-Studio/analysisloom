@@ -64,11 +64,33 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
             product TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_nsrl_sha256 ON nsrl_hashes(sha256);
+        CREATE TABLE IF NOT EXISTS case_manifest (
+            case_id TEXT PRIMARY KEY REFERENCES cases(id),
+            manifest_json TEXT NOT NULL,
+            imported_at TEXT DEFAULT (datetime('now')),
+            source TEXT,
+            file_count INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS case_notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_id TEXT REFERENCES cases(id),
+            timestamp TEXT DEFAULT (datetime('now')),
+            body TEXT NOT NULL,
+            file_path TEXT
+        );
     ",
     )
     .expect("Schema creation failed");
     let _ = conn.execute(
         "ALTER TABLE findings ADD COLUMN created_at TEXT DEFAULT (datetime('now'))",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE audit_log ADD COLUMN prev_hash TEXT DEFAULT ''",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE audit_log ADD COLUMN entry_hash TEXT DEFAULT ''",
         [],
     );
     let _ = conn.execute(

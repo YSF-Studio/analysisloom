@@ -262,6 +262,25 @@ fn dispatch(rt: &tokio::runtime::Runtime, cmd: &str, args: &Value) -> Result<Val
             arg_str(args, "outputPath")?,
         )?)
         .map_err(|e| e.to_string())?),
+        "import_hash_manifest" => Ok(serde_json::to_value(commands::import_hash_manifest(
+            arg_str(args, "caseId")?,
+            arg_str(args, "path")?,
+        )?)
+        .map_err(|e| e.to_string())?),
+        "get_case_manifest" => Ok(commands::get_case_manifest(arg_str(args, "caseId")?)?),
+        "verify_evidence_integrity" => Ok(serde_json::to_value(commands::verify_evidence_integrity(
+            arg_str(args, "caseId")?,
+            arg_str(args, "filePath")?,
+            arg_str(args, "computedSha256")?,
+        )?)
+        .map_err(|e| e.to_string())?),
+        "append_case_note" => Ok(json!(commands::append_case_note(
+            arg_str(args, "caseId")?,
+            arg_str(args, "body")?,
+            arg_opt_str(args, "filePath"),
+        )?)),
+        "list_case_notes" => Ok(serde_json::to_value(commands::list_case_notes(arg_str(args, "caseId")?)?)
+            .map_err(|e| e.to_string())?),
         _ => Err(format!("unknown command: {cmd}")),
     }
 }

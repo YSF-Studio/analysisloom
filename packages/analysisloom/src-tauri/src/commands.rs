@@ -1,6 +1,7 @@
 use crate::forensic::{
-    self, antiforensics, browser, bundle, carving, encryption, evidence, evtx, hashing, macos,
-    memory, nsrl, ntfs, pcap, preview, registry, report, sqlite, timeline, yara, ProgressState,
+    self, antiforensics, browser, bundle, carving, encryption, evidence, evtx, hashing, integrity,
+    macos, memory, nsrl, ntfs, pcap, preview, registry, report, report_meta, sqlite, timeline,
+    yara, ProgressState,
 };
 use serde::{Deserialize, Serialize};
 
@@ -125,6 +126,8 @@ pub fn delete_case(id: String) -> Result<(), String> {
         "findings",
         "audit_log",
         "bookmarks",
+        "case_manifest",
+        "case_notes",
     ] {
         tx.execute(
             &format!("DELETE FROM {table} WHERE case_id = ?1"),
@@ -478,10 +481,11 @@ pub fn detect_encrypted(image_path: String) -> Result<Vec<encryption::EncryptedF
 
 #[tauri::command]
 pub fn generate_case_report(case_id: String, format: String) -> Result<String, String> {
-    let db = crate::db::conn();
+    let (case, timeline, evidence, findings, audit, evidence_paths) = {
+        let db = crate::db::conn();
 
-    // Get case info
-    let case: Case = db
+        // Get case info
+        let case: Case = db
         .query_row(
             "SELECT id, name, operator, created_at, status FROM cases WHERE id = ?1",
             [&case_id],
@@ -569,12 +573,43 @@ pub fn generate_case_report(case_id: String, format: String) -> Result<String, S
         .filter_map(|r| r.ok())
         .collect();
 
+        let mut estmt = db
+            .prepare("SELECT source_path, sha256 FROM evidence_items WHERE case_id = ?1")
+            .map_err(|e| e.to_string())?;
+        let evidence_paths: Vec<(String, Option<String>)> = estmt
+            .query_map([&case_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        (case, timeline, evidence, findings, audit, evidence_paths)
+    };
+
+    let manifest = load_case_manifest(&case_id);
+    let hash_chain = integrity::build_hash_chain_report(manifest.as_ref(), &evidence_paths);
+    let analyst_notes = list_case_notes_inner(&case_id)?;
+    let visuals = collect_report_visuals(&case_id)?;
+
     let now = chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string();
     let operator_name = case.operator.clone().unwrap_or_default();
 
     if format == "html" {
-        // Generate HTML report
-        let html = generate_html_report(&case, &timeline, &evidence, &findings, &audit, &now);
+        let html = generate_html_report(
+            &case,
+            &timeline,
+            &evidence,
+            &findings,
+            &audit,
+            &now,
+            &hash_chain,
+            &analyst_notes,
+            &visuals,
+        );
         let dir = std::env::var("HOME").unwrap_or_else(|_| ".".into());
         let out_path = format!(
             "{}/analysisloom_report_{}.html",
@@ -625,6 +660,51 @@ pub fn generate_case_report(case_id: String, format: String) -> Result<String, S
                     audit.join("\n")
                 },
             },
+            report::ReportSection {
+                heading: "Tool Limitations (ISO 27042 §10.1)".into(),
+                content: report_meta::limitations_text(),
+            },
+            report::ReportSection {
+                heading: "Hash Chain Validation (NIST SP 800-86 §3.4.1)".into(),
+                content: integrity::hash_chain_text(&hash_chain),
+            },
+            report::ReportSection {
+                heading: "Analyst Notes (SWGDE §4.4)".into(),
+                content: if analyst_notes.is_empty() {
+                    "No analyst notes recorded during examination.".into()
+                } else {
+                    analyst_notes
+                        .iter()
+                        .map(|n| {
+                            let fp = n
+                                .get("filePath")
+                                .and_then(|v| v.as_str())
+                                .filter(|s| !s.is_empty())
+                                .map(|s| format!(" [{s}]"))
+                                .unwrap_or_default();
+                            format!(
+                                "{} — {}{}",
+                                n["timestamp"].as_str().unwrap_or("—"),
+                                n["body"].as_str().unwrap_or(""),
+                                fp
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                },
+            },
+            report::ReportSection {
+                heading: "Finding Visual Documentation".into(),
+                content: if visuals.is_empty() {
+                    "No visual captures for bookmarks or critical findings.".into()
+                } else {
+                    visuals
+                        .iter()
+                        .map(|v| format!("{} — {} ({})", v.title, v.file_path, v.visual_type))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                },
+            },
         ];
 
         let pdf = report::generate_pdf_report(&report::PdfReport {
@@ -648,6 +728,166 @@ pub fn generate_case_report(case_id: String, format: String) -> Result<String, S
     }
 }
 
+struct ReportVisual {
+    title: String,
+    file_path: String,
+    visual_type: String,
+    content: String,
+}
+
+fn is_image_path(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    ["png", "jpg", "jpeg", "gif", "webp", "bmp"]
+        .iter()
+        .any(|ext| lower.ends_with(&format!(".{ext}")))
+}
+
+fn collect_report_visuals(case_id: &str) -> Result<Vec<ReportVisual>, String> {
+    let db = crate::db::conn();
+    let mut paths: Vec<(String, String)> = vec![];
+
+    let mut stmt = db
+        .prepare(
+            "SELECT file_path, COALESCE(note, tag, 'Bookmark') FROM bookmarks WHERE case_id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    for row in stmt
+        .query_map([case_id], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+    {
+        paths.push(row);
+    }
+
+    let mut stmt = db
+        .prepare(
+            "SELECT file_path, description FROM findings WHERE case_id = ?1 AND severity IN ('critical', 'high')",
+        )
+        .map_err(|e| e.to_string())?;
+    for row in stmt
+        .query_map([case_id], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+    {
+        if !paths.iter().any(|(p, _)| p == &row.0) {
+            paths.push(row);
+        }
+    }
+
+    let mut visuals = vec![];
+    for (file_path, title) in paths {
+        if is_image_path(&file_path) {
+            if let Ok(preview) = preview::preview_file(&file_path) {
+                if let preview::PreviewContent::Image { data_base64, .. } = preview.preview {
+                    visuals.push(ReportVisual {
+                        title,
+                        file_path: file_path.clone(),
+                        visual_type: "image".into(),
+                        content: data_base64,
+                    });
+                    continue;
+                }
+            }
+        }
+        if let Ok(preview) = preview::preview_file(&file_path) {
+            if let preview::PreviewContent::Text(text) = preview.preview {
+                let excerpt: String = text.chars().take(800).collect();
+                visuals.push(ReportVisual {
+                    title,
+                    file_path,
+                    visual_type: "text".into(),
+                    content: excerpt,
+                });
+            }
+        }
+    }
+    Ok(visuals)
+}
+
+fn load_case_manifest(case_id: &str) -> Option<integrity::HashManifest> {
+    let db = crate::db::conn();
+    let json: String = db
+        .query_row(
+            "SELECT manifest_json FROM case_manifest WHERE case_id = ?1",
+            [case_id],
+            |row| row.get(0),
+        )
+        .ok()?;
+    serde_json::from_str(&json).ok()
+}
+
+fn list_case_notes_inner(case_id: &str) -> Result<Vec<serde_json::Value>, String> {
+    let db = crate::db::conn();
+    let mut stmt = db
+        .prepare(
+            "SELECT timestamp, body, file_path FROM case_notes WHERE case_id = ?1 ORDER BY timestamp ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let notes = stmt
+        .query_map([case_id], |row| {
+            Ok(serde_json::json!({
+                "timestamp": row.get::<_, String>(0)?,
+                "body": row.get::<_, String>(1)?,
+                "filePath": row.get::<_, Option<String>>(2)?,
+            }))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+    Ok(notes)
+}
+
+fn visuals_html(visuals: &[ReportVisual]) -> String {
+    if visuals.is_empty() {
+        return "<p><em>No visual captures for bookmarks or critical findings</em></p>".into();
+    }
+    visuals
+        .iter()
+        .map(|v| {
+            if v.visual_type == "image" {
+                format!(
+                    "<div class=\"visual\"><h4>{}</h4><p class=\"mono\">{}</p><img src=\"data:image/png;base64,{}\" alt=\"{}\"/></div>",
+                    html_escape(&v.title),
+                    html_escape(&v.file_path),
+                    v.content,
+                    html_escape(&v.title),
+                )
+            } else {
+                format!(
+                    "<div class=\"visual\"><h4>{}</h4><p class=\"mono\">{}</p><pre class=\"excerpt\">{}</pre></div>",
+                    html_escape(&v.title),
+                    html_escape(&v.file_path),
+                    html_escape(&v.content),
+                )
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn notes_html(notes: &[serde_json::Value]) -> String {
+    if notes.is_empty() {
+        return "<p><em>No analyst notes recorded during examination</em></p>".into();
+    }
+    notes
+        .iter()
+        .map(|n| {
+            let ts = n["timestamp"].as_str().unwrap_or("—");
+            let body = n["body"].as_str().unwrap_or("");
+            let fp = n["filePath"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| format!("<span class=\"mono\"> — {s}</span>"))
+                .unwrap_or_default();
+            format!(
+                "<li><strong>{ts}</strong>{fp}<br/>{}</li>",
+                html_escape(body)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn generate_html_report(
     case: &Case,
     timeline: &[String],
@@ -655,6 +895,9 @@ fn generate_html_report(
     findings: &[String],
     audit: &[String],
     now: &str,
+    hash_chain: &integrity::HashChainReport,
+    analyst_notes: &[serde_json::Value],
+    visuals: &[ReportVisual],
 ) -> String {
     let list = |items: &[String]| -> String {
         if items.is_empty() {
@@ -672,14 +915,28 @@ fn generate_html_report(
 <html lang="en">
 <head><meta charset="UTF-8"><title>AnalysisLoom Report — {name}</title>
 <style>
-  body {{ font-family: -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px;
+  body {{ font-family: -apple-system, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px;
          background: #0a0a0a; color: #e0e0e0; }}
   h1 {{ border-bottom: 2px solid #3b82f6; padding-bottom: 8px; }}
   h2 {{ color: #3b82f6; margin-top: 28px; }}
+  h4 {{ margin: 0 0 6px; font-size: 13px; }}
   .meta {{ color: #888; font-size: 13px; margin-bottom: 24px; }}
   ul {{ background: #111; border: 1px solid #222; border-radius: 8px; padding: 12px 32px; }}
   li {{ margin: 4px 0; font-size: 12px; font-family: monospace; }}
   .footer {{ margin-top: 40px; padding-top: 12px; border-top: 1px solid #222; font-size: 11px; color: #555; }}
+  .pass {{ color: #22c55e; }}
+  .fail {{ color: #ef4444; }}
+  .warn {{ color: #f59e0b; }}
+  table.chain {{ width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }}
+  table.chain th, table.chain td {{ border: 1px solid #333; padding: 6px 8px; text-align: left; }}
+  table.chain th {{ background: #1a1a2e; color: #93c5fd; }}
+  tr.pass td {{ background: rgba(34,197,94,0.08); }}
+  tr.fail td {{ background: rgba(239,68,68,0.08); }}
+  .mono {{ font-family: ui-monospace, monospace; word-break: break-all; }}
+  .visual {{ background: #111; border: 1px solid #333; border-radius: 8px; padding: 12px; margin: 10px 0; }}
+  .visual img {{ max-width: 100%; border: 1px solid #444; border-radius: 4px; margin-top: 8px; }}
+  pre.excerpt {{ background: #0d0d0d; padding: 10px; border-radius: 6px; font-size: 11px; white-space: pre-wrap; }}
+  .notes li {{ font-family: inherit; list-style: none; margin: 8px 0; padding: 8px; background: #0d0d0d; border-radius: 6px; }}
 </style></head>
 <body>
   <h1>Forensic Analysis Report</h1>
@@ -690,6 +947,18 @@ fn generate_html_report(
     <strong>Status:</strong> {status}<br/>
     <strong>Generated:</strong> {now}
   </div>
+
+  <h2>🔗 Hash Chain Validation (NIST SP 800-86 §3.4.1)</h2>
+  {hash_chain}
+
+  <h2>⚠️ Tool Limitations (ISO 27042 §10.1)</h2>
+  <ul>{limitations}</ul>
+
+  <h2>📝 Analyst Notes (SWGDE §4.4)</h2>
+  <ul class="notes">{notes}</ul>
+
+  <h2>📸 Finding Visual Documentation</h2>
+  {visuals}
 
   <h2>📊 Timeline Events</h2>
   <ul>{timeline}</ul>
@@ -705,7 +974,8 @@ fn generate_html_report(
 
   <div class="footer">
     Generated by AnalysisLoom — YSF Studio | 100% Offline Forensic Workstation<br/>
-    This report is provided AS-IS. Verify independently before use in legal proceedings.
+    This report is provided AS-IS. Verify independently before use in legal proceedings.<br/>
+    Tool limitations and hash chain validation are documented per ISO 27042 / NIST SP 800-86 / SWGDE.
   </div>
 </body></html>"#,
         name = case.name,
@@ -713,6 +983,10 @@ fn generate_html_report(
         op = case.operator.as_deref().unwrap_or("—"),
         status = case.status,
         now = now,
+        hash_chain = integrity::hash_chain_html(hash_chain),
+        limitations = report_meta::limitations_html(),
+        notes = notes_html(analyst_notes),
+        visuals = visuals_html(visuals),
         timeline = list(timeline),
         evidence = list(evidence),
         findings = list(findings),
@@ -728,16 +1002,136 @@ fn html_escape(s: &str) -> String {
         .replace('\'', "&#39;")
 }
 
+// ─── Evidence Integrity (NIST SP 800-86 §3.4.1) ───
+
+#[tauri::command]
+pub fn import_hash_manifest(case_id: String, path: String) -> Result<serde_json::Value, String> {
+    let manifest = integrity::parse_hash_manifest(&path)?;
+    let file_count = manifest.files.len();
+    let source = manifest
+        .source
+        .clone()
+        .unwrap_or_else(|| "CollectionLoom".into());
+    let json = serde_json::to_string(&manifest).map_err(|e| e.to_string())?;
+
+    {
+        let db = crate::db::conn();
+        db.execute(
+            "INSERT INTO case_manifest (case_id, manifest_json, source, file_count) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(case_id) DO UPDATE SET manifest_json = ?2, source = ?3, file_count = ?4, imported_at = datetime('now')",
+            rusqlite::params![case_id, json, source, file_count as i64],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    let _ = log_action(
+        case_id.clone(),
+        "IMPORT_MANIFEST".into(),
+        format!("hash_manifest.json — {file_count} files from {source}"),
+    );
+
+    Ok(serde_json::json!({
+        "fileCount": file_count,
+        "source": source,
+        "imported": true,
+    }))
+}
+
+#[tauri::command]
+pub fn get_case_manifest(case_id: String) -> Result<serde_json::Value, String> {
+    let db = crate::db::conn();
+    let row: Result<(String, String, i64), _> = db.query_row(
+        "SELECT source, imported_at, file_count FROM case_manifest WHERE case_id = ?1",
+        [case_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    );
+    match row {
+        Ok((source, imported_at, file_count)) => Ok(serde_json::json!({
+            "loaded": true,
+            "source": source,
+            "importedAt": imported_at,
+            "fileCount": file_count,
+        })),
+        Err(_) => Ok(serde_json::json!({ "loaded": false })),
+    }
+}
+
+#[tauri::command]
+pub fn verify_evidence_integrity(
+    case_id: String,
+    file_path: String,
+    computed_sha256: String,
+) -> Result<integrity::IntegrityVerifyResult, String> {
+    let manifest = load_case_manifest(&case_id);
+    let result = integrity::verify_file_hash(manifest.as_ref(), &file_path, &computed_sha256);
+
+    if !result.verified && result.expected_sha256.is_some() {
+        let _ = log_action(
+            case_id,
+            "HASH_VERIFY_FAIL".into(),
+            format!("{} — {}", file_path, result.message),
+        );
+    } else if result.expected_sha256.is_some() {
+        let _ = log_action(
+            case_id.clone(),
+            "HASH_VERIFY_OK".into(),
+            format!("{} — SHA-256 verified against manifest", file_path),
+        );
+    }
+
+    Ok(result)
+}
+
+// ─── Analyst Notes (SWGDE §4.4) ───
+
+#[tauri::command]
+pub fn append_case_note(
+    case_id: String,
+    body: String,
+    file_path: Option<String>,
+) -> Result<i64, String> {
+    let id = {
+        let db = crate::db::conn();
+        db.execute(
+            "INSERT INTO case_notes (case_id, body, file_path) VALUES (?1, ?2, ?3)",
+            rusqlite::params![case_id, body.trim(), file_path],
+        )
+        .map_err(|e| e.to_string())?;
+        db.last_insert_rowid()
+    };
+    let _ = log_action(
+        case_id,
+        "ANALYST_NOTE".into(),
+        format!("Note #{id} — {} chars", body.trim().len()),
+    );
+    Ok(id)
+}
+
+#[tauri::command]
+pub fn list_case_notes(case_id: String) -> Result<Vec<serde_json::Value>, String> {
+    list_case_notes_inner(&case_id)
+}
+
 // ─── Audit Logging ───
 
 #[tauri::command]
 pub fn log_action(case_id: String, action: String, detail: String) -> Result<(), String> {
-    crate::db::conn()
-        .execute(
-            "INSERT INTO audit_log (case_id, action, detail) VALUES (?1, ?2, ?3)",
-            rusqlite::params![case_id, action, detail],
+    let db = crate::db::conn();
+    let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
+    let prev_hash: String = db
+        .query_row(
+            "SELECT entry_hash FROM audit_log WHERE case_id = ?1 ORDER BY id DESC LIMIT 1",
+            [&case_id],
+            |row| row.get(0),
         )
-        .map_err(|e| e.to_string())?;
+        .unwrap_or_else(|_| String::new());
+    let entry_hash = integrity::audit_chain_hash(&prev_hash, &timestamp, &action, &detail);
+
+    db.execute(
+        "INSERT INTO audit_log (case_id, timestamp, action, detail, prev_hash, entry_hash) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![case_id, timestamp, action, detail, prev_hash, entry_hash],
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1088,8 +1482,27 @@ pub fn export_case_bundle(case_id: String, output_path: String) -> Result<bundle
         )
     };
 
+    let manifest = load_case_manifest(&case_id);
+    let evidence_paths: Vec<(String, Option<String>)> = evidence_rows
+        .iter()
+        .map(|(p, _, sha, _)| (p.clone(), sha.clone()))
+        .collect();
+    let hash_chain = integrity::build_hash_chain_report(manifest.as_ref(), &evidence_paths);
+    let analyst_notes = list_case_notes_inner(&case_id)?;
+    let visuals = collect_report_visuals(&case_id)?;
+
     let now = chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string();
-    let html = generate_html_report(&case, &timeline, &evidence_lines, &finding_lines, &audit_lines, &now);
+    let html = generate_html_report(
+        &case,
+        &timeline,
+        &evidence_lines,
+        &finding_lines,
+        &audit_lines,
+        &now,
+        &hash_chain,
+        &analyst_notes,
+        &visuals,
+    );
 
     let pdf_bytes = (|| {
         let sections = vec![
@@ -1110,6 +1523,14 @@ pub fn export_case_bundle(case_id: String, output_path: String) -> Result<bundle
             report::ReportSection {
                 heading: "Evidence".into(),
                 content: evidence_lines.join("\n"),
+            },
+            report::ReportSection {
+                heading: "Tool Limitations (ISO 27042 §10.1)".into(),
+                content: report_meta::limitations_text(),
+            },
+            report::ReportSection {
+                heading: "Hash Chain Validation".into(),
+                content: integrity::hash_chain_text(&hash_chain),
             },
         ];
         report::generate_pdf_report(&report::PdfReport {

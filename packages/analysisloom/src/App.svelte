@@ -61,6 +61,7 @@
   let theme = $state(import.meta.env.VITE_SCREENSHOT_LIGHT ? "light" : "dark");
   let evidencePaths = $state([]);
   let dragOver = $state(false);
+  let integrityStatus = $state(null);
 
   function timeoutPromise(promise, ms) {
     let timer;
@@ -78,15 +79,36 @@
     return "unknown";
   }
 
+  async function verifyFileIntegrity(path, sha256) {
+    if (!activeCase?.id || !sha256) {
+      integrityStatus = null;
+      return;
+    }
+    try {
+      integrityStatus = await invoke("verify_evidence_integrity", {
+        caseId: activeCase.id,
+        filePath: path,
+        computedSha256: sha256,
+      });
+      if (integrityStatus?.expectedSha256 && !integrityStatus.verified) {
+        msg = `🔴 INTEGRITY FAIL: ${path.split(/[/\\]/).pop()} — hash does not match manifest`;
+      }
+    } catch {
+      integrityStatus = null;
+    }
+  }
+
   async function onFileSelect(path, meta, localPath) {
     selectedFile = localPath || path;
     inspectorMeta = meta ?? null;
+    integrityStatus = null;
 
     if (localPath) {
       hashLoading = true;
       try {
         const hashes = await invoke("hash_file", { path: localPath });
         inspectorMeta = { ...inspectorMeta, ...hashes, source: "disk" };
+        await verifyFileIntegrity(localPath, hashes.sha256);
       } catch (e) {
         msg = `⚠️ Hash failed: ${typeof e === "string" ? e : String(e)}`;
       }
@@ -178,6 +200,7 @@
         timeoutPromise(invoke("preview_file", { path }), 30000),
       ]);
       inspectorMeta = { ...preview.metadata, ...hashes, source: "disk" };
+      await verifyFileIntegrity(path, hashes.sha256);
       msg = `✅ Dropped: ${path.split(/[/\\]/).pop()}`;
       if (isSqliteArtifact(path)) {
         sqliteDbPath = path;
@@ -354,6 +377,7 @@
         timeoutPromise(invoke("preview_file", { path: picked }), 30000),
       ]);
       inspectorMeta = { ...preview.metadata, ...hashes, source: "disk" };
+      await verifyFileIntegrity(picked, hashes.sha256);
       msg = `✅ Loaded artifact: ${picked.split(/[/\\]/).pop()}`;
       if (isSqliteArtifact(picked)) {
         sqliteDbPath = picked;
@@ -781,6 +805,9 @@
         bind:note={inspectorNote}
         bind:tags={inspectorTags}
         {hashLoading}
+        {integrityStatus}
+        caseId={activeCase?.id}
+        selectedFile={artifactPath || selectedFile || ""}
         onAddEvidence={handleAddEvidence}
         onOpenArtifact={onOpenArtifact}
       />

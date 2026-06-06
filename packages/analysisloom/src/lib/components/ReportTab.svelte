@@ -1,6 +1,6 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
-  import { save } from "@tauri-apps/plugin-dialog";
+  import { open, save } from "@tauri-apps/plugin-dialog";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
 
@@ -10,6 +10,8 @@
   let reportPath = $state("");
   let bundlePath = $state("");
   let auditLog = $state([]);
+  let manifestInfo = $state(null);
+  let importingManifest = $state(false);
 
   async function generateReport() {
     if (!activeCase?.id) return;
@@ -64,9 +66,46 @@
     } catch (e) {}
   }
 
+  async function loadManifestInfo() {
+    if (!activeCase?.id) {
+      manifestInfo = null;
+      return;
+    }
+    try {
+      manifestInfo = await invoke("get_case_manifest", { caseId: activeCase.id });
+    } catch {
+      manifestInfo = null;
+    }
+  }
+
+  async function importManifest() {
+    if (!activeCase?.id) return;
+    const picked = await open({
+      multiple: false,
+      filters: [{ name: "Hash Manifest", extensions: ["json"] }],
+    });
+    if (!picked) return;
+    importingManifest = true;
+    try {
+      const result = await invoke("import_hash_manifest", {
+        caseId: activeCase.id,
+        path: picked,
+      });
+      manifestInfo = await invoke("get_case_manifest", { caseId: activeCase.id });
+      msg = `✅ Manifest imported — ${result.fileCount} files from ${result.source}`;
+      await loadAuditLog();
+    } catch (e) {
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    }
+    importingManifest = false;
+  }
+
   // Load audit log when case changes
   $effect(() => {
-    if (activeCase?.id) loadAuditLog();
+    if (activeCase?.id) {
+      loadAuditLog();
+      loadManifestInfo();
+    }
   });
 
   function severityColor(s) {
@@ -113,6 +152,19 @@
       <button class="btn-bundle" onclick={exportBundle} disabled={bundling}>
         {bundling ? '🔄 Packaging...' : '📦 Export Evidence Bundle (ZIP)'}
       </button>
+
+      <div class="manifest-row">
+        <button class="btn-manifest" onclick={importManifest} disabled={importingManifest}>
+          {importingManifest ? '🔄 Importing...' : '🔗 Import hash_manifest.json'}
+        </button>
+        {#if manifestInfo?.loaded}
+          <span class="manifest-badge">
+            ✓ {manifestInfo.fileCount} files from {manifestInfo.source}
+          </span>
+        {:else}
+          <span class="manifest-badge warn">No acquisition manifest — integrity verify on load disabled</span>
+        {/if}
+      </div>
 
       {#if bundlePath}
         <div class="report-link bundle">
@@ -162,7 +214,11 @@
         <li><strong>Timeline Events</strong> — Chronological event log (last 100)</li>
         <li><strong>Evidence Items</strong> — All acquired items with hashes</li>
         <li><strong>Findings</strong> — Tagged findings with severity</li>
-        <li><strong>Audit Trail</strong> — Complete action log with timestamps</li>
+        <li><strong>Hash Chain Validation</strong> — Acquisition → analysis SHA-256 comparison (NIST §3.4.1)</li>
+        <li><strong>Tool Limitations</strong> — Per-module disclaimers (ISO 27042 §10.1)</li>
+        <li><strong>Analyst Notes</strong> — Running examination log (SWGDE §4.4)</li>
+        <li><strong>Finding Visuals</strong> — Embedded screenshots and text excerpts for bookmarks</li>
+        <li><strong>Audit Trail</strong> — Chained action log with timestamps</li>
         <li><strong>Evidence Bundle (ZIP)</strong> — Selected evidence files + SHA-256 manifest + HTML/PDF report</li>
       </ul>
     </div>
@@ -207,6 +263,16 @@
   }
   .btn-bundle:hover:not(:disabled) { background: var(--primary-bg); }
   .btn-bundle:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-manifest {
+    padding: 8px 16px; background: transparent; color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 8px; font-size: 12px;
+    font-weight: 600; cursor: pointer; margin-top: 8px;
+  }
+  .btn-manifest:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+  .btn-manifest:disabled { opacity: 0.4; cursor: not-allowed; }
+  .manifest-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
+  .manifest-badge { font-size: 11px; color: var(--success); }
+  .manifest-badge.warn { color: var(--warn, #f59e0b); }
   .report-link.bundle { background: rgba(59,130,246,0.08); border-color: var(--primary); }
 
   .report-link {

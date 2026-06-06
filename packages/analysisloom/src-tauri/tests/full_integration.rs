@@ -142,9 +142,50 @@ fn full_forensic_pipeline_with_random_fixtures() {
     assert!(carve_result.files_found > 0, "Should carve embedded signatures");
     println!("Carved files: {}", carve_result.files_found);
 
+    // ─── Integrity: hash manifest import & verify ───
+    let manifest_path =
+        fixtures_gen::write_hash_manifest(&ws.root, &ws.evidence_txt, &ws.evidence_png);
+    let import = import_hash_manifest(case.id.clone(), manifest_path.to_string_lossy().to_string())
+        .expect("import_hash_manifest");
+    assert_eq!(import["fileCount"], 2);
+
+    let verify_ok = verify_evidence_integrity(
+        case.id.clone(),
+        ws.evidence_txt.to_string_lossy().to_string(),
+        hashes.sha256.clone().unwrap(),
+    )
+    .expect("verify_evidence_integrity ok");
+    assert!(verify_ok.verified);
+    assert!(verify_ok.expected_sha256.is_some());
+
+    let verify_fail = verify_evidence_integrity(
+        case.id.clone(),
+        ws.evidence_txt.to_string_lossy().to_string(),
+        "0000000000000000000000000000000000000000000000000000000000000000".into(),
+    )
+    .expect("verify_evidence_integrity fail");
+    assert!(!verify_fail.verified);
+
+    let note_id = append_case_note(
+        case.id.clone(),
+        "Observed password keyword in evidence during integration test".into(),
+        Some(ws.evidence_txt.to_string_lossy().to_string()),
+    )
+    .expect("append_case_note");
+    assert!(note_id > 0);
+    let notes = list_case_notes(case.id.clone()).expect("list_case_notes");
+    assert_eq!(notes.len(), 1);
+
     // ─── Reports ───
     let html_report = generate_case_report(case.id.clone(), "html".into()).expect("html report");
     assert!(std::path::Path::new(&html_report).exists());
+    let html_body = std::fs::read_to_string(&html_report).expect("read html report");
+    assert!(html_body.contains("Hash Chain Validation"));
+    assert!(html_body.contains("Tool Limitations"));
+    assert!(html_body.contains("Analyst Notes"));
+    assert!(html_body.contains("Finding Visual Documentation"));
+    assert!(html_body.contains("ALL VERIFIED") || html_body.contains("Hash chain intact"));
+
     let pdf_report = generate_case_report(case.id.clone(), "pdf".into()).expect("pdf report");
     assert!(std::path::Path::new(&pdf_report).exists());
 

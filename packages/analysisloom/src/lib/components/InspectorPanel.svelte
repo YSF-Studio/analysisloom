@@ -1,4 +1,6 @@
 <script>
+  import { invoke } from "@tauri-apps/api/core";
+
   let {
     metadata,
     filename = "",
@@ -6,11 +8,18 @@
     note = $bindable(""),
     tags = $bindable(""),
     hashLoading = false,
+    integrityStatus = null,
+    caseId = null,
+    selectedFile = "",
     onAddEvidence,
     onOpenArtifact,
+    onNoteSaved,
   } = $props();
 
   let hashAlgo = $state("sha256");
+  let caseNoteDraft = $state("");
+  let caseNotes = $state([]);
+  let savingNote = $state(false);
 
   function entropyLabel(e) {
     if (e == null) return "—";
@@ -37,6 +46,41 @@
   const hasHash = $derived(
     !!(metadata?.sha256 || metadata?.sha1 || metadata?.md5)
   );
+
+  async function loadCaseNotes() {
+    if (!caseId) {
+      caseNotes = [];
+      return;
+    }
+    try {
+      caseNotes = await invoke("list_case_notes", { caseId });
+    } catch {
+      caseNotes = [];
+    }
+  }
+
+  async function saveCaseNote() {
+    if (!caseId || !caseNoteDraft.trim()) return;
+    savingNote = true;
+    try {
+      await invoke("append_case_note", {
+        caseId,
+        body: caseNoteDraft.trim(),
+        filePath: selectedFile || null,
+      });
+      caseNoteDraft = "";
+      await loadCaseNotes();
+      onNoteSaved?.();
+    } catch (e) {
+      console.error("Failed to save case note:", e);
+    }
+    savingNote = false;
+  }
+
+  $effect(() => {
+    if (caseId) loadCaseNotes();
+    else caseNotes = [];
+  });
 </script>
 
 {#if visible}
@@ -67,6 +111,15 @@
             —
           {/if}
         </div>
+        {#if integrityStatus}
+          <div class="integrity" class:pass={integrityStatus.verified} class:fail={!integrityStatus.verified && integrityStatus.expectedSha256} class:warn={!integrityStatus.expectedSha256}>
+            {#if integrityStatus.expectedSha256}
+              {integrityStatus.verified ? "✓ Integrity verified (manifest)" : "✗ INTEGRITY FAIL — hash mismatch"}
+            {:else}
+              ⚠ No acquisition manifest — hash not verified against source
+            {/if}
+          </div>
+        {/if}
       </section>
 
       <section class="form-section">
@@ -106,13 +159,13 @@
       </section>
 
       <section class="form-section grow">
-        <label class="field-label" for="inspector-note">Notes</label>
+        <label class="field-label" for="inspector-note">Bookmark Note</label>
         <textarea
           id="inspector-note"
           class="note-field"
           bind:value={note}
-          placeholder="Suspect chat DB..."
-          rows="4"
+          placeholder="Note saved with bookmark/evidence..."
+          rows="3"
         ></textarea>
       </section>
 
@@ -120,6 +173,31 @@
         <label class="field-label" for="inspector-tags">Tags</label>
         <input id="inspector-tags" class="tag-field" bind:value={tags} placeholder="malware, PII, exfiltration" />
       </section>
+
+      {#if caseId}
+        <section class="form-section case-log">
+          <span class="field-label">Case Analysis Log (SWGDE §4.4)</span>
+          <textarea
+            class="note-field"
+            bind:value={caseNoteDraft}
+            placeholder="Document observations during examination..."
+            rows="3"
+          ></textarea>
+          <button class="btn-save-note" onclick={saveCaseNote} disabled={savingNote || !caseNoteDraft.trim()}>
+            {savingNote ? "Saving…" : "Save to Case Log"}
+          </button>
+          {#if caseNotes.length > 0}
+            <div class="note-history">
+              {#each caseNotes.slice(-5).reverse() as n}
+                <div class="note-entry">
+                  <span class="note-ts">{n.timestamp}</span>
+                  <span class="note-body">{n.body}</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </section>
+      {/if}
     {:else}
       <div class="empty">
         <p>Select a file for Quick Look &amp; evidence linking</p>
@@ -166,6 +244,13 @@
     background: rgba(0, 0, 0, 0.25); border: 1px solid var(--divider);
     border-radius: 6px; padding: 8px 10px; word-break: break-all;
   }
+  .integrity {
+    margin-top: 6px; font-size: 10px; font-weight: 600;
+    padding: 6px 8px; border-radius: 6px;
+  }
+  .integrity.pass { background: rgba(34,197,94,0.12); color: var(--success, #22c55e); }
+  .integrity.fail { background: rgba(239,68,68,0.12); color: var(--danger, #ef4444); }
+  .integrity.warn { background: rgba(245,158,11,0.12); color: var(--warn, #f59e0b); }
   .btn-evidence, .btn-artifact {
     width: 100%; padding: 8px 12px; border-radius: 8px;
     font-size: 12px; font-weight: 600; cursor: pointer;
@@ -200,8 +285,21 @@
     border: 1px solid var(--divider); border-radius: 8px;
     color: var(--text); font-size: 12px; resize: vertical;
   }
-  .note-field { min-height: 72px; font-family: var(--font); }
+  .note-field { min-height: 56px; font-family: var(--font); }
   .tag-field { padding: 6px 10px; }
+  .btn-save-note {
+    margin-top: 6px; width: 100%; padding: 6px 10px;
+    background: var(--primary-bg); border: 1px solid var(--primary);
+    color: var(--primary); border-radius: 6px; font-size: 11px;
+    font-weight: 600; cursor: pointer;
+  }
+  .btn-save-note:disabled { opacity: 0.4; cursor: not-allowed; }
+  .note-history { margin-top: 8px; max-height: 120px; overflow-y: auto; }
+  .note-entry {
+    font-size: 10px; padding: 4px 0; border-bottom: 1px solid var(--divider);
+  }
+  .note-ts { color: var(--text-muted); display: block; font-family: var(--mono); }
+  .note-body { color: var(--text-secondary); }
   .empty {
     display: flex; align-items: center; justify-content: center;
     flex: 1; padding: 24px; text-align: center;

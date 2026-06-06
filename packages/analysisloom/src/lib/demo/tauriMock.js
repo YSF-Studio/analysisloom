@@ -126,6 +126,23 @@ export async function invoke(cmd, args = {}) {
       return;
     case "get_audit_log":
       return DEMO_AUDIT;
+    case "import_hash_manifest":
+      return { fileCount: 2, source: "CollectionLoom", imported: true };
+    case "get_case_manifest":
+      return { loaded: true, source: "CollectionLoom", importedAt: "2026-06-06", fileCount: 2 };
+    case "verify_evidence_integrity":
+      return {
+        verified: true,
+        filePath: args.filePath || "",
+        computedSha256: args.computedSha256 || DEMO_HASHES.sha256,
+        expectedSha256: DEMO_HASHES.sha256,
+        matchMethod: "hash_manifest.json",
+        message: "SHA-256 matches acquisition manifest (CollectionLoom handoff)",
+      };
+    case "append_case_note":
+      return 1;
+    case "list_case_notes":
+      return [{ timestamp: "2026-06-06 12:00:00", body: "Demo analyst observation", filePath: null }];
     case "generate_case_report":
       return "/tmp/demo-report.html";
     case "about_info":
