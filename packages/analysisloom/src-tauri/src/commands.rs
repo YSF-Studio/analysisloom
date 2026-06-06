@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
-use ysf_core::*;
+use serde::{Deserialize, Serialize};
+use crate::forensic::{self, carving, evidence, ntfs, preview, report, ProgressState};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Case {
@@ -78,9 +78,9 @@ pub fn parse_mft(image_path: String) -> Result<Vec<ntfs::MftEntry>, String> {
 
 #[tauri::command]
 pub async fn start_carving(image_path: String, output_dir: String) -> Result<(), String> {
-    CANCEL_FLAG.store(false, std::sync::atomic::Ordering::SeqCst);
-    *PROGRESS_STATE.lock().unwrap() = ProgressState::default();
-    let cancel = CANCEL_FLAG.clone();
+    forensic::CANCEL_FLAG.store(false, std::sync::atomic::Ordering::SeqCst);
+    *forensic::PROGRESS_STATE.lock().unwrap() = ProgressState::default();
+    let cancel = forensic::CANCEL_FLAG.clone();
 
     tokio::task::spawn_blocking(move || {
         let _ = carving::carve_files(&image_path, &output_dir, &cancel);
@@ -91,12 +91,12 @@ pub async fn start_carving(image_path: String, output_dir: String) -> Result<(),
 
 #[tauri::command]
 pub fn get_carving_progress() -> Result<ProgressState, String> {
-    PROGRESS_STATE.lock().map(|s| s.clone()).map_err(|e| e.to_string())
+    forensic::PROGRESS_STATE.lock().map(|s| s.clone()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn cancel_carving() {
-    CANCEL_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
+    forensic::CANCEL_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
 // ─── Timeline ───
@@ -160,8 +160,8 @@ pub fn keyword_search(case_id: String, query: String) -> Result<Vec<SearchResult
 // ─── File Preview ───
 
 #[tauri::command]
-pub fn preview_file(path: String) -> Result<ysf_core::preview::PreviewResult, String> {
-    ysf_core::preview::preview_file(&path)
+pub fn preview_file(path: String) -> Result<preview::PreviewResult, String> {
+    preview::preview_file(&path)
 }
 
 // ─── Report Generation ───

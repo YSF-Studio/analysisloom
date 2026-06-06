@@ -2,6 +2,7 @@ use tauri::Manager;
 
 mod commands;
 mod db;
+mod forensic;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
