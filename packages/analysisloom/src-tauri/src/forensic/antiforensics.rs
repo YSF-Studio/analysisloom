@@ -68,7 +68,8 @@ fn check_zero_size(entry: &MftEntry, image_path: &str) -> Vec<AntiForensicsFindi
             detection_type: "Zero-Size Anomaly".into(),
             file_path: format!("{image_path}::{}", entry.filename),
             severity: "medium".into(),
-            details: "File reports 0 bytes but has $DATA attribute — possible hidden content".into(),
+            details: "File reports 0 bytes but has $DATA attribute — possible hidden content"
+                .into(),
             record_number: Some(entry.record_number),
         }];
     }

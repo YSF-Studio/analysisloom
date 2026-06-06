@@ -31,11 +31,23 @@ pub fn detect_browser_dbs(root: &str) -> Vec<(String, String)> {
     }
 
     let patterns: Vec<(&str, &str, &str)> = vec![
-        ("Chrome", "History", "Google/Chrome/User Data/Default/History"),
-        ("Chrome", "History", "Google/Chrome/User Data/Profile 1/History"),
+        (
+            "Chrome",
+            "History",
+            "Google/Chrome/User Data/Default/History",
+        ),
+        (
+            "Chrome",
+            "History",
+            "Google/Chrome/User Data/Profile 1/History",
+        ),
         ("Firefox", "places.sqlite", "Mozilla/Firefox/Profiles"),
         ("Safari", "History.db", "Safari/History.db"),
-        ("Edge", "History", "Microsoft/Edge/User Data/Default/History"),
+        (
+            "Edge",
+            "History",
+            "Microsoft/Edge/User Data/Default/History",
+        ),
     ];
 
     for (browser, file, rel) in patterns {
@@ -57,7 +69,13 @@ pub fn detect_browser_dbs(root: &str) -> Vec<(String, String)> {
     }
 
     // Flat scan for History / places.sqlite in directory tree (depth 4)
-    scan_for_files(root, &["History", "places.sqlite", "History.db"], 0, 4, &mut found);
+    scan_for_files(
+        root,
+        &["History", "places.sqlite", "History.db"],
+        0,
+        4,
+        &mut found,
+    );
     found
 }
 
@@ -72,7 +90,10 @@ fn scan_for_files(dir: &Path, names: &[&str], depth: u8, max: u8, out: &mut Vec<
         let path = entry.path();
         if path.is_file() {
             let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            if names.iter().any(|n| fname.eq_ignore_ascii_case(n) || fname.contains(n)) {
+            if names
+                .iter()
+                .any(|n| fname.eq_ignore_ascii_case(n) || fname.contains(n))
+            {
                 let browser = if path.to_string_lossy().contains("Chrome") {
                     "Chrome"
                 } else if path.to_string_lossy().contains("Firefox") {
@@ -181,7 +202,10 @@ fn parse_chromium(
     Ok(artifacts)
 }
 
-fn parse_firefox(conn: &rusqlite::Connection, db_path: &str) -> Result<Vec<BrowserArtifact>, String> {
+fn parse_firefox(
+    conn: &rusqlite::Connection,
+    db_path: &str,
+) -> Result<Vec<BrowserArtifact>, String> {
     let mut artifacts = vec![];
     let query = r#"
         SELECT p.url, p.title, p.visit_count, h.visit_date
@@ -214,7 +238,10 @@ fn parse_firefox(conn: &rusqlite::Connection, db_path: &str) -> Result<Vec<Brows
     Ok(artifacts)
 }
 
-fn parse_safari(conn: &rusqlite::Connection, db_path: &str) -> Result<Vec<BrowserArtifact>, String> {
+fn parse_safari(
+    conn: &rusqlite::Connection,
+    db_path: &str,
+) -> Result<Vec<BrowserArtifact>, String> {
     let mut artifacts = vec![];
     let queries = [
         "SELECT url, title, visit_count, visit_time FROM history_items LIMIT 100",

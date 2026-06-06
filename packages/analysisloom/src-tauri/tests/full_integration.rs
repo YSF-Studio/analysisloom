@@ -21,7 +21,8 @@ fn full_forensic_pipeline_with_random_fixtures() {
     println!("Fixture workspace: {}", ws.root.display());
 
     // ─── Case management ───
-    let case = create_case("Random Forensic Case".into(), "Test Analyst".into()).expect("create_case");
+    let case =
+        create_case("Random Forensic Case".into(), "Test Analyst".into()).expect("create_case");
     assert!(!case.id.is_empty());
     let cases = list_cases().expect("list_cases");
     assert!(cases.iter().any(|c| c.id == case.id));
@@ -30,26 +31,40 @@ fn full_forensic_pipeline_with_random_fixtures() {
 
     // ─── NTFS parse ───
     let mft = parse_mft(ws.ntfs_image.to_string_lossy().to_string()).expect("parse_mft");
-    assert!(!mft.is_empty(), "MFT should contain entries from synthetic image");
-    assert!(mft.iter().any(|e| e.filename.contains("Windows") || e.filename == "."));
+    assert!(
+        !mft.is_empty(),
+        "MFT should contain entries from synthetic image"
+    );
+    assert!(mft
+        .iter()
+        .any(|e| e.filename.contains("Windows") || e.filename == "."));
     println!("MFT entries: {}", mft.len());
 
     // ─── Encryption detection ───
-    let enc_ntfs = detect_encrypted(ws.ntfs_image.to_string_lossy().to_string()).expect("detect_encrypted ntfs");
-    let enc_luks = detect_encrypted(ws.luks_image.to_string_lossy().to_string()).expect("detect_encrypted luks");
+    let enc_ntfs = detect_encrypted(ws.ntfs_image.to_string_lossy().to_string())
+        .expect("detect_encrypted ntfs");
+    let enc_luks = detect_encrypted(ws.luks_image.to_string_lossy().to_string())
+        .expect("detect_encrypted luks");
     assert!(!enc_luks.is_empty(), "LUKS image should trigger detection");
-    println!("Encryption findings: ntfs={}, luks={}", enc_ntfs.len(), enc_luks.len());
+    println!(
+        "Encryption findings: ntfs={}, luks={}",
+        enc_ntfs.len(),
+        enc_luks.len()
+    );
 
     // ─── Hash & preview ───
     let hashes = hash_file(ws.evidence_txt.to_string_lossy().to_string()).expect("hash_file");
     assert!(hashes.sha256.is_some());
-    let preview = preview_file(ws.evidence_txt.to_string_lossy().to_string()).expect("preview_file txt");
+    let preview =
+        preview_file(ws.evidence_txt.to_string_lossy().to_string()).expect("preview_file txt");
     assert!(preview.metadata.sha256.is_some());
-    let png_preview = preview_file(ws.evidence_png.to_string_lossy().to_string()).expect("preview_file png");
+    let png_preview =
+        preview_file(ws.evidence_png.to_string_lossy().to_string()).expect("preview_file png");
     assert_eq!(png_preview.extension, "png");
 
     // ─── SQLite browser ───
-    let db_info = sqlite_db_info(ws.sqlite_db.to_string_lossy().to_string()).expect("sqlite_db_info");
+    let db_info =
+        sqlite_db_info(ws.sqlite_db.to_string_lossy().to_string()).expect("sqlite_db_info");
     assert!(db_info.tables.contains(&"messages".to_string()));
     let cols = sqlite_table_columns(
         ws.sqlite_db.to_string_lossy().to_string(),
@@ -98,7 +113,10 @@ fn full_forensic_pipeline_with_random_fixtures() {
     assert!(!timeline.is_empty());
 
     let search = keyword_search(case.id.clone(), "password".into()).expect("keyword_search");
-    assert!(!search.is_empty(), "Should find 'password' in evidence text");
+    assert!(
+        !search.is_empty(),
+        "Should find 'password' in evidence text"
+    );
 
     let stats = case_stats(case.id.clone()).expect("case_stats");
     assert!(stats.evidence_count >= 1);
@@ -139,7 +157,10 @@ fn full_forensic_pipeline_with_random_fixtures() {
         &cancel,
     )
     .expect("carve_files");
-    assert!(carve_result.files_found > 0, "Should carve embedded signatures");
+    assert!(
+        carve_result.files_found > 0,
+        "Should carve embedded signatures"
+    );
     println!("Carved files: {}", carve_result.files_found);
 
     // ─── Integrity: hash manifest import & verify ───

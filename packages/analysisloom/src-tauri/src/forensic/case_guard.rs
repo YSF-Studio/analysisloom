@@ -3,11 +3,9 @@
 pub fn is_case_sealed(case_id: &str) -> Result<bool, String> {
     let db = crate::db::conn();
     let status: String = db
-        .query_row(
-            "SELECT status FROM cases WHERE id = ?1",
-            [case_id],
-            |row| row.get(0),
-        )
+        .query_row("SELECT status FROM cases WHERE id = ?1", [case_id], |row| {
+            row.get(0)
+        })
         .map_err(|e| format!("Case not found: {e}"))?;
     Ok(status == "sealed")
 }

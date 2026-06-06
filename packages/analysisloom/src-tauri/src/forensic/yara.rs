@@ -23,15 +23,37 @@ pub(crate) struct YaraRule {
 
 #[derive(Debug, Clone)]
 enum YaraString {
-    Text { id: String, pattern: Vec<u8>, nocase: bool },
-    Hex { id: String, pattern: Vec<u8> },
+    Text {
+        id: String,
+        pattern: Vec<u8>,
+        nocase: bool,
+    },
+    Hex {
+        id: String,
+        pattern: Vec<u8>,
+    },
 }
 
 pub(crate) fn builtin_rules() -> Vec<YaraRule> {
     vec![
-        rule_text("Suspicious_PowerShell", "powershell", "Invoke-Expression", "high"),
-        rule_text("Mimikatz_String", "mimikatz", "sekurlsa::logonpasswords", "critical"),
-        rule_text("Ransomware_Note", "ransom", "your files have been encrypted", "critical"),
+        rule_text(
+            "Suspicious_PowerShell",
+            "powershell",
+            "Invoke-Expression",
+            "high",
+        ),
+        rule_text(
+            "Mimikatz_String",
+            "mimikatz",
+            "sekurlsa::logonpasswords",
+            "critical",
+        ),
+        rule_text(
+            "Ransomware_Note",
+            "ransom",
+            "your files have been encrypted",
+            "critical",
+        ),
         rule_text("Cobalt_Strike", "beacon", "ReflectiveLoader", "critical"),
         rule_hex("PE_Executable", "pe", &[0x4D, 0x5A], "medium"),
         rule_hex("PNG_Header", "png", &[0x89, 0x50, 0x4E, 0x47], "info"),
@@ -169,7 +191,9 @@ pub(crate) fn scan_bytes(data: &[u8], file_path: &str, rules: &[YaraRule]) -> Ve
     for rule in rules {
         for ys in &rule.strings {
             let (pat, nocase) = match ys {
-                YaraString::Text { pattern, nocase, .. } => (pattern.as_slice(), *nocase),
+                YaraString::Text {
+                    pattern, nocase, ..
+                } => (pattern.as_slice(), *nocase),
                 YaraString::Hex { pattern, .. } => (pattern.as_slice(), false),
             };
             if pat.is_empty() {

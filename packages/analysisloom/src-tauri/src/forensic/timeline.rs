@@ -49,7 +49,9 @@ pub fn build_super_timeline(case_id: &str) -> Result<Vec<SuperTimelineEvent>, St
     }
 
     let mut fstmt = db
-        .prepare("SELECT description, file_path, severity, created_at FROM findings WHERE case_id = ?1")
+        .prepare(
+            "SELECT description, file_path, severity, created_at FROM findings WHERE case_id = ?1",
+        )
         .map_err(|e| e.to_string())?;
     for row in fstmt
         .query_map([case_id], |r| {

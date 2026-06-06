@@ -29,9 +29,7 @@ pub fn hex_search_paths(paths: &[String], hex_pattern: &str) -> Result<Vec<Searc
 }
 
 pub fn parse_hex_pattern(input: &str) -> Result<Vec<u8>, String> {
-    let clean = input
-        .replace([':', '-', ' '], "")
-        .to_uppercase();
+    let clean = input.replace([':', '-', ' '], "").to_uppercase();
     if clean.is_empty() || clean.len() % 2 != 0 {
         return Err("Hex pattern must be even-length (e.g. FF D8 FF or ffd8ff)".into());
     }
@@ -74,11 +72,20 @@ fn find_hex_in_bytes(data: &[u8], pattern: &[u8], path: &str) -> Vec<SearchHit> 
 
 pub fn is_hex_query(query: &str) -> bool {
     let q = query.trim();
-    q.starts_with("hex:") || (q.len() >= 4 && q.chars().all(|c| c.is_ascii_hexdigit() || c.is_whitespace() || c == ':' || c == '-'))
-        && q.chars().filter(|c| c.is_ascii_hexdigit()).count() >= 4
-        && !q.chars().any(|c| c.is_alphabetic() && !matches!(c, 'A'..='F' | 'a'..='f'))
+    q.starts_with("hex:")
+        || (q.len() >= 4
+            && q.chars()
+                .all(|c| c.is_ascii_hexdigit() || c.is_whitespace() || c == ':' || c == '-'))
+            && q.chars().filter(|c| c.is_ascii_hexdigit()).count() >= 4
+            && !q
+                .chars()
+                .any(|c| c.is_alphabetic() && !matches!(c, 'A'..='F' | 'a'..='f'))
 }
 
 pub fn normalize_hex_query(query: &str) -> String {
-    query.trim().strip_prefix("hex:").unwrap_or(query.trim()).to_string()
+    query
+        .trim()
+        .strip_prefix("hex:")
+        .unwrap_or(query.trim())
+        .to_string()
 }

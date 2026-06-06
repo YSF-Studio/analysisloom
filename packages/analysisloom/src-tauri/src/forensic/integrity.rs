@@ -105,35 +105,31 @@ pub fn verify_manifest_signature(manifest: &HashManifest) -> SignatureVerifyResu
         }
     };
 
-    let pk_bytes = match base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        pk_b64.trim(),
-    ) {
-        Ok(b) => b,
-        Err(e) => {
-            return SignatureVerifyResult {
-                verified: false,
-                signed: true,
-                message: format!("Invalid publicKey base64: {e}"),
-                manifest_sha256: Some(digest),
-            };
-        }
-    };
+    let pk_bytes =
+        match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, pk_b64.trim()) {
+            Ok(b) => b,
+            Err(e) => {
+                return SignatureVerifyResult {
+                    verified: false,
+                    signed: true,
+                    message: format!("Invalid publicKey base64: {e}"),
+                    manifest_sha256: Some(digest),
+                };
+            }
+        };
 
-    let sig_bytes = match base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        sig_b64.trim(),
-    ) {
-        Ok(b) => b,
-        Err(e) => {
-            return SignatureVerifyResult {
-                verified: false,
-                signed: true,
-                message: format!("Invalid signature base64: {e}"),
-                manifest_sha256: Some(digest),
-            };
-        }
-    };
+    let sig_bytes =
+        match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, sig_b64.trim()) {
+            Ok(b) => b,
+            Err(e) => {
+                return SignatureVerifyResult {
+                    verified: false,
+                    signed: true,
+                    message: format!("Invalid signature base64: {e}"),
+                    manifest_sha256: Some(digest),
+                };
+            }
+        };
 
     use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
@@ -215,7 +211,8 @@ fn hex_decode_sha256(hex_str: &str) -> [u8; 32] {
 }
 
 pub fn parse_hash_manifest(path: &str) -> Result<HashManifest, String> {
-    let content = std::fs::read_to_string(path).map_err(|e| format!("Cannot read manifest: {e}"))?;
+    let content =
+        std::fs::read_to_string(path).map_err(|e| format!("Cannot read manifest: {e}"))?;
     let manifest: HashManifest =
         serde_json::from_str(&content).map_err(|e| format!("Invalid hash_manifest.json: {e}"))?;
     if manifest.files.is_empty() {
@@ -226,7 +223,10 @@ pub fn parse_hash_manifest(path: &str) -> Result<HashManifest, String> {
 
 pub fn lookup_expected_hash(manifest: &HashManifest, file_path: &str) -> Option<String> {
     let path = Path::new(file_path);
-    let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or(file_path);
+    let fname = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(file_path);
 
     for entry in &manifest.files {
         if entry.path.as_deref() == Some(file_path) {
@@ -237,10 +237,20 @@ pub fn lookup_expected_hash(manifest: &HashManifest, file_path: &str) -> Option<
                 return Some(entry.sha256.clone());
             }
         }
-        if entry.path.as_deref().map(|p| p.ends_with(fname)).unwrap_or(false) {
+        if entry
+            .path
+            .as_deref()
+            .map(|p| p.ends_with(fname))
+            .unwrap_or(false)
+        {
             return Some(entry.sha256.clone());
         }
-        if entry.relative_path.as_deref().map(|r| r.ends_with(fname)).unwrap_or(false) {
+        if entry
+            .relative_path
+            .as_deref()
+            .map(|r| r.ends_with(fname))
+            .unwrap_or(false)
+        {
             return Some(entry.sha256.clone());
         }
     }
@@ -306,30 +316,30 @@ pub fn build_hash_chain_report(
     let mut all_verified = manifest.is_some();
 
     for (path, analysis_hash) in evidence {
-        let acq = lookup_expected_hash(manifest.unwrap_or(&HashManifest {
-            source: None,
-            exported_at: None,
-            manifest_sha256: None,
-            public_key: None,
-            signature: None,
-            files: vec![],
-        }), path)
+        let acq = lookup_expected_hash(
+            manifest.unwrap_or(&HashManifest {
+                source: None,
+                exported_at: None,
+                manifest_sha256: None,
+                public_key: None,
+                signature: None,
+                files: vec![],
+            }),
+            path,
+        )
         .or_else(|| {
-            acquisition_map
-                .get(path)
-                .cloned()
-                .or_else(|| {
-                    Path::new(path)
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .and_then(|f| acquisition_map.get(f).cloned())
-                })
+            acquisition_map.get(path).cloned().or_else(|| {
+                Path::new(path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .and_then(|f| acquisition_map.get(f).cloned())
+            })
         });
 
         let analysis = analysis_hash.as_ref().map(|h| h.to_lowercase());
         let verified = match (&acq, &analysis) {
             (Some(a), Some(b)) => a == b,
-            (None, _) => !manifest.is_some(),
+            (None, _) => manifest.is_none(),
             (Some(_), None) => false,
         };
         if manifest.is_some() && !verified {
@@ -337,7 +347,12 @@ pub fn build_hash_chain_report(
         }
 
         entries.push(HashChainEntry {
-            stage: if acq.is_some() { "Acquisition → Analysis" } else { "Analysis only" }.into(),
+            stage: if acq.is_some() {
+                "Acquisition → Analysis"
+            } else {
+                "Analysis only"
+            }
+            .into(),
             file_path: path.clone(),
             acquisition_hash: acq,
             analysis_hash: analysis,
