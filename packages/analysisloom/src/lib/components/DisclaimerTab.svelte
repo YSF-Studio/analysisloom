@@ -15,7 +15,7 @@ $effect(() => { load(); });
 
 <div class="about">
     <header class="hero">
-        <img src="/src-tauri/icons/icon.png" class="logo-hero" alt="AnalysisLoom" />
+        <img src="/icon.png" class="logo-hero" alt="AnalysisLoom" />
         <h1>{info.appName || "AnalysisLoom"}</h1>
         <span class="version">v{info.version || "0.1.0"}</span>
     </header>

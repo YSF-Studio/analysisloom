@@ -89,7 +89,7 @@
       <button class="nav-btn" disabled>‹</button>
       <button class="nav-btn" disabled>›</button>
     </div>
-    <img src="/src-tauri/icons/logo.svg" class="logo" alt="AL" />
+    <img src="/logo.svg" class="logo" alt="AnalysisLoom" />
     <span class="title">AnalysisLoom</span>
 
     <!-- Center Search Bar -->
