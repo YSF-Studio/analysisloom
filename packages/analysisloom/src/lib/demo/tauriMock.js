@@ -13,6 +13,13 @@ import {
   DEMO_AUDIT,
   DEMO_ABOUT,
   DEMO_IMAGE,
+  DEMO_REGISTRY,
+  DEMO_YARA,
+  DEMO_ANTIFORENSICS,
+  DEMO_BROWSER,
+  DEMO_NSRL,
+  DEMO_MEMORY,
+  DEMO_SUPER_TIMELINE,
 } from "./mockData.js";
 
 let carvingDone = false;
@@ -63,7 +70,39 @@ export async function invoke(cmd, args = {}) {
     case "get_timeline":
       return DEMO_TIMELINE;
     case "keyword_search":
+    case "unified_search":
+    case "hex_search":
       return DEMO_SEARCH;
+    case "get_super_timeline":
+      return DEMO_SUPER_TIMELINE;
+    case "analyze_registry_hive":
+      return DEMO_REGISTRY;
+    case "scan_registry_directory":
+      return [DEMO_REGISTRY];
+    case "yara_scan_paths":
+      return DEMO_YARA;
+    case "yara_builtin_rule_count":
+      return 9;
+    case "analyze_antiforensics_mft":
+    case "analyze_antiforensics_files":
+      return DEMO_ANTIFORENSICS;
+    case "scan_browser_artifacts":
+      return DEMO_BROWSER;
+    case "analyze_browser_db":
+      return DEMO_BROWSER[0];
+    case "nsrl_lookup_file":
+    case "nsrl_lookup_hash":
+      return DEMO_NSRL;
+    case "nsrl_import":
+      return 1500;
+    case "nsrl_seed_builtin":
+      return 3;
+    case "nsrl_stats":
+      return { hashCount: 1503 };
+    case "parse_volatility_json":
+      return DEMO_MEMORY;
+    case "recover_deleted_carve":
+      return { filesFound: DEMO_CARVED.length, files: DEMO_CARVED, bytesScanned: 262144 };
     case "add_bookmark":
       return 1;
     case "list_bookmarks":

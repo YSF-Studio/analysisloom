@@ -22,6 +22,12 @@ const VIEWS = [
   { view: "search", slug: "search", wait: 600 },
   { view: "bookmarks", slug: "key-findings", wait: 500 },
   { view: "encrypted", slug: "encrypted", button: "Scan Image", wait: 600 },
+  { view: "registry", slug: "registry", prefill: "hive", button: "Analyze Hive", wait: 600 },
+  { view: "yara", slug: "yara-scanner", button: "Scan Evidence", wait: 600 },
+  { view: "antiforensics", slug: "anti-forensics", button: "Scan MFT Image", wait: 600 },
+  { view: "browser", slug: "browser-artifacts", button: "Scan Browsers", wait: 600 },
+  { view: "nsrl", slug: "nsrl-lookup", button: "Lookup Selected File", wait: 500 },
+  { view: "memory", slug: "memory-bridge", prefill: "memory", button: "Parse JSON", wait: 600 },
   { view: "report", slug: "report", wait: 500 },
   { view: "about", slug: "about", wait: 400 },
 ];
@@ -86,9 +92,21 @@ async function main() {
   await page.waitForFunction(() => window.__goToView, { timeout: 10000 });
 
   let captured = 0;
-  for (const { view, slug, button, wait = 400 } of VIEWS) {
+  for (const { view, slug, button, prefill, wait = 400 } of VIEWS) {
     await page.evaluate((v) => window.__goToView(v), view);
     await new Promise((r) => setTimeout(r, 300));
+    if (prefill === "hive") {
+      await page.evaluate(() => {
+        const input = document.querySelector(".panel input, h3 + p + .row input, .row input");
+        if (input) input.value = "/workspace/test-fixtures/SYSTEM";
+      });
+    }
+    if (prefill === "memory") {
+      await page.evaluate(() => {
+        const inputs = document.querySelectorAll(".panel input");
+        if (inputs[0]) inputs[0].value = "/workspace/test-fixtures/volatility.json";
+      });
+    }
     if (button) {
       await page.evaluate((label) => {
         const btn = Array.from(document.querySelectorAll("button")).find((b) => b.textContent.includes(label));

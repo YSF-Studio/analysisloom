@@ -126,6 +126,60 @@ Scan disk images for LUKS headers, BitLocker markers, and high-entropy encrypted
 
 **How to use:** Load a disk image → open **Encrypted** → **Scan for Encryption**.
 
+### Registry Analyzer
+Parse Windows registry hives (SAM, SYSTEM, SOFTWARE, NTUSER.DAT) and surface USB history, UserAssist, MRU, and other forensic keys.
+
+| |
+|:--:|
+| ![Registry Analyzer](screenshots/registry.png) |
+
+**How to use:** Open **Registry** → point to a hive file or directory → **Analyze Hive**.
+
+### YARA Scanner
+Built-in YARA engine with default rules plus custom `.yar` loading. Scan evidence paths and flag matches by severity.
+
+| |
+|:--:|
+| ![YARA Scanner](screenshots/yara-scanner.png) |
+
+**How to use:** Open **YARA Scanner** → add paths or select from case evidence → **Scan Evidence**.
+
+### Anti-Forensics Detection
+Detect timestomping, NTFS alternate data streams, and extension mismatches from MFT records or file paths.
+
+| |
+|:--:|
+| ![Anti-Forensics](screenshots/anti-forensics.png) |
+
+**How to use:** Load a disk image → open **Anti-Forensics** → **Scan MFT Image**.
+
+### Browser Artifacts
+Extract browsing history, downloads, and related SQLite artifacts from Chrome, Firefox, Safari, and Edge profiles.
+
+| |
+|:--:|
+| ![Browser Artifacts](screenshots/browser-artifacts.png) |
+
+**How to use:** Open **Browser Artifacts** → **Scan Browsers** or point to a specific `History` / `places.sqlite` database.
+
+### NSRL Lookup
+Check file hashes against the NIST NSRL known-good database. Import custom NSRL sets or use the built-in seed.
+
+| |
+|:--:|
+| ![NSRL Lookup](screenshots/nsrl-lookup.png) |
+
+**How to use:** Select a file in the NTFS browser → open **NSRL Lookup** → **Lookup Selected File**.
+
+### Memory Bridge
+Import Volatility 3 JSON output and browse processes, network connections, and plugin metadata without leaving the case.
+
+| |
+|:--:|
+| ![Memory Bridge](screenshots/memory-bridge.png) |
+
+**How to use:** Open **Memory Bridge** → paste or browse to a Volatility JSON export → **Parse JSON**.
+
 ### Report
 Generate HTML or PDF case reports including evidence list, findings, and audit trail.
 

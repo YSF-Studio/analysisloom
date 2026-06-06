@@ -81,17 +81,84 @@ export const DEMO_AUDIT = [
   { timestamp: "2026-06-06 10:32:00", action: "KEYWORD_SEARCH", detail: "password" },
 ];
 
+export const DEMO_REGISTRY = {
+  hiveType: "SYSTEM",
+  keysScanned: 5,
+  findings: [
+    { hive: "SYSTEM", keyPath: "ControlSet001\\Enum\\USBSTOR", valueName: "(subkey)", valueData: "Disk&Ven_SanDisk", category: "usb", forensicRelevance: "USB History" },
+    { hive: "SYSTEM", keyPath: "ControlSet001\\Enum\\USBSTOR\\4&2a1b3c4d", valueName: "FriendlyName", valueData: "SanDisk Ultra USB 3.0", category: "usb", forensicRelevance: "USB History" },
+    { hive: "SOFTWARE", keyPath: "Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist", valueName: "(subkey)", valueData: "{CEBFF5C0}", category: "userassist", forensicRelevance: "UserAssist / Program Execution" },
+    { hive: "NTUSER", keyPath: "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RecentDocs", valueName: "(subkey)", valueData: ".txt", category: "mru", forensicRelevance: "Recent Documents (MRU)" },
+  ],
+};
+
+export const DEMO_YARA = [
+  { ruleName: "Suspicious_PowerShell", filePath: "/workspace/test-fixtures/secret_password_log.txt", offset: 128, matchedString: "powershell", severity: "high" },
+  { ruleName: "Ransomware_Note", filePath: "/workspace/test-fixtures/secret_password_log.txt", offset: 0, matchedString: "ransom", severity: "critical" },
+];
+
+export const DEMO_ANTIFORENSICS = [
+  { detectionType: "Timestomp Suspect", filePath: "/workspace/test-fixtures/random_ntfs.dd::secret_password.txt", severity: "high", details: "$SI created differs from $FN — possible timestomp", recordNumber: 4 },
+  { detectionType: "NTFS Alternate Data Stream", filePath: "/workspace/test-fixtures/random_ntfs.dd::zone.identifier:Zone.Identifier", severity: "high", details: "Named data stream 'Zone.Identifier'", recordNumber: 4 },
+];
+
+export const DEMO_BROWSER = [
+  {
+    browser: "Chrome",
+    dbPath: "/workspace/test-fixtures/messages.db",
+    artifacts: [
+      { browser: "Chrome", artifactType: "history", url: "https://mail.google.com", title: "Gmail", visitCount: 42, lastVisit: "2026-06-06 09:15:00 UTC", sourcePath: "" },
+      { browser: "Chrome", artifactType: "download", url: "https://cdn.example.com/tool.exe", title: "/Users/Downloads/tool.exe", visitCount: 1, lastVisit: "2026-06-05 14:22:00 UTC", sourcePath: "" },
+    ],
+  },
+];
+
+export const DEMO_NSRL = {
+  sha256: DEMO_HASHES.sha256,
+  knownGood: false,
+  fileName: null,
+  product: null,
+};
+
+export const DEMO_MEMORY = {
+  plugin: "windows.pslist.PsList",
+  processes: [
+    { pid: 4, name: "System", ppid: 0, cmdline: "", createTime: "2026-06-01 08:00:00" },
+    { pid: 512, name: "explorer.exe", ppid: 480, cmdline: "C:\\Windows\\explorer.exe", createTime: "2026-06-01 08:01:12" },
+    { pid: 2048, name: "powershell.exe", ppid: 512, cmdline: "powershell -enc SQBFAFgA", createTime: "2026-06-01 09:44:33" },
+  ],
+  networks: [
+    { pid: 2048, protocol: "TCP", localAddr: "192.168.1.10:49152", foreignAddr: "185.220.101.45:443", state: "ESTABLISHED" },
+  ],
+  rawEntries: 4,
+  sourceFile: "/workspace/test-fixtures/volatility.json",
+};
+
+export const DEMO_SUPER_TIMELINE = [
+  { timestamp: "2026-06-06 10:31:12", source: "NTFS", category: "filesystem", filePath: DEMO_IMAGE, eventType: "mft_loaded_7", severity: "info" },
+  { timestamp: "2026-06-06 10:32:00", source: "Registry", category: "registry", filePath: "/evidence/SYSTEM", eventType: "registry_4", severity: "info" },
+  { timestamp: "2026-06-06 10:32:45", source: "YARA", category: "malware", filePath: "/workspace/test-fixtures/secret_password_log.txt", eventType: "yara_2", severity: "high" },
+  { timestamp: "2026-06-06 10:33:20", source: "Browser", category: "browser", filePath: "/evidence/Chrome/History", eventType: "browser_2", severity: "info" },
+];
+
 export const DEMO_ABOUT = {
   appName: "AnalysisLoom",
   version: "0.1.0",
   developer: "YSF Studio — Built with ❤️ by Yusuf Shalahuddin",
-  build: "Master Build — All Features Unlocked",
+  build: "V1.5 Master Build — All Features Unlocked",
   features: [
     "Forensic-grade NTFS/MFT Parser & File Browser",
     "File Carving with multi-format signature detection",
-    "Timeline Analysis & Event Correlation",
-    "SQLite-based Case Management with Audit Trail",
-    "Encrypted Volume Detection (LUKS, BitLocker)",
+    "Super Timeline — multi-source event correlation",
+    "Registry Analyzer (SAM / SYSTEM / SOFTWARE / NTUSER.DAT)",
+    "Built-in YARA Scanner with custom .yar rule loading",
+    "Anti-Forensics Detection (timestomp, ADS, extension mismatch)",
+    "Browser Artifacts (Chrome, Firefox, Safari, Edge)",
+    "NSRL Known-Good Hash Lookup",
+    "Memory Analysis Bridge (Volatility 3 JSON import)",
+    "Hex & Keyword Search across case evidence",
+    "SQLite Artifact Browser & Case Management with Audit Trail",
+    "Encrypted Volume Detection (LUKS, BitLocker, high-entropy)",
     "100% Offline — Zero Data Collection",
   ],
   disclaimer: "This software is provided 'AS-IS'. Results should be independently verified before use in legal proceedings.",
