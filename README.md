@@ -31,11 +31,19 @@
 
 ## 🚀 Quick Start
 
+**Prerequisites:** Node.js 20+, Rust stable (1.85+), and Linux build deps:
+
+```bash
+# Linux (Ubuntu/Debian)
+sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+  patchelf libssl-dev libpcap-dev build-essential pkg-config
+```
+
 ```bash
 git clone https://github.com/YSF-Studio/analysisloom.git
-cd analysisloom/packages/analysisloom
+cd analysisloom
 npm install
-npm run tauri dev
+npm run dev:analysisloom
 ```
 
 Or download the latest release from the [Releases](https://github.com/YSF-Studio/analysisloom/releases) page.

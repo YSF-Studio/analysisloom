@@ -148,6 +148,7 @@ fn load_7z(path: &str, password: Option<&str>) -> Result<Vec<FileEntry>, String>
     Ok(entries)
 }
 
+#[cfg(feature = "rar")]
 fn load_rar(path: &str, _password: Option<&str>) -> Result<Vec<FileEntry>, String> {
     let archive = unrar::Archive::new(path);
     let mut entries = vec![];
@@ -169,6 +170,12 @@ fn load_rar(path: &str, _password: Option<&str>) -> Result<Vec<FileEntry>, Strin
         });
     }
     Ok(entries)
+}
+
+#[cfg(not(feature = "rar"))]
+fn load_rar(path: &str, _password: Option<&str>) -> Result<Vec<FileEntry>, String> {
+    let _ = (path, _password);
+    Err("RAR support disabled — enable the 'rar' feature on ysf-core".into())
 }
 
 fn load_tar(path: &str) -> Result<Vec<FileEntry>, String> {
