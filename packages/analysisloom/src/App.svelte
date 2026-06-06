@@ -24,6 +24,12 @@
   import EvtxTab from "./lib/components/EvtxTab.svelte";
   import MacosTab from "./lib/components/MacosTab.svelte";
   import PcapTab from "./lib/components/PcapTab.svelte";
+  import WindowsArtifactsTab from "./lib/components/WindowsArtifactsTab.svelte";
+  import SteganographyTab from "./lib/components/SteganographyTab.svelte";
+  import EmailTab from "./lib/components/EmailTab.svelte";
+  import ChatTab from "./lib/components/ChatTab.svelte";
+  import LinuxTab from "./lib/components/LinuxTab.svelte";
+  import PluginsTab from "./lib/components/PluginsTab.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { buildMftTree, isSqliteArtifact } from "./lib/mftTree.js";
   import { VIEW_META, DEFAULT_TABS } from "./lib/viewRegistry.js";
@@ -721,6 +727,28 @@
       </div>
 
       <div class="sidebar-section">
+        <div class="section-head">FORENSICS V2.1</div>
+        <button class="nav-item" class:active={activeView === "windows"} onclick={() => setView("windows")}>
+          <span>🪟</span> Windows Artifacts
+        </button>
+        <button class="nav-item" class:active={activeView === "stego"} onclick={() => setView("stego")}>
+          <span>🖼️</span> Steganography
+        </button>
+        <button class="nav-item" class:active={activeView === "email"} onclick={() => setView("email")}>
+          <span>✉️</span> Email Forensics
+        </button>
+        <button class="nav-item" class:active={activeView === "chat"} onclick={() => setView("chat")}>
+          <span>💬</span> Chat Artifacts
+        </button>
+        <button class="nav-item" class:active={activeView === "linux"} onclick={() => setView("linux")}>
+          <span>🐧</span> Linux Artifacts
+        </button>
+        <button class="nav-item" class:active={activeView === "plugins"} onclick={() => setView("plugins")}>
+          <span>🧩</span> Plugin SDK
+        </button>
+      </div>
+
+      <div class="sidebar-section">
         <div class="section-head">EVIDENCE</div>
         <button class="nav-item" class:active={activeView === "bookmarks"} onclick={() => setView("bookmarks")}>
           <span>🔖</span> Key Findings {#if findingCount}<span class="count pill-info">{findingCount}</span>{/if}
@@ -807,6 +835,18 @@
         <MacosTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "pcap"}
         <PcapTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "windows"}
+        <WindowsArtifactsTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "stego"}
+        <SteganographyTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "email"}
+        <EmailTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "chat"}
+        <ChatTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "linux"}
+        <LinuxTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+      {:else if activeView === "plugins"}
+        <PluginsTab bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "report"}
         <ReportTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "about"}

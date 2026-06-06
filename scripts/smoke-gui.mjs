@@ -64,9 +64,22 @@ if (!existsSync(assets)) {
       "scan_macos_artifacts",
       "analyze_pcap",
       "export_case_bundle",
+      "scan_windows_artifacts",
+      "scan_steganography",
+      "scan_email_directory",
+      "scan_chat_artifacts",
+      "scan_linux_artifacts",
+      "list_forensic_plugins",
       "Event Log",
       "macOS Artifacts",
       "PCAP Network",
+      "Windows Artifacts",
+      "Steganography",
+      "Email Forensics",
+      "Chat Artifacts",
+      "Linux Artifacts",
+      "Plugin SDK",
+      "Gantt",
     ];
     for (const needle of required) {
       if (!bundle.includes(needle)) {
@@ -89,6 +102,7 @@ if (!existsSync(registryPath)) {
     "cases", "files", "timeline", "carving", "sqlite",
     "search", "bookmarks", "encrypted", "registry", "yara",
     "antiforensics", "browser", "nsrl", "memory", "evtx", "macos", "pcap",
+    "windows", "stego", "email", "chat", "linux", "plugins",
     "report", "about",
   ];
   for (const id of expected) {

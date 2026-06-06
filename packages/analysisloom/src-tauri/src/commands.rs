@@ -1,7 +1,7 @@
 use crate::forensic::{
-    self, antiforensics, browser, bundle, case_guard, carving, encryption, evidence, evtx,
-    hashing, integrity, macos, memory, nsrl, ntfs, pcap, preview, registry, report, report_meta,
-    sqlite, timeline, yara, ProgressState,
+    self, antiforensics, browser, bundle, case_guard, carving, chat, email, encryption, evidence,
+    evtx, hashing, integrity, linux, macos, memory, nsrl, ntfs, pcap, plugins, preview, registry,
+    report, report_meta, sqlite, steganography, timeline, windows_artifacts, yara, ProgressState,
 };
 use serde::{Deserialize, Serialize};
 
@@ -1701,6 +1701,58 @@ pub fn analyze_pcap(path: String) -> Result<pcap::PcapScanResult, String> {
     pcap::analyze_pcap(&path)
 }
 
+// ─── V2.1: Windows Artifacts ───
+
+#[tauri::command]
+pub fn scan_windows_artifacts(root: String) -> Result<windows_artifacts::WindowsScanResult, String> {
+    windows_artifacts::scan_windows_artifacts(&root)
+}
+
+// ─── V2.1: Steganography ───
+
+#[tauri::command]
+pub fn scan_steganography(paths: Vec<String>) -> Result<steganography::StegoScanResult, String> {
+    Ok(steganography::scan_images(&paths))
+}
+
+#[tauri::command]
+pub fn analyze_steganography(path: String) -> Result<steganography::StegoFinding, String> {
+    steganography::analyze_image(&path)
+}
+
+// ─── V2.1: Email Forensics ───
+
+#[tauri::command]
+pub fn scan_email_directory(dir: String) -> Result<Vec<email::EmailScanResult>, String> {
+    email::scan_email_directory(&dir)
+}
+
+// ─── V2.1: Chat Artifacts ───
+
+#[tauri::command]
+pub fn scan_chat_artifacts(root: String) -> Result<Vec<chat::ChatScanResult>, String> {
+    chat::scan_chat_artifacts(&root)
+}
+
+// ─── V2.1: Linux Artifacts ───
+
+#[tauri::command]
+pub fn scan_linux_artifacts(root: String) -> Result<linux::LinuxScanResult, String> {
+    linux::scan_linux_artifacts(&root)
+}
+
+// ─── V2.1: Plugin SDK ───
+
+#[tauri::command]
+pub fn list_forensic_plugins() -> Vec<plugins::PluginInfo> {
+    plugins::list_plugins()
+}
+
+#[tauri::command]
+pub fn run_forensic_plugin(plugin_id: String, path: String) -> plugins::PluginRunResult {
+    plugins::run_plugin(&plugin_id, &path)
+}
+
 // ─── V2: Evidence Bundle Export ───
 
 #[tauri::command]
@@ -1987,6 +2039,13 @@ pub fn about_info() -> serde_json::Value {
             "Hex & Keyword Search across case evidence",
             "SQLite Artifact Browser & Case Management with Audit Trail",
             "Encrypted Volume Detection (LUKS, BitLocker, high-entropy)",
+            "Windows Artifacts — Prefetch, LNK, Jump Lists",
+            "Steganography Detection — LSB analysis & metadata anomalies",
+            "Email Forensics — PST/OST mailbox parsing",
+            "Chat Artifacts — WhatsApp, Telegram, Signal SQLite",
+            "Linux Artifacts — auditd, auth.log, bash history",
+            "Plugin SDK — extensible forensic plugin trait",
+            "Timeline Gantt — graphical multi-source visualization",
             "100% Offline — Zero Data Collection. All processing runs locally."
         ],
         "disclaimer": "This software is provided 'AS-IS'. Results should be independently verified before use in legal proceedings.",

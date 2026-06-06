@@ -41,6 +41,30 @@ pub const TOOL_LIMITATIONS: &[(&str, &str)] = &[
         "Encryption Detection",
         "Heuristic LUKS/BitLocker/entropy scan. Cannot decrypt or brute-force credentials.",
     ),
+    (
+        "Windows Artifacts",
+        "Prefetch (SCCA), LNK shell links, Jump Lists. Partial OLE parsing; encrypted profiles excluded.",
+    ),
+    (
+        "Steganography Detection",
+        "LSB ratio and χ² heuristics on PNG/JPEG. Not a substitute for specialized steganalysis tools.",
+    ),
+    (
+        "Email Forensics",
+        "PST/OST header and message stub extraction. Full MAPI/B-tree traversal not implemented.",
+    ),
+    (
+        "Chat Artifacts",
+        "WhatsApp, Telegram, Signal SQLite schemas. Encrypted backups and cloud sync out of scope.",
+    ),
+    (
+        "Linux Artifacts",
+        "auth.log, audit.log, bash_history text parsing. No live journald or wtmp binary parsing.",
+    ),
+    (
+        "Plugin SDK",
+        "Built-in hash, entropy, and strings plugins. Community plugins require future loader integration.",
+    ),
 ];
 
 pub fn limitations_html() -> String {

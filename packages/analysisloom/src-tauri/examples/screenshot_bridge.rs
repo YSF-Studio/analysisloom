@@ -305,6 +305,25 @@ fn dispatch(rt: &tokio::runtime::Runtime, cmd: &str, args: &Value) -> Result<Val
             args.get("findingId").and_then(|v| v.as_i64()).unwrap_or(0),
             arg_str(args, "outputPath")?,
         )?)),
+        "scan_windows_artifacts" => Ok(serde_json::to_value(commands::scan_windows_artifacts(arg_str(args, "root")?)?)
+            .map_err(|e| e.to_string())?),
+        "scan_steganography" => Ok(serde_json::to_value(commands::scan_steganography(arg_vec_str(args, "paths")?)?)
+            .map_err(|e| e.to_string())?),
+        "analyze_steganography" => Ok(serde_json::to_value(commands::analyze_steganography(arg_str(args, "path")?)?)
+            .map_err(|e| e.to_string())?),
+        "scan_email_directory" => Ok(serde_json::to_value(commands::scan_email_directory(arg_str(args, "dir")?)?)
+            .map_err(|e| e.to_string())?),
+        "scan_chat_artifacts" => Ok(serde_json::to_value(commands::scan_chat_artifacts(arg_str(args, "root")?)?)
+            .map_err(|e| e.to_string())?),
+        "scan_linux_artifacts" => Ok(serde_json::to_value(commands::scan_linux_artifacts(arg_str(args, "root")?)?)
+            .map_err(|e| e.to_string())?),
+        "list_forensic_plugins" => Ok(serde_json::to_value(commands::list_forensic_plugins())
+            .map_err(|e| e.to_string())?),
+        "run_forensic_plugin" => Ok(serde_json::to_value(commands::run_forensic_plugin(
+            arg_str(args, "pluginId")?,
+            arg_str(args, "path")?,
+        )?)
+        .map_err(|e| e.to_string())?),
         _ => Err(format!("unknown command: {cmd}")),
     }
 }

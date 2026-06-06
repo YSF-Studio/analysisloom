@@ -41,18 +41,13 @@
 | **Deleted Recovery** | ✅ V2 | Recover deleted files from NTFS browser via integrated carving |
 | **Theme Toggle** | ✅ V2 | Light / dark mode (☀/☾ in titlebar) |
 | **Drag & Drop** | ✅ V2 | Drop evidence files onto workspace — auto-hash in Inspector |
-
-### V2 Backlog (Nice to Have)
-
-| Feature | Priority | Notes |
-|---------|----------|-------|
-| **Prefetch + Jump Lists + LNK parser** | 🟡 | Program execution traces and recent-file shortcuts (Windows) |
-| **Steganography detection** | 🟡 | LSB analysis in images, metadata anomalies |
-| **Email forensics (PST/OST)** | 🟡 | Corporate cases often require mailbox parsing |
-| **Chat artifacts** | 🟡 | WhatsApp, Telegram, Signal SQLite databases |
-| **Linux auditd + bash history** | 🟡 | Auth logs, command history, audit trail on Linux endpoints |
-| **Plugin SDK** | 🟢 | Rust trait interface for community forensic extensions |
-| **Timeline visualization** | 🟢 | Graphical Gantt-style multi-source timeline view |
+| **Prefetch + Jump Lists + LNK parser** | ✅ V2.1 | Windows execution traces — SCCA prefetch, shell links, Jump Lists |
+| **Steganography detection** | ✅ V2.1 | LSB ratio, χ² analysis, metadata anomaly scan on images |
+| **Email forensics (PST/OST)** | ✅ V2.1 | Mailbox header parsing, folder discovery, message stub extraction |
+| **Chat artifacts** | ✅ V2.1 | WhatsApp, Telegram, Signal SQLite message databases |
+| **Linux auditd + bash history** | ✅ V2.1 | auth.log, audit.log, .bash_history endpoint activity |
+| **Plugin SDK** | ✅ V2.1 | Rust `ForensicPlugin` trait — hash, entropy, strings built-ins |
+| **Timeline visualization** | ✅ V2.1 | Gantt-style multi-source timeline with source-colored bars |
 
 ### Architecture
 

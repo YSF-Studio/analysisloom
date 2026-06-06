@@ -23,6 +23,12 @@ import {
   DEMO_EVTX,
   DEMO_MACOS,
   DEMO_PCAP,
+  DEMO_WINDOWS,
+  DEMO_STEGO,
+  DEMO_EMAIL,
+  DEMO_CHAT,
+  DEMO_LINUX,
+  DEMO_PLUGINS,
 } from "./mockData.js";
 
 let carvingDone = false;
@@ -114,6 +120,22 @@ export async function invoke(cmd, args = {}) {
       return DEMO_MACOS[0];
     case "analyze_pcap":
       return DEMO_PCAP;
+    case "scan_windows_artifacts":
+      return DEMO_WINDOWS;
+    case "scan_steganography":
+      return DEMO_STEGO;
+    case "analyze_steganography":
+      return DEMO_STEGO.findings[0];
+    case "scan_email_directory":
+      return DEMO_EMAIL;
+    case "scan_chat_artifacts":
+      return DEMO_CHAT;
+    case "scan_linux_artifacts":
+      return DEMO_LINUX;
+    case "list_forensic_plugins":
+      return DEMO_PLUGINS;
+    case "run_forensic_plugin":
+      return { pluginId: args.pluginId, pluginName: "File Hasher", path: args.path, success: true, output: DEMO_HASHES, error: null };
     case "export_case_bundle":
       return { zipPath: "/tmp/demo_bundle.zip", fileCount: 2, manifestSha256: DEMO_HASHES.sha256, totalBytes: 4096 };
     case "recover_deleted_carve":

@@ -91,6 +91,11 @@ fn categorize_source(source: &str) -> String {
         s if s.contains("EVTX") || s.contains("EVENT") => "windows",
         s if s.contains("MACOS") || s.contains("MAC OS") => "macos",
         s if s.contains("PCAP") || s.contains("NETWORK") => "network",
+        s if s.contains("PREFETCH") || s.contains("LNK") || s.contains("JUMP") || s.contains("WINDOWS") => "windows",
+        s if s.contains("EMAIL") || s.contains("PST") || s.contains("OST") => "email",
+        s if s.contains("CHAT") || s.contains("WHATSAPP") || s.contains("TELEGRAM") || s.contains("SIGNAL") => "chat",
+        s if s.contains("LINUX") || s.contains("AUTH") || s.contains("AUDIT") || s.contains("BASH") => "linux",
+        s if s.contains("STEGO") => "steganography",
         _ => "general",
     }
     .into()

@@ -18,6 +18,12 @@ export const VIEW_META = {
   evtx: { icon: "📜", label: "Event Log" },
   macos: { icon: "🍎", label: "macOS Artifacts" },
   pcap: { icon: "📡", label: "PCAP Network" },
+  windows: { icon: "🪟", label: "Windows Artifacts" },
+  stego: { icon: "🖼️", label: "Steganography" },
+  email: { icon: "✉️", label: "Email Forensics" },
+  chat: { icon: "💬", label: "Chat Artifacts" },
+  linux: { icon: "🐧", label: "Linux Artifacts" },
+  plugins: { icon: "🧩", label: "Plugin SDK" },
   report: { icon: "▭", label: "Report" },
   about: { icon: "ⓘ", label: "About" },
 };

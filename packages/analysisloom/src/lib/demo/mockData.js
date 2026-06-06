@@ -172,6 +172,63 @@ export const DEMO_PCAP = {
   durationSecs: 0,
 };
 
+export const DEMO_WINDOWS = {
+  artifacts: [
+    { artifactType: "prefetch", name: "NOTEPAD.EXE-ABC123.pf", sourcePath: "/workspace/test-fixtures/Windows/Prefetch/NOTEPAD.EXE-ABC123.pf", executable: "NOTEPAD.EXE", targetPath: "", runCount: 12, lastRun: "2026-06-06T10:00:00Z", details: "SCCA v30, run_count=12" },
+    { artifactType: "lnk", name: "notepad.lnk", sourcePath: "/workspace/test-fixtures/recent/notepad.lnk", executable: "", targetPath: "C:\\Windows\\System32\\notepad.exe", runCount: 0, lastRun: "—", details: "link_flags=0x00000002" },
+  ],
+  prefetchCount: 1,
+  lnkCount: 1,
+  jumpListCount: 0,
+};
+
+export const DEMO_STEGO = {
+  findings: [
+    { filePath: "/workspace/test-fixtures/stego_sample.png", format: "PNG", lsbRatio: 0.62, chiSquare: 85.2, suspicionScore: 0.72, verdict: "high — possible hidden data", metadataAnomalies: ["Embedded keyword 'hidden' in file bytes"], details: "LSB ratio=0.620, χ²=85.2, score=0.72" },
+  ],
+  filesScanned: 1,
+  suspiciousCount: 1,
+};
+
+export const DEMO_EMAIL = [
+  {
+    filePath: "/workspace/test-fixtures/mailbox.pst",
+    mailboxType: "PST (ANSI)",
+    version: 23,
+    encrypted: false,
+    messageCount: 1,
+    messages: [{ subject: "Quarterly Report Review", sender: "cfo@corp.example.com", recipients: "analyst@corp.example.com", sentTime: "2026-06-01", folder: "Inbox", bodyPreview: "Please review attached financials." }],
+    folders: ["Inbox", "Sent Items"],
+    details: "Parsed 1 message stubs, 2 folders, encrypted=false",
+  },
+];
+
+export const DEMO_CHAT = [
+  {
+    platform: "WhatsApp",
+    dbPath: "/workspace/test-fixtures/whatsapp/msgstore.db",
+    messageCount: 1,
+    messages: [{ platform: "WhatsApp", chatId: "1234567890@s.whatsapp.net", sender: "+1234567890", message: "Meeting moved to 3pm — confirm attendance", timestamp: "2023-11-14T22:13:20Z", messageType: "type_0" }],
+  },
+];
+
+export const DEMO_LINUX = {
+  events: [
+    { eventType: "auth_success", timestamp: "Jun  6 10:15:01", user: "analyst", source: "192.168.1.50", command: "", details: "Accepted password for analyst from 192.168.1.50", sourceFile: "/workspace/test-fixtures/linux_logs/auth.log" },
+    { eventType: "bash_history", timestamp: "#0", user: "—", source: "", command: "sudo cat /etc/passwd", details: "Shell command history entry", sourceFile: "/workspace/test-fixtures/linux_logs/.bash_history" },
+  ],
+  authEvents: 1,
+  auditEvents: 0,
+  historyCommands: 1,
+  filesParsed: 2,
+};
+
+export const DEMO_PLUGINS = [
+  { id: "hash-file", name: "File Hasher", version: "1.0.0", description: "Compute SHA-256, SHA-1, and MD5 hashes for any file", supportedExtensions: ["*"], builtin: true },
+  { id: "entropy-scan", name: "Entropy Scanner", version: "1.0.0", description: "Measure byte-level Shannon entropy", supportedExtensions: ["*"], builtin: true },
+  { id: "strings-extract", name: "Strings Extractor", version: "1.0.0", description: "Extract printable ASCII strings from binary files", supportedExtensions: ["*"], builtin: true },
+];
+
 export const DEMO_ABOUT = {
   appName: "AnalysisLoom",
   version: "0.1.0",

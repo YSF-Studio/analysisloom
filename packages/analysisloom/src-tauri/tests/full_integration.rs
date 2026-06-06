@@ -266,6 +266,41 @@ fn full_forensic_pipeline_with_random_fixtures() {
     assert!(!macos.is_empty());
     println!("macOS artifact sources: {}", macos.len());
 
+    // ─── V2.1: Windows, stego, email, chat, Linux, plugins ───
+    let windows = scan_windows_artifacts(ws.root.to_string_lossy().to_string()).expect("scan_windows_artifacts");
+    assert!(windows.prefetch_count >= 1, "Should find synthetic prefetch");
+    assert!(windows.lnk_count >= 1, "Should find synthetic LNK");
+    println!("Windows artifacts: prefetch={}, lnk={}", windows.prefetch_count, windows.lnk_count);
+
+    let stego = scan_steganography(vec![ws.root.join("stego_sample.png").to_string_lossy().to_string()])
+        .expect("scan_steganography");
+    assert_eq!(stego.files_scanned, 1);
+    println!("Stego findings: {}", stego.findings.len());
+
+    let email = scan_email_directory(ws.root.to_string_lossy().to_string()).expect("scan_email_directory");
+    assert!(!email.is_empty(), "Should parse synthetic PST");
+    assert!(email[0].message_count >= 1);
+    println!("Email messages: {}", email[0].message_count);
+
+    let chat = scan_chat_artifacts(ws.root.to_string_lossy().to_string()).expect("scan_chat_artifacts");
+    assert!(!chat.is_empty(), "Should parse WhatsApp DB");
+    println!("Chat messages: {}", chat[0].message_count);
+
+    let linux = scan_linux_artifacts(ws.root.join("linux_logs").to_string_lossy().to_string())
+        .expect("scan_linux_artifacts");
+    assert!(linux.auth_events >= 1);
+    assert!(linux.history_commands >= 1);
+    println!("Linux events: {}", linux.events.len());
+
+    let plugins = list_forensic_plugins();
+    assert!(plugins.len() >= 3);
+    let plugin_run = run_forensic_plugin(
+        "hash-file".into(),
+        ws.evidence_txt.to_string_lossy().to_string(),
+    );
+    assert!(plugin_run.success);
+    println!("Plugins: {}", plugins.len());
+
     let bundle_out = ws.root.join("case_bundle.zip");
     let bundle = export_case_bundle(case.id.clone(), bundle_out.to_string_lossy().to_string())
         .expect("export_case_bundle");
