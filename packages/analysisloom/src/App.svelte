@@ -12,6 +12,8 @@
   import DisclaimerTab from "./lib/components/DisclaimerTab.svelte";
   import InspectorPanel from "./lib/components/InspectorPanel.svelte";
   import SourceTree from "./lib/components/SourceTree.svelte";
+  import StatusBar from "./lib/components/StatusBar.svelte";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { buildMftTree, isSqliteArtifact } from "./lib/mftTree.js";
 
   let msg = $state("");
@@ -39,6 +41,8 @@
   let filterParent = $state(5);
   let selectedSource = $state(null);
   let fileBrowser = $state(null);
+  let progressStatus = $state("");
+  let encryptedCount = $state(0);
 
   function timeoutPromise(promise, ms) {
     let timer;
@@ -109,6 +113,32 @@
     mftEntries = entries;
     fileCount = entries.length;
     filterParent = 5;
+
+    if (activeCase?.id) {
+      invoke("record_timeline_event", {
+        caseId: activeCase.id,
+        timestamp: new Date().toISOString(),
+        source: "NTFS",
+        filePath: path,
+        eventType: `mft_loaded_${entries.length}`,
+      }).catch(() => {});
+      refreshCaseStats();
+    }
+  }
+
+  async function refreshCaseStats() {
+    if (!activeCase?.id) {
+      findingCount = 0;
+      bookmarkCount = 0;
+      return;
+    }
+    try {
+      const stats = await invoke("case_stats", { caseId: activeCase.id });
+      findingCount = stats.findingsCount ?? 0;
+      bookmarkCount = stats.bookmarkCount ?? 0;
+    } catch {
+      /* ignore */
+    }
   }
 
   async function onAddImage() {
@@ -190,13 +220,31 @@
     msg = "📤 Open Report view to export findings";
   }
 
-  function handleAddEvidence() {
+  async function handleAddEvidence() {
     if (!selectedFile || !activeCase?.id) {
       msg = "⚠️ Select a case and file first";
       return;
     }
-    msg = `✅ Added to evidence: ${selectedFile}`;
-    findingCount += 1;
+    busy = true;
+    try {
+      const path = artifactPath || selectedFile;
+      const id = await invoke("add_evidence", {
+        caseId: activeCase.id,
+        sourcePath: path,
+        itemType: inspectorMeta?.magicMatch || "artifact",
+        sha256: inspectorMeta?.sha256 ?? null,
+        sizeBytes: inspectorMeta?.size ?? null,
+        tag: inspectorTags.trim() || null,
+        note: inspectorNote.trim() || null,
+      });
+      msg = `✅ Evidence recorded: ${id}`;
+      inspectorNote = "";
+      inspectorTags = "";
+      await refreshCaseStats();
+    } catch (e) {
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    }
+    busy = false;
   }
 
   function setView(id) {
@@ -208,31 +256,46 @@
   });
 
   $effect(() => {
-    if (activeCase?.id) {
-      findingCount = 5;
-      bookmarkCount = 8;
+    if (activeCase?.id) refreshCaseStats();
+    else {
+      findingCount = 0;
+      bookmarkCount = 0;
     }
   });
 
-  window.__goToView = setView;
-  window.__views = ["cases", "files", "timeline", "carving", "sqlite", "search", "bookmarks", "report", "about"];
+  async function windowAction(action) {
+    const win = getCurrentWindow();
+    if (action === "close") await win.close();
+    else if (action === "minimize") await win.minimize();
+    else if (action === "maximize") await win.toggleMaximize();
+  }
+
+  if (import.meta.env.DEV) {
+    window.__goToView = setView;
+  }
 </script>
 
 <div class="app-shell platform-{platform}">
   <header class="titlebar">
-    <div class="traffic-lights">
-      <span class="tl red" title="Close"></span>
-      <span class="tl yellow" title="Minimize"></span>
-      <span class="tl green" title="Zoom"></span>
+    <div class="traffic-lights" aria-hidden="true">
+      <button class="tl red" title="Close" aria-label="Close" onclick={() => windowAction("close")}></button>
+      <button class="tl yellow" title="Minimize" aria-label="Minimize" onclick={() => windowAction("minimize")}></button>
+      <button class="tl green" title="Zoom" aria-label="Zoom" onclick={() => windowAction("maximize")}></button>
+    </div>
+    <div class="titlebar-brand">
+      <img src="/logo.svg" class="title-logo" alt="" />
+      <span class="title-text">AnalysisLoom</span>
     </div>
     <div class="titlebar-nav">
-      <button class="nav-btn" disabled title="Back">‹</button>
-      <button class="nav-btn" disabled title="Forward">›</button>
+      <button class="nav-btn" disabled title="Back" aria-label="Back">‹</button>
+      <button class="nav-btn" disabled title="Forward" aria-label="Forward">›</button>
     </div>
 
     <div class="search-bar">
+      <label class="sr-only" for="global-search">Keyword search</label>
       <span class="search-icon" aria-hidden="true">⌕</span>
       <input
+        id="global-search"
         type="search"
         placeholder="Keyword / Regex..."
         bind:value={searchQuery}
@@ -262,9 +325,12 @@
   </header>
 
   <div class="workspace">
-    <aside class="sidebar">
+    <aside class="sidebar" role="navigation" aria-label="Sources and views">
       <div class="sidebar-section">
         <div class="section-head">SOURCES</div>
+        <button class="nav-item" class:active={activeView === "cases"} onclick={() => setView("cases")}>
+          <span>📁</span> Case Manager
+        </button>
         <SourceTree
           bind:sources
           bind:selectedSource
@@ -276,7 +342,7 @@
 
       <div class="sidebar-section">
         <div class="section-head">VIEWS</div>
-        <button class="nav-item" class:active={activeView === "timeline"} onclick={() => setView("timeline")}>
+        <button class="nav-item" class:active={activeView === "timeline"} onclick={() => setView("timeline")} aria-current={activeView === "timeline" ? "page" : undefined}>
           <span>📊</span> Timeline
         </button>
         <button class="nav-item" class:active={activeView === "carving"} onclick={() => setView("carving")}>
@@ -298,8 +364,8 @@
         <button class="nav-item" class:active={activeView === "bookmarks"} onclick={() => setView("bookmarks")}>
           <span>🔖</span> Key Findings {#if findingCount}<span class="count pill-info">{findingCount}</span>{/if}
         </button>
-        <button class="nav-item" onclick={() => msg = "🔐 1 encrypted volume pending"}>
-          <span>🔐</span> Encrypted <span class="count pill-high">1</span>
+        <button class="nav-item" disabled title="Encrypted volume detection — coming soon">
+          <span>🔐</span> Encrypted {#if encryptedCount}<span class="count pill-high">{encryptedCount}</span>{/if}
         </button>
         <button class="nav-item" class:active={activeView === "report"} onclick={() => setView("report")}>
           <span>▭</span> Report
@@ -332,11 +398,15 @@
       {:else if activeView === "timeline"}
         <TimelineTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "carving"}
-        <CarvingTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+        <CarvingTab
+          bind:activeCase bind:busy bind:msg bind:imagePath
+          {timeoutPromise}
+          onProgress={(s) => progressStatus = s}
+        />
       {:else if activeView === "sqlite"}
         <SqliteTab bind:activeCase bind:busy bind:msg bind:dbPath={sqliteDbPath} {timeoutPromise} />
       {:else if activeView === "search"}
-        <SearchTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
+        <SearchTab bind:activeCase bind:busy bind:msg {timeoutPromise} initialQuery={searchQuery} />
       {:else if activeView === "bookmarks"}
         <BookmarkTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "report"}
@@ -364,28 +434,20 @@
     </aside>
   </div>
 
-  <footer class="statusbar">
-    <div class="sb-left">
-      <span class="status-dot" class:on={!!activeCase} class:busy={busy}></span>
-      <span>{activeCase?.name || "No case"}</span>
-      {#if fileCount}<span class="sep">·</span><span>{fileCount.toLocaleString()} files</span>{/if}
-      {#if findingCount}<span class="sep">·</span><span>{findingCount} flagged</span>{/if}
-      {#if bookmarkCount}<span class="sep">·</span><span>{bookmarkCount} bookmarks</span>{/if}
-    </div>
-    <div class="sb-center">
-      {#if busy}<span class="spinner">⏳</span> Processing{/if}
-      {#if selectedFile && inspectorMeta?.sha256}
-        <span class="mono dim">SHA256: {inspectorMeta.sha256.substring(0, 12)}…</span>
-      {/if}
-    </div>
-    <div class="sb-right">
-      <span class="offline-badge">Offline</span>
-      <span>ISO 27042</span>
-    </div>
-  </footer>
+  <StatusBar
+    {busy}
+    {activeCase}
+    selectedFile={selectedFile || ""}
+    {inspectorMeta}
+    {fileCount}
+    {findingCount}
+    {bookmarkCount}
+    {progressStatus}
+    onAuditClick={() => setView("report")}
+  />
 
   {#if msg}
-    <div class="toast" class:error={msg.includes("❌")} class:warn={msg.includes("⚠️")}>
+    <div class="toast" role="status" aria-live="polite" class:error={msg.includes("❌")} class:warn={msg.includes("⚠️")}>
       {msg}
       <button class="close-toast" onclick={() => msg = ""}>✕</button>
     </div>
@@ -393,6 +455,20 @@
 </div>
 
 <style>
+  .titlebar-brand {
+    display: flex; align-items: center; gap: 8px; margin-right: 8px;
+    -webkit-app-region: no-drag;
+  }
+  .title-logo { width: 18px; height: 18px; border-radius: 4px; }
+  .title-text { font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: -0.2px; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+  .traffic-lights .tl {
+    width: 12px; height: 12px; border-radius: 50%; border: none; padding: 0; cursor: default;
+  }
+  .platform-macos .traffic-lights .tl { cursor: pointer; }
   .titlebar-nav { display: flex; gap: 2px; -webkit-app-region: no-drag; }
   .nav-btn {
     width: 26px; height: 24px; border: none; border-radius: 4px;
@@ -465,9 +541,7 @@
   .workspace-main :global(.file-browser),
   .workspace-main :global(.sqlite-manager) { height: 100%; }
 
-  .sep { opacity: 0.35; }
-  .mono { font-family: var(--mono); }
-  .dim { color: var(--text-muted); font-size: 10px; }
+  .nav-item:disabled { opacity: 0.4; cursor: default; }
 
   .platform-windows .titlebar,
   .platform-linux .titlebar { padding-left: 16px; }

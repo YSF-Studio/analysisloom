@@ -32,7 +32,11 @@ pub struct PreviewResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PreviewContent {
     Text(String),
-    Image { data_base64: String, width: u32, height: u32 },
+    Image {
+        data_base64: String,
+        width: u32,
+        height: u32,
+    },
     HexDump(String),
     ArchiveList(Vec<String>),
     Unsupported(String),
@@ -78,12 +82,20 @@ pub fn preview_file(path: &str) -> Result<PreviewResult, String> {
     let modified = meta
         .modified()
         .ok()
-        .map(|t| chrono::DateTime::<chrono::Utc>::from(t).format("%Y-%m-%d %H:%M:%S").to_string())
+        .map(|t| {
+            chrono::DateTime::<chrono::Utc>::from(t)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+        })
         .unwrap_or_else(|| "unknown".into());
     let created = meta
         .created()
         .ok()
-        .map(|t| chrono::DateTime::<chrono::Utc>::from(t).format("%Y-%m-%d %H:%M:%S").to_string())
+        .map(|t| {
+            chrono::DateTime::<chrono::Utc>::from(t)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+        })
         .unwrap_or_else(|| "unknown".into());
 
     let kind = detect_kind(&extension);

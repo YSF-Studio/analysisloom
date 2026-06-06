@@ -6,12 +6,12 @@ regexes = [
   "PUBLIC_KEY_BYTES|PRIVATE_KEY_BYTES|secret_bytes|test_key|TESTNET",
   "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
   "example\\.(com|org)|your-api-key|placeholder|YOUR_TOKEN",
-  "GITHUB_TOKEN|GITLEAKS_LICENSE",
+  "GITLEAKS_LICENSE",
   "RootMast3r",
 ]
 paths = [
   ".*/target/.*",
   ".*/node_modules/.*",
-  ".*\\.env$",
   "Cargo\\.lock$",
+  "package-lock\\.json$",
 ]

@@ -29,8 +29,12 @@ pub fn generate_pdf_report(report: &PdfReport) -> Result<Vec<u8>, String> {
     );
 
     let current_layer = doc.get_page(page_idx).get_layer(layer_idx);
-    let font = doc.add_builtin_font(BuiltinFont::Helvetica).map_err(|e| e.to_string())?;
-    let font_bold = doc.add_builtin_font(BuiltinFont::HelveticaBold).map_err(|e| e.to_string())?;
+    let font = doc
+        .add_builtin_font(BuiltinFont::Helvetica)
+        .map_err(|e| e.to_string())?;
+    let font_bold = doc
+        .add_builtin_font(BuiltinFont::HelveticaBold)
+        .map_err(|e| e.to_string())?;
 
     let mut y = Mm(275.0); // Start near top
     let line_height = Mm(5.0);
@@ -48,7 +52,7 @@ pub fn generate_pdf_report(report: &PdfReport) -> Result<Vec<u8>, String> {
         ("Date:", &report.date),
     ];
     for (label, value) in meta {
-        current_layer.use_text(&format!("{} {}", label, value), 10.0, Mm(20.0), y, &font);
+        current_layer.use_text(format!("{} {}", label, value), 10.0, Mm(20.0), y, &font);
         y -= line_height;
     }
 
@@ -56,7 +60,9 @@ pub fn generate_pdf_report(report: &PdfReport) -> Result<Vec<u8>, String> {
 
     // Sections
     for section in &report.sections {
-        if y < Mm(30.0) { break; } // Stop before page bottom
+        if y < Mm(30.0) {
+            break;
+        } // Stop before page bottom
         current_layer.use_text(&section.heading, 12.0, Mm(20.0), y, &font_bold);
         y -= line_height;
         current_layer.use_text(&section.content, 10.0, Mm(20.0), y, &font);

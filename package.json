@@ -6,6 +6,9 @@
     "dev:analysisloom": "cd packages/analysisloom && npm run tauri dev",
     "build:analysisloom": "cd packages/analysisloom && npm run tauri build",
     "test:all": "cd packages/analysisloom/src-tauri && cargo test",
-    "lint": "cd packages/analysisloom/src-tauri && cargo clippy"
+    "lint": "cd packages/analysisloom/src-tauri && cargo clippy --all-targets -- -D warnings",
+    "fmt:check": "cd packages/analysisloom/src-tauri && cargo fmt --all -- --check",
+    "audit:rust": "cd packages/analysisloom/src-tauri && cargo audit",
+    "audit:npm": "npm audit --audit-level=high"
   }
 }

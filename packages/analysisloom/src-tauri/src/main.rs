@@ -1,2 +1,4 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-fn main() { analysisloom_lib::run(); }
+fn main() {
+    analysisloom_lib::run();
+}

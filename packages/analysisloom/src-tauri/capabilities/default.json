@@ -3,17 +3,18 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "fs:allow-read-text-file",
-    "fs:allow-write-text-file",
-    "fs:allow-read-file",
-    "fs:allow-write-file",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:webview:deny-internal-toggle-devtools",
     "dialog:default",
     { "identifier": "fs:scope", "allow": [
       { "path": "$HOME/**" },
-      { "path": "/mnt/**" },
+      { "path": "$DOCUMENT/**" },
+      { "path": "$DOWNLOAD/**" },
       { "path": "/tmp/**" },
-      { "path": "/dev/**" },
-      { "path": "/workspace/**" }
+      { "path": "/mnt/**" },
+      { "path": "/media/**" }
     ] }
   ]
 }

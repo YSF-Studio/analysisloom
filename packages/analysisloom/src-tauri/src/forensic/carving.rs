@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Magic signatures for file carving
 pub const MAGIC_SIGNATURES: &[(&[u8], &str)] = &[
@@ -21,14 +21,15 @@ pub const MAGIC_SIGNATURES: &[(&[u8], &str)] = &[
     (b"\x1a\x45\xdf\xa3", "WebM/MKV"),
 ];
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CarvingResult {
     pub files_found: usize,
     pub files: Vec<CarvedFile>,
     pub bytes_scanned: u64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CarvedFile {
     pub name: String,
     pub file_type: String,
@@ -45,39 +46,44 @@ pub fn carve_files(
     output_dir: &str,
     cancel_flag: &std::sync::atomic::AtomicBool,
 ) -> Result<CarvingResult, String> {
+    use std::io::{Read, Write};
     use std::sync::atomic::Ordering;
-use std::io::{Read, Write, Seek, SeekFrom};
 
-    let mut file = std::fs::File::open(image_path)
-        .map_err(|e| format!("Cannot open image: {}", e))?;
+    let mut file =
+        std::fs::File::open(image_path).map_err(|e| format!("Cannot open image: {}", e))?;
     let file_size = file.metadata().map_err(|e| e.to_string())?.len();
 
-    std::fs::create_dir_all(output_dir)
-        .map_err(|e| format!("Cannot create output dir: {}", e))?;
+    std::fs::create_dir_all(output_dir).map_err(|e| format!("Cannot create output dir: {}", e))?;
 
     let buf_size = super::hashing::HASH_BUFFER_SIZE;
     let mut buf = vec![0u8; buf_size];
     let mut carryover = Vec::new(); // Overlap buffer for signatures crossing chunk boundaries
     let overlap = 128; // Max signature length to carry over
     let mut offset: u64 = 0;
-    let mut carryover_len: usize = 0;
+    let mut _carryover_len: usize = 0;
     let mut carved_count = 0u64;
     let mut carved_files = vec![];
 
     loop {
-        if cancel_flag.load(Ordering::SeqCst) { break; }
+        if cancel_flag.load(Ordering::SeqCst) {
+            break;
+        }
 
-        let n = file.read(&mut buf).map_err(|e| format!("Read error: {}", e))?;
-        if n == 0 { break; }
+        let n = file
+            .read(&mut buf)
+            .map_err(|e| format!("Read error: {}", e))?;
+        if n == 0 {
+            break;
+        }
 
         let search_buf = if !carryover.is_empty() {
-            carryover_len = carryover.len();
+            _carryover_len = carryover.len();
             let mut combined = carryover.clone();
             combined.extend_from_slice(&buf[..n]);
             carryover.clear();
             combined
         } else {
-            carryover_len = 0;
+            _carryover_len = 0;
             buf[..n].to_vec()
         };
 
@@ -90,17 +96,22 @@ use std::io::{Read, Write, Seek, SeekFrom};
         for (magic, file_type) in MAGIC_SIGNATURES {
             let mut search_pos = 0usize;
             while search_pos + magic.len() <= search_buf.len() {
-                if cancel_flag.load(Ordering::SeqCst) { break; }
+                if cancel_flag.load(Ordering::SeqCst) {
+                    break;
+                }
 
                 if search_buf[search_pos..search_pos + magic.len()] == **magic {
-                    let abs_offset = offset - carryover_len as u64 + search_pos as u64;
-                    let name = format!("{:08x}_{}.bin", abs_offset,
-                        file_type.to_lowercase().replace(' ', "_").replace('/', "_"));
+                    let abs_offset = offset - _carryover_len as u64 + search_pos as u64;
+                    let name = format!(
+                        "{:08x}_{}.bin",
+                        abs_offset,
+                        file_type.to_lowercase().replace([' ', '/'], "_")
+                    );
 
                     // Extract the file — basic extraction (header to reasonable size)
                     // In production: determine actual size from header fields
-                    let extract_size = detect_file_size(&search_buf[search_pos..], *file_type)
-                        .unwrap_or(n as u64);
+                    let extract_size =
+                        detect_file_size(&search_buf[search_pos..], file_type).unwrap_or(n as u64);
 
                     let out_path = std::path::Path::new(output_dir).join(&name);
                     if let Ok(mut out) = std::fs::File::create(&out_path) {
@@ -127,7 +138,11 @@ use std::io::{Read, Write, Seek, SeekFrom};
 
         super::progress::update_progress(
             (offset as f64 / file_size.max(1) as f64) * 100.0,
-            &format!("Carving: {:.1} GB scanned, {} files found", offset as f64 / 1e9, carved_count),
+            &format!(
+                "Carving: {:.1} GB scanned, {} files found",
+                offset as f64 / 1e9,
+                carved_count
+            ),
             offset,
             file_size.max(1),
         );
@@ -138,6 +153,7 @@ use std::io::{Read, Write, Seek, SeekFrom};
         files: carved_files,
         bytes_scanned: offset,
     };
+    *super::CARVING_RESULT.lock().unwrap() = Some(result.clone());
     super::progress::finish_progress(Ok(format!("{} files carved", result.files_found)));
     Ok(result)
 }
@@ -152,7 +168,9 @@ fn detect_file_size(data: &[u8], file_type: &str) -> Option<u64> {
                 let w = u32::from_be_bytes([data[16], data[17], data[18], data[19]]);
                 let h = u32::from_be_bytes([data[20], data[21], data[22], data[23]]);
                 Some(w as u64 * h as u64 * 4 + 100) // Rough estimate
-            } else { None }
+            } else {
+                None
+            }
         }
         "JPEG" => {
             // Scan for EOI marker (FF D9)

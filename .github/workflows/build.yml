@@ -6,13 +6,20 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   detect:
-    name: 🧭 Detect App
+    name: Detect App
     runs-on: ubuntu-latest
     outputs:
       app_dir: ${{ steps.detect.outputs.app_dir }}
@@ -22,105 +29,22 @@ jobs:
       - uses: actions/checkout@v4
       - id: detect
         run: |
-          # Infer app name from repository name (e.g. YSF-Studio/analysisloom → analysisloom)
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          echo "Repository: $GITHUB_REPOSITORY → app: $REPO_NAME"
-
-          # Check standalone structure (root level) — highest priority
-          if [ -f "src-tauri/Cargo.toml" ]; then
-            echo "Standalone mode: root"
+          if [ -d "packages/analysisloom" ] && [ -f "packages/analysisloom/src-tauri/Cargo.toml" ]; then
+            echo "app_dir=packages/analysisloom" >> $GITHUB_OUTPUT
+            echo "cargo_ws=packages/analysisloom/src-tauri" >> $GITHUB_OUTPUT
+            echo "npm_lock=package-lock.json" >> $GITHUB_OUTPUT
+          elif [ -f "src-tauri/Cargo.toml" ]; then
             echo "app_dir=." >> $GITHUB_OUTPUT
             echo "cargo_ws=src-tauri" >> $GITHUB_OUTPUT
-            if [ -f "package-lock.json" ]; then
-              echo "npm_lock=package-lock.json" >> $GITHUB_OUTPUT
-            else
-              echo "npm_lock=." >> $GITHUB_OUTPUT
-            fi
-            exit 0
+            echo "npm_lock=package-lock.json" >> $GITHUB_OUTPUT
+          else
+            echo "app_dir=packages/analysisloom" >> $GITHUB_OUTPUT
+            echo "cargo_ws=packages/analysisloom/src-tauri" >> $GITHUB_OUTPUT
+            echo "npm_lock=package-lock.json" >> $GITHUB_OUTPUT
           fi
 
-          # Check monorepo structure (packages/<app>/)
-          if [ -d "packages/$REPO_NAME" ] && [ -f "packages/$REPO_NAME/src-tauri/Cargo.toml" ]; then
-            echo "Monorepo mode: packages/$REPO_NAME"
-            echo "app_dir=packages/$REPO_NAME" >> $GITHUB_OUTPUT
-            echo "cargo_ws=packages/$REPO_NAME/src-tauri" >> $GITHUB_OUTPUT
-            # npm workspace: root has the lock file
-            if [ -f "packages/$REPO_NAME/package-lock.json" ]; then
-              echo "npm_lock=packages/$REPO_NAME/package-lock.json" >> $GITHUB_OUTPUT
-            elif [ -f "package-lock.json" ]; then
-              echo "npm_lock=package-lock.json" >> $GITHUB_OUTPUT
-            else
-              echo "npm_lock=." >> $GITHUB_OUTPUT
-            fi
-            exit 0
-          fi
-
-          # Fallback: check analysisloom package
-          for dir in packages/analysisloom; do
-            if [ -f "$dir/package.json" ]; then
-              echo "Fallback detected: $dir"
-              echo "app_dir=$dir" >> $GITHUB_OUTPUT
-              echo "cargo_ws=$dir/src-tauri" >> $GITHUB_OUTPUT
-              if [ -f "$dir/package-lock.json" ]; then
-                echo "npm_lock=$dir/package-lock.json" >> $GITHUB_OUTPUT
-              elif [ -f "package-lock.json" ]; then
-                echo "npm_lock=package-lock.json" >> $GITHUB_OUTPUT
-              else
-                echo "npm_lock=." >> $GITHUB_OUTPUT
-              fi
-              exit 0
-            fi
-          done
-
-          echo "app_dir=." >> $GITHUB_OUTPUT
-          echo "cargo_ws=." >> $GITHUB_OUTPUT
-          echo "npm_lock=." >> $GITHUB_OUTPUT
-          echo "Warning: No app structure found, using root"
-
-  build:
-    name: Build (${{ matrix.platform }})
-    needs: detect
-    runs-on: ${{ matrix.platform }}
-    strategy:
-      matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        working-directory: ${{ needs.detect.outputs.app_dir }}
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
-
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          cache-workspaces: ${{ needs.detect.outputs.cargo_ws }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: ${{ needs.detect.outputs.npm_lock }}
-
-      - name: Install npm deps
-        working-directory: ${{ needs.detect.outputs.app_dir }}
-        run: npm ci
-
-      - name: Build Rust
-        working-directory: ${{ needs.detect.outputs.app_dir }}
-        run: cargo build --manifest-path src-tauri/Cargo.toml
-
-      - name: Test Rust
-        working-directory: ${{ needs.detect.outputs.app_dir }}
-        run: cargo test --manifest-path src-tauri/Cargo.toml
-
-      - name: Build Frontend
-        working-directory: ${{ needs.detect.outputs.app_dir }}
-        run: npm run build
-
-  security:
-    name: 🔒 Security Audit
+  quality:
+    name: Quality (fmt, clippy, audit)
     needs: detect
     runs-on: ubuntu-latest
     steps:
@@ -128,16 +52,75 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
+          components: rustfmt, clippy
+          cache-workspaces: ${{ needs.detect.outputs.cargo_ws }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ needs.detect.outputs.npm_lock }}
+      - name: Rust fmt
+        working-directory: ${{ needs.detect.outputs.app_dir }}
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - name: Rust clippy
+        working-directory: ${{ needs.detect.outputs.app_dir }}
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - name: Rust tests
+        working-directory: ${{ needs.detect.outputs.app_dir }}
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Install npm deps
+        run: npm ci
+      - name: npm audit
+        run: npm audit --audit-level=high
+      - name: Build frontend
+        working-directory: ${{ needs.detect.outputs.app_dir }}
+        run: npm run build
 
+  security:
+    name: Security (gitleaks, cargo audit)
+    needs: detect
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: gitleaks/gitleaks-action@v2
-        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Cargo Audit (analysisloom)
-        continue-on-error: true
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Cargo audit
+        working-directory: ${{ needs.detect.outputs.cargo_ws }}
         run: |
-          cargo install cargo-audit --locked 2>/dev/null
-          if [ -d "packages/analysisloom/src-tauri" ]; then
-            cd packages/analysisloom/src-tauri && cargo audit 2>&1 || true
-          fi
+          cargo install cargo-audit --locked 2>/dev/null || true
+          cargo audit
+
+  build:
+    name: Build (${{ matrix.platform }})
+    needs: [detect, quality]
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        working-directory: ${{ needs.detect.outputs.app_dir }}
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache-workspaces: ${{ needs.detect.outputs.cargo_ws }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ needs.detect.outputs.npm_lock }}
+      - name: Install npm deps
+        run: npm ci
+      - name: Build Rust
+        working-directory: ${{ needs.detect.outputs.app_dir }}
+        run: cargo build --manifest-path src-tauri/Cargo.toml
+      - name: Build Frontend
+        working-directory: ${{ needs.detect.outputs.app_dir }}
+        run: npm run build

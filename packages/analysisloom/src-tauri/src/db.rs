@@ -1,13 +1,16 @@
-use rusqlite::Connection;
 use once_cell::sync::Lazy;
+use rusqlite::Connection;
 use std::sync::Mutex;
 
 static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
-    let db_path = dirs_next().unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join(".ysf").join("analysisloom.db");
+    let db_path = dirs_next()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".ysf")
+        .join("analysisloom.db");
     let _ = std::fs::create_dir_all(db_path.parent().unwrap());
     let conn = Connection::open(&db_path).expect("Cannot open database");
-    conn.execute_batch("
+    conn.execute_batch(
+        "
         CREATE TABLE IF NOT EXISTS cases (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -55,14 +58,27 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
             note TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now'))
         );
-    ").expect("Schema creation failed");
+    ",
+    )
+    .expect("Schema creation failed");
     Mutex::new(conn)
 });
 
 fn dirs_next() -> Option<std::path::PathBuf> {
-    std::env::var("HOME").ok().map(std::path::PathBuf::from)
-        .or_else(|| std::env::var("USERPROFILE").ok().map(std::path::PathBuf::from))
+    std::env::var("HOME")
+        .ok()
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            std::env::var("USERPROFILE")
+                .ok()
+                .map(std::path::PathBuf::from)
+        })
 }
 
-pub fn init() -> Result<(), String> { let _ = &*DB; Ok(()) }
-pub fn conn() -> std::sync::MutexGuard<'static, Connection> { DB.lock().unwrap() }
+pub fn init() -> Result<(), String> {
+    let _ = &*DB;
+    Ok(())
+}
+pub fn conn() -> std::sync::MutexGuard<'static, Connection> {
+    DB.lock().unwrap()
+}

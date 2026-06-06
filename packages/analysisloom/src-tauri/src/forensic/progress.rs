@@ -35,10 +35,12 @@ pub fn finish_progress(result: Result<String, String>) {
     *super::OPERATION_RESULT.lock().unwrap() = Some(result);
 }
 
+#[allow(dead_code)]
 pub fn set_cancel_flag(flag: Arc<AtomicBool>) {
     *CANCEL_FLAG_MUTEX.lock().unwrap() = Some(flag);
 }
 
+#[allow(dead_code)]
 pub fn is_cancelled() -> bool {
     CANCEL_FLAG_MUTEX
         .lock()
@@ -49,5 +51,5 @@ pub fn is_cancelled() -> bool {
 }
 
 use once_cell::sync::Lazy;
-static CANCEL_FLAG_MUTEX: Lazy<Mutex<Option<Arc<AtomicBool>>>> =
-    Lazy::new(|| Mutex::new(None));
+#[allow(dead_code)]
+static CANCEL_FLAG_MUTEX: Lazy<Mutex<Option<Arc<AtomicBool>>>> = Lazy::new(|| Mutex::new(None));

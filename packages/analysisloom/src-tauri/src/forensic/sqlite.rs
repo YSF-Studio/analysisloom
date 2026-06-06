@@ -110,20 +110,26 @@ pub fn query_table(path: &str, table: &str, limit: u32) -> Result<SqliteQueryRes
     }
     let limit = limit.clamp(1, 500);
     let conn = open_readonly(path)?;
-    let sql = format!("SELECT * FROM \"{}\" LIMIT {}", table.replace('"', "\"\""), limit);
+    let sql = format!(
+        "SELECT * FROM \"{}\" LIMIT {}",
+        table.replace('"', "\"\""),
+        limit
+    );
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let col_count = stmt.column_count();
     let columns: Vec<String> = (0..col_count)
         .map(|i| stmt.column_name(i).unwrap_or("?").to_string())
         .collect();
 
-    let rows_iter = stmt.query_map([], |row| {
-        let mut values = vec![];
-        for i in 0..col_count {
-            values.push(sql_value(row, i)?);
-        }
-        Ok(values)
-    }).map_err(|e| e.to_string())?;
+    let rows_iter = stmt
+        .query_map([], |row| {
+            let mut values = vec![];
+            for i in 0..col_count {
+                values.push(sql_value(row, i)?);
+            }
+            Ok(values)
+        })
+        .map_err(|e| e.to_string())?;
 
     let mut rows = vec![];
     for row in rows_iter.flatten() {
@@ -162,13 +168,15 @@ pub fn run_select(path: &str, query: &str, limit: u32) -> Result<SqliteQueryResu
         .map(|i| stmt.column_name(i).unwrap_or("?").to_string())
         .collect();
 
-    let rows_iter = stmt.query_map([], |row| {
-        let mut values = vec![];
-        for i in 0..col_count {
-            values.push(sql_value(row, i)?);
-        }
-        Ok(values)
-    }).map_err(|e| e.to_string())?;
+    let rows_iter = stmt
+        .query_map([], |row| {
+            let mut values = vec![];
+            for i in 0..col_count {
+                values.push(sql_value(row, i)?);
+            }
+            Ok(values)
+        })
+        .map_err(|e| e.to_string())?;
 
     let mut rows = vec![];
     for row in rows_iter.flatten() {
@@ -198,10 +206,7 @@ fn sql_value(row: &rusqlite::Row<'_>, i: usize) -> Result<serde_json::Value, rus
 }
 
 fn is_safe_identifier(name: &str) -> bool {
-    !name.is_empty()
-        && name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+    !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 #[cfg(test)]

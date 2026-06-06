@@ -36,15 +36,14 @@ pub fn run() {
                     ];
                     for section in &sections {
                         let js = format!(
-                            "Array.from(document.querySelectorAll('.sidebar-item')).find(b=>b.textContent.includes('{}'))?.click();",
+                            "Array.from(document.querySelectorAll('.nav-item')).find(b=>b.textContent.includes('{}'))?.click();",
                             section
                         );
                         let _ = w.eval(&js);
                         std::thread::sleep(Duration::from_secs(4));
                     }
 
-                    // Final: back to File Browser
-                    let _ = w.eval("Array.from(document.querySelectorAll('.sidebar-item')).find(b=>b.textContent.includes('File Browser'))?.click();");
+                    let _ = w.eval("Array.from(document.querySelectorAll('.nav-item')).find(b=>b.textContent.includes('NTFS Browser'))?.click();");
                     std::thread::sleep(Duration::from_secs(3));
                     eprintln!("[SCREENSHOT] All sections navigated");
                 });
@@ -61,6 +60,12 @@ pub fn run() {
             commands::start_carving,
             commands::get_carving_progress,
             commands::cancel_carving,
+            commands::get_carving_result,
+            commands::add_evidence,
+            commands::list_evidence,
+            commands::list_findings,
+            commands::case_stats,
+            commands::record_timeline_event,
             commands::get_timeline,
             commands::keyword_search,
             commands::preview_file,

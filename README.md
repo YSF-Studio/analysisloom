@@ -48,6 +48,18 @@ npm run dev:analysisloom
 
 Or download the latest release from the [Releases](https://github.com/YSF-Studio/analysisloom/releases) page.
 
+## 🔒 Security & DevSecOps
+
+- **Offline-first:** no telemetry; all forensic processing runs locally
+- **CI gates:** `cargo fmt`, `clippy -D warnings`, `cargo test`, `npm audit`, gitleaks, CodeQL
+- **Dependency updates:** Dependabot weekly for Cargo, npm, and GitHub Actions
+- **Reporting vulnerabilities:** see [SECURITY.md](SECURITY.md)
+
+```bash
+npm run fmt:check && npm run lint && npm run test:all
+npm run audit:rust && npm run audit:npm
+```
+
 ## 🏗️ Tech Stack
 
 - **Backend:** Rust with Tauri v2
