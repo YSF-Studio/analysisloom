@@ -1,5 +1,8 @@
 <script>
 import { invoke } from "@tauri-apps/api/core";
+import ThemeToggle from "./ThemeToggle.svelte";
+
+let { theme = $bindable("dark") } = $props();
 let info = $state({ features: [] });
 let loaded = $state(false);
 
@@ -29,6 +32,12 @@ $effect(() => { load(); });
                 <li>{f}</li>
             {/each}
         </ul>
+    </section>
+
+    <section class="card appearance-card">
+        <h3>🎨 Appearance</h3>
+        <p>Choose light or dark interface. Your preference is saved automatically.</p>
+        <ThemeToggle bind:theme label="Interface theme" />
     </section>
 
     <section class="card offline-card">
@@ -66,6 +75,8 @@ $effect(() => { load(); });
 .card ul { margin: 0; padding-left: 20px; }
 .card li { font-size: 13px; margin-bottom: 6px; color: var(--text-secondary); line-height: 1.4; }
 .card p { margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.appearance-card { border-left: 3px solid var(--primary); }
+.appearance-card p { margin-bottom: 12px !important; }
 .offline-card { border-left: 3px solid var(--success); }
 .disclaimer-card { border-left: 3px solid var(--warn); }
 .disclaimer-card .disclaimer { font-style: italic; color: var(--text) !important; }

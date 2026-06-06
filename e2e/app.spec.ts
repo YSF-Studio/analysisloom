@@ -54,8 +54,12 @@ test.describe("AnalysisLoom GUI", () => {
     await search.fill("password");
     await expect(search).toHaveValue("password");
 
-    const themeBtn = page.getByRole("button", { name: /Toggle light\/dark theme/i });
-    await themeBtn.click();
+    await page.getByRole("tab", { name: "Light" }).click();
     await expect(page.locator("html")).toHaveClass(/theme-light/);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+    await page.getByRole("tab", { name: "Dark" }).click();
+    await expect(page.locator("html")).not.toHaveClass(/theme-light/);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   });
 });

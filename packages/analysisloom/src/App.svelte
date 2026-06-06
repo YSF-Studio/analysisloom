@@ -15,6 +15,8 @@
   import SourceTree from "./lib/components/SourceTree.svelte";
   import StatusBar from "./lib/components/StatusBar.svelte";
   import TabBar from "./lib/components/TabBar.svelte";
+  import ThemeToggle from "./lib/components/ThemeToggle.svelte";
+  import { getStoredTheme, applyTheme } from "./lib/theme.js";
   import EncryptedTab from "./lib/components/EncryptedTab.svelte";
   import RegistryTab from "./lib/components/RegistryTab.svelte";
   import YaraTab from "./lib/components/YaraTab.svelte";
@@ -65,7 +67,7 @@
   let tabs = $state([...DEFAULT_TABS]);
   let sidebarWidth = $state(220);
   let inspectorWidth = $state(320);
-  let theme = $state(import.meta.env.VITE_SCREENSHOT_LIGHT ? "light" : "dark");
+  let theme = $state(import.meta.env.VITE_SCREENSHOT_LIGHT ? "light" : getStoredTheme());
   let evidencePaths = $state([]);
   let dragOver = $state(false);
   let integrityStatus = $state(null);
@@ -191,11 +193,6 @@
     } catch {
       /* ignore */
     }
-  }
-
-  function toggleTheme() {
-    theme = theme === "dark" ? "light" : "dark";
-    document.documentElement.classList.toggle("theme-light", theme === "light");
   }
 
   async function handleDroppedPath(path) {
@@ -491,12 +488,12 @@
   async function bootstrapScreenshot() {
     if (import.meta.env.VITE_SCREENSHOT_LIGHT) {
       theme = "light";
-      document.documentElement.classList.add("theme-light");
+      applyTheme("light");
     }
     window.__goToView = setView;
     window.__setLightTheme = () => {
       theme = "light";
-      document.documentElement.classList.add("theme-light");
+      applyTheme("light");
     };
 
     if (import.meta.env.VITE_SCREENSHOT_REAL) {
@@ -534,7 +531,9 @@
 
   $effect(() => {
     if (import.meta.env.VITE_SCREENSHOT_LIGHT) {
-      document.documentElement.classList.add("theme-light");
+      applyTheme("light");
+    } else {
+      applyTheme(theme);
     }
   });
 
@@ -625,7 +624,7 @@
     </div>
 
     <div class="titlebar-end">
-      <button type="button" class="title-btn" onclick={toggleTheme} title="Toggle light/dark theme" aria-label="Toggle light/dark theme">{theme === "dark" ? "☀" : "☾"}</button>
+      <ThemeToggle bind:theme label="Theme" />
       <button class="title-btn" onclick={handleExport} title="Export report">Export</button>
       <button class="case-pill" onclick={openCaseManager} title="Manage case">
         {activeCase?.name ? `Case: ${activeCase.name}` : "Case"}
@@ -804,7 +803,7 @@
       {:else if activeView === "report"}
         <ReportTab bind:activeCase bind:busy bind:msg {timeoutPromise} />
       {:else if activeView === "about"}
-        <DisclaimerTab />
+        <DisclaimerTab bind:theme />
       {/if}
     </main>
 
@@ -890,7 +889,7 @@
   .search-clear { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; }
 
   .titlebar-end {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
   }
   .title-btn {
     padding: 4px 12px; border-radius: 6px; border: 1px solid var(--divider);
