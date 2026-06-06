@@ -20,6 +20,7 @@
     "test:ipc": "node scripts/verify-ipc-registry.mjs",
     "test:mock": "node scripts/verify-mock-coverage.mjs",
     "test:e2e": "playwright test",
+    "test:walkthrough": "node scripts/forensic-examiner-walkthrough.mjs",
     "export:types": "cd packages/analysisloom/src-tauri && cargo test --test export_ts export_typescript_bindings -- --nocapture",
     "test:full": "bash scripts/run-full-test.sh",
     "screenshots": "bash scripts/capture-screenshots.sh",
