@@ -1,7 +1,7 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
 
-  let { filePath, busy = $bindable(), msg = $bindable(), timeoutPromise, onPreview } = $props();
+  let { filePath, busy = $bindable(), msg = $bindable(), timeoutPromise, onPreview, mode = "preview" } = $props();
 
   let preview = $state(null);
   let loading = $state(false);
@@ -98,7 +98,47 @@
   <div class="loading"><span class="spinner">⏳</span> Loading preview...</div>
 {:else if preview}
   <div class="preview">
-    {#if preview.preview?.Text}
+    {#if mode === "metadata"}
+      <dl class="meta-panel">
+        <dt>Size</dt><dd>{sizeStr(preview.size)}</dd>
+        <dt>Type</dt><dd>{preview.kind}</dd>
+        <dt>MIME</dt><dd>{preview.mime_type}</dd>
+        <dt>Extension</dt><dd>{preview.extension}</dd>
+      </dl>
+    {:else if mode === "strings" && preview.preview?.Text}
+      <pre class="text-view strings-view">{preview.preview.Text}</pre>
+    {:else if mode === "strings"}
+      <pre class="text-view strings-view dim">No printable strings found</pre>
+    {:else if mode === "hex" && preview.preview?.HexDump}
+      <!-- Hex only mode -->
+      <div class="hex-toolbar">
+        <div class="hex-search">
+          <input type="text" bind:value={hexSearch} placeholder="Search byte (e.g. FF)"
+            onkeydown={(e) => e.key === "Enter" && doHexSearch()} />
+          <button class="btn-ghost" onclick={doHexSearch}>Search</button>
+        </div>
+      </div>
+      <div class="hex-grid-wrap">
+        <div class="hex-grid">
+          {#each hexLines as line, li}
+            <div class="hex-line">
+              <span class="hex-offset">{line.offset.toString(16).padStart(8, "0").toUpperCase()}</span>
+              <span class="hex-bytes">
+                {#each line.hex as byte, bi}
+                  {#if byte}
+                    <span class="hex-byte" class:hl={isSearchHit(li, bi)} class:sel={selectedOffset === line.offset + bi}
+                      onclick={() => onHexClick(li, bi)} role="button" tabindex="0">{byte.toUpperCase()}</span>
+                  {:else}
+                    <span class="hex-byte empty">  </span>
+                  {/if}
+                {/each}
+              </span>
+              <span class="hex-ascii">|{line.ascii}|</span>
+            </div>
+          {/each}
+        </div>
+      </div>
+    {:else if preview.preview?.Text}
       <pre class="text-view">{preview.preview.Text}</pre>
     {:else if preview.preview?.Image}
       <div class="image-view">
@@ -164,15 +204,17 @@
       <div class="unsupported"><p>⚠️ No preview available</p></div>
     {/if}
 
-    <div class="file-meta">
-      <span class="label">Size:</span> {sizeStr(preview.size)}
-      <span class="sep">|</span>
-      <span class="label">Type:</span> {preview.kind}
-      <span class="sep">|</span>
-      <span class="label">MIME:</span> {preview.mime_type}
-      <span class="sep">|</span>
-      <span class="label">Ext:</span> {preview.extension}
-    </div>
+    {#if mode === "preview"}
+      <div class="file-meta">
+        <span class="label">Size:</span> {sizeStr(preview.size)}
+        <span class="sep">|</span>
+        <span class="label">Type:</span> {preview.kind}
+        <span class="sep">|</span>
+        <span class="label">MIME:</span> {preview.mime_type}
+        <span class="sep">|</span>
+        <span class="label">Ext:</span> {preview.extension}
+      </div>
+    {/if}
   </div>
 {:else}
   <div class="empty"><p>Select a file to preview</p></div>
@@ -222,4 +264,12 @@
   .sep { margin: 0 6px; opacity: 0.3; }
   .label { color: #888; }
   .empty { display: flex; align-items: center; justify-content: center; height: 200px; color: var(--text-secondary); font-size: 14px; }
+  .meta-panel {
+    display: grid; grid-template-columns: 100px 1fr; gap: 8px 12px;
+    font-size: 12px; margin: 0; padding: 8px;
+  }
+  .meta-panel dt { color: var(--text-muted); margin: 0; }
+  .meta-panel dd { margin: 0; color: var(--text); font-family: var(--mono); }
+  .strings-view { flex: 1; min-height: 120px; }
+  .dim { color: var(--text-muted); }
 </style>

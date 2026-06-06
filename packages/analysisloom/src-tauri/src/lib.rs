@@ -30,8 +30,8 @@ pub fn run() {
 
                     // Cycle through sidebar sections by text label
                     let sections = [
-                        "Case Manager", "File Browser", "Timeline", "Carved Files",
-                        "Search", "Bookmarks", "Report", "About"
+                        "NTFS Browser", "Timeline", "Carved Files", "SQLite Manager",
+                        "Search", "Key Findings", "Report", "About"
                     ];
                     for section in &sections {
                         let js = format!(
