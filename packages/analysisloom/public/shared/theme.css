@@ -213,13 +213,25 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 .spinner { display: inline-block; animation: spin 1s linear infinite; }
 
-.traffic-lights { display: flex; gap: 7px; -webkit-app-region: no-drag; }
-.traffic-lights .tl { width: 12px; height: 12px; border-radius: 50%; }
+.traffic-lights {
+  display: flex; align-items: center; gap: 7px;
+  -webkit-app-region: no-drag; app-region: no-drag;
+  flex-shrink: 0;
+}
+.traffic-lights .tl {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: none; padding: 0; margin: 0;
+  -webkit-app-region: no-drag; app-region: no-drag;
+  flex-shrink: 0;
+}
 .traffic-lights .tl.red { background: #ff5f57; }
 .traffic-lights .tl.yellow { background: #ffbd2e; }
 .traffic-lights .tl.green { background: #28c840; }
-.platform-windows .traffic-lights,
-.platform-linux .traffic-lights { display: none; }
+.traffic-lights .tl:hover { filter: brightness(0.92); }
+.platform-windows .traffic-lights .tl,
+.platform-linux .traffic-lights .tl {
+  width: 14px; height: 14px; cursor: pointer;
+}
 
 .app-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
@@ -229,9 +241,13 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); }
   background: rgba(20, 20, 20, 0.95);
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--divider);
-  -webkit-app-region: drag; gap: 10px;
+  gap: 10px;
 }
-.titlebar .logo { width: 18px; height: 18px; border-radius: 4px; -webkit-app-region: no-drag; }
+.titlebar-drag {
+  flex: 1; min-width: 24px; height: 100%;
+  -webkit-app-region: drag; app-region: drag;
+}
+.titlebar .logo { width: 18px; height: 18px; border-radius: 4px; }
 
 .workspace { flex: 1; display: flex; overflow: hidden; min-height: 0; }
 .workspace-main {

@@ -569,10 +569,15 @@
   });
 
   async function windowAction(action) {
-    const win = getCurrentWindow();
-    if (action === "close") await win.close();
-    else if (action === "minimize") await win.minimize();
-    else if (action === "maximize") await win.toggleMaximize();
+    try {
+      const win = getCurrentWindow();
+      if (action === "close") await win.close();
+      else if (action === "minimize") await win.minimize();
+      else if (action === "maximize") await win.toggleMaximize();
+    } catch (err) {
+      console.error("windowAction failed:", action, err);
+      msg = `⚠️ Window control failed (${action})`;
+    }
   }
 
   function handleGlobalKeydown(e) {
@@ -607,12 +612,12 @@
   style="--sidebar-w: {sidebarWidth}px; --inspector-w: {inspectorWidth}px"
 >
   <header class="titlebar">
-    <div class="traffic-lights" aria-hidden="true">
-      <button class="tl red" title="Close" aria-label="Close" onclick={() => windowAction("close")}></button>
-      <button class="tl yellow" title="Minimize" aria-label="Minimize" onclick={() => windowAction("minimize")}></button>
-      <button class="tl green" title="Zoom" aria-label="Zoom" onclick={() => windowAction("maximize")}></button>
+    <div class="traffic-lights window-controls" role="group" aria-label="Window controls">
+      <button type="button" class="tl red" title="Close" aria-label="Close" onclick={() => windowAction("close")}></button>
+      <button type="button" class="tl yellow" title="Minimize" aria-label="Minimize" onclick={() => windowAction("minimize")}></button>
+      <button type="button" class="tl green" title="Zoom" aria-label="Zoom" onclick={() => windowAction("maximize")}></button>
     </div>
-    <div class="titlebar-brand">
+    <div class="titlebar-brand" data-tauri-drag-region>
       <img src="/logo.svg" class="title-logo" alt="" />
       <span class="title-text">AnalysisLoom</span>
     </div>
@@ -636,8 +641,10 @@
       {/if}
     </div>
 
+    <div class="titlebar-drag" data-tauri-drag-region aria-hidden="true"></div>
+
     <div class="titlebar-end">
-      <button class="title-btn" onclick={toggleTheme} title="Toggle light/dark theme">{theme === "dark" ? "☀" : "☾"}</button>
+      <button type="button" class="title-btn" onclick={toggleTheme} title="Toggle light/dark theme">{theme === "dark" ? "☀" : "☾"}</button>
       <button class="title-btn" onclick={handleExport} title="Export report">Export</button>
       <button class="case-pill" onclick={openCaseManager} title="Manage case">
         {activeCase?.name ? `Case: ${activeCase.name}` : "Case"}
@@ -883,9 +890,13 @@
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
   }
   .traffic-lights .tl {
-    width: 12px; height: 12px; border-radius: 50%; border: none; padding: 0; cursor: default;
+    width: 12px; height: 12px; border-radius: 50%; border: none; padding: 0;
+    cursor: pointer; -webkit-app-region: no-drag; app-region: no-drag;
+    position: relative; z-index: 2;
   }
-  .platform-macos .traffic-lights .tl { cursor: pointer; }
+  .traffic-lights .tl::before {
+    content: ""; position: absolute; inset: -6px;
+  }
   .titlebar-nav { display: flex; gap: 2px; -webkit-app-region: no-drag; }
   .nav-btn {
     width: 26px; height: 24px; border: none; border-radius: 4px;
@@ -966,6 +977,4 @@
 
   .nav-item:disabled { opacity: 0.4; cursor: default; }
 
-  .platform-windows .titlebar,
-  .platform-linux .titlebar { padding-left: 16px; }
 </style>
