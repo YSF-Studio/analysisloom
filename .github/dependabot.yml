@@ -4,6 +4,7 @@ updates:
     directory: /packages/analysisloom/src-tauri
     schedule:
       interval: weekly
+    target-branch: main
     groups:
       rust-dependencies:
         patterns: ["*"]
@@ -12,6 +13,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    target-branch: main
     groups:
       npm-dependencies:
         patterns: ["*"]
@@ -20,3 +22,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    target-branch: main
+    groups:
+      github-actions:
+        patterns: ["*"]

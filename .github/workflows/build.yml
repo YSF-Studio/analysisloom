@@ -26,7 +26,7 @@ jobs:
       cargo_ws: ${{ steps.detect.outputs.cargo_ws }}
       npm_lock: ${{ steps.detect.outputs.npm_lock }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - id: detect
         run: |
           if [ -d "packages/analysisloom" ] && [ -f "packages/analysisloom/src-tauri/Cargo.toml" ]; then
@@ -48,13 +48,13 @@ jobs:
     needs: detect
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
           components: rustfmt, clippy
           cache-workspaces: ${{ needs.detect.outputs.cargo_ws }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -81,8 +81,8 @@ jobs:
     needs: detect
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: actions/checkout@v6
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -102,7 +102,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         working-directory: ${{ needs.detect.outputs.app_dir }}
@@ -111,7 +111,7 @@ jobs:
         with:
           toolchain: stable
           cache-workspaces: ${{ needs.detect.outputs.cargo_ws }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
