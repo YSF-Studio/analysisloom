@@ -148,7 +148,8 @@ fn parse_telegram(conn: &rusqlite::Connection) -> Result<Vec<ChatMessage>, Strin
 }
 
 fn parse_signal(conn: &rusqlite::Connection) -> Result<Vec<ChatMessage>, String> {
-    let sql = "SELECT thread_id, source, body, date_sent FROM sms ORDER BY date_sent DESC LIMIT 100";
+    let sql =
+        "SELECT thread_id, source, body, date_sent FROM sms ORDER BY date_sent DESC LIMIT 100";
     query_chat(conn, "Signal", sql, |row| {
         let chat: String = row.get(0).map(|v: i64| v.to_string()).unwrap_or_default();
         let sender: String = row.get(1).unwrap_or_else(|_| "unknown".into());
@@ -199,9 +200,7 @@ fn parse_generic_messages(
         if let Some(msg_c) = msg_col {
             let sender_c = sender_col.map(|s| s.as_str()).unwrap_or("''");
             let ts_c = ts_col.map(|s| s.as_str()).unwrap_or("0");
-            let sql = format!(
-                "SELECT {sender_c}, {msg_c}, {ts_c} FROM {table} LIMIT 50"
-            );
+            let sql = format!("SELECT {sender_c}, {msg_c}, {ts_c} FROM {table} LIMIT 50");
             let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
             let rows = stmt
                 .query_map([], |row| {
@@ -224,7 +223,12 @@ fn parse_generic_messages(
     Ok(vec![])
 }
 
-fn query_chat<F>(conn: &rusqlite::Connection, platform: &str, sql: &str, map: F) -> Result<Vec<ChatMessage>, String>
+fn query_chat<F>(
+    conn: &rusqlite::Connection,
+    platform: &str,
+    sql: &str,
+    map: F,
+) -> Result<Vec<ChatMessage>, String>
 where
     F: Fn(&rusqlite::Row<'_>) -> (String, String, String, i64, String),
 {

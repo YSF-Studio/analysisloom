@@ -48,7 +48,8 @@ pub fn analyze_pcap(path: &str) -> Result<PcapScanResult, String> {
         return Err("Not a PCAP file (invalid magic)".into());
     }
 
-    let mut reader = LegacyPcapReader::new(65536, &buf[..]).map_err(|e| format!("PCAP reader: {e:?}"))?;
+    let mut reader =
+        LegacyPcapReader::new(65536, &buf[..]).map_err(|e| format!("PCAP reader: {e:?}"))?;
     let mut flow_map: HashMap<String, FlowAgg> = HashMap::new();
     let mut packets_parsed = 0u64;
     let mut first_ts: Option<f64> = None;
@@ -68,7 +69,8 @@ pub fn analyze_pcap(path: &str) -> Result<PcapScanResult, String> {
                     first_ts = Some(first_ts.map_or(ts, |f| f.min(ts)));
                     last_ts = Some(last_ts.map_or(ts, |l| l.max(ts)));
 
-                    if let Some((proto, src, dst, sport, dport, info)) = parse_packet(&packet_data) {
+                    if let Some((proto, src, dst, sport, dport, info)) = parse_packet(&packet_data)
+                    {
                         let key = format!("{proto}|{src}:{sport}|{dst}:{dport}");
                         let entry = flow_map.entry(key).or_insert_with(|| FlowAgg {
                             protocol: proto.clone(),
@@ -116,7 +118,7 @@ pub fn analyze_pcap(path: &str) -> Result<PcapScanResult, String> {
         })
         .collect();
 
-    flows.sort_by(|a, b| b.packet_count.cmp(&a.packet_count));
+    flows.sort_by_key(|b| std::cmp::Reverse(b.packet_count));
 
     let duration = match (first_ts, last_ts) {
         (Some(a), Some(b)) => (b - a).max(0.0),

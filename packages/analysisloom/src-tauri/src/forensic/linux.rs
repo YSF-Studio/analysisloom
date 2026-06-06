@@ -45,17 +45,24 @@ pub fn scan_linux_artifacts(root: &str) -> Result<LinuxScanResult, String> {
             parse_audit_log(path)
         } else if lower.contains("bash_history") || lower == ".bash_history" {
             parse_bash_history(path)
-        } else if lower == "wtmp" || lower == "btmp" {
-            vec![]
         } else {
             vec![]
         };
         events.extend(parsed);
     }
 
-    let auth_events = events.iter().filter(|e| e.event_type.starts_with("auth")).count();
-    let audit_events = events.iter().filter(|e| e.event_type.starts_with("audit")).count();
-    let history_commands = events.iter().filter(|e| e.event_type == "bash_history").count();
+    let auth_events = events
+        .iter()
+        .filter(|e| e.event_type.starts_with("auth"))
+        .count();
+    let audit_events = events
+        .iter()
+        .filter(|e| e.event_type.starts_with("audit"))
+        .count();
+    let history_commands = events
+        .iter()
+        .filter(|e| e.event_type == "bash_history")
+        .count();
 
     Ok(LinuxScanResult {
         auth_events,
@@ -98,15 +105,16 @@ pub fn parse_auth_log(path: &Path) -> Vec<LinuxEvent> {
     };
     let mut events = vec![];
     for line in content.lines().take(500) {
-        let event_type = if line.contains("Accepted password") || line.contains("Accepted publickey") {
-            "auth_success"
-        } else if line.contains("Failed password") || line.contains("Invalid user") {
-            "auth_failure"
-        } else if line.contains("session opened") {
-            "auth_session"
-        } else {
-            continue;
-        };
+        let event_type =
+            if line.contains("Accepted password") || line.contains("Accepted publickey") {
+                "auth_success"
+            } else if line.contains("Failed password") || line.contains("Invalid user") {
+                "auth_failure"
+            } else if line.contains("session opened") {
+                "auth_session"
+            } else {
+                continue;
+            };
 
         let timestamp = line.chars().take(15).collect::<String>();
         let user = extract_field(line, "for ")
@@ -184,7 +192,9 @@ pub fn parse_bash_history(path: &Path) -> Vec<LinuxEvent> {
 fn extract_field(line: &str, prefix: &str) -> Option<String> {
     let idx = line.find(prefix)?;
     let rest = &line[idx + prefix.len()..];
-    let end = rest.find(|c: char| c.is_whitespace() || c == ':' || c == ';').unwrap_or(rest.len());
+    let end = rest
+        .find(|c: char| c.is_whitespace() || c == ':' || c == ';')
+        .unwrap_or(rest.len());
     Some(rest[..end].trim().to_string())
 }
 
@@ -204,7 +214,10 @@ fn extract_audit_field(line: &str, key: &str) -> Option<String> {
     let val = if rest.starts_with('"') {
         rest.trim_start_matches('"').split('"').next()?.to_string()
     } else {
-        rest.split_whitespace().next()?.trim_matches('"').to_string()
+        rest.split_whitespace()
+            .next()?
+            .trim_matches('"')
+            .to_string()
     };
     Some(val)
 }

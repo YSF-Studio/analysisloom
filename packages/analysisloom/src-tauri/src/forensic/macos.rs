@@ -24,14 +24,34 @@ pub struct MacosScanResult {
 }
 
 const ARTIFACT_PATTERNS: &[(&str, &str, &str)] = &[
-    ("KnowledgeC.db", "user_activity", "KnowledgeC — user activity timeline"),
+    (
+        "KnowledgeC.db",
+        "user_activity",
+        "KnowledgeC — user activity timeline",
+    ),
     ("History.db", "browser", "Safari browsing history"),
     (".logarchive", "unified_log", "macOS Unified Log archive"),
-    ("DataDetectors", "datadetectors", "DataDetectors contact/address extraction"),
+    (
+        "DataDetectors",
+        "datadetectors",
+        "DataDetectors contact/address extraction",
+    ),
     ("Spotlight", "spotlight", "Spotlight index / search history"),
-    ("TCC.db", "privacy", "Transparency, Consent, Control permissions"),
-    ("LSSharedFileList", "recent", "Recent documents / shared file lists"),
-    ("com.apple.loginwindow", "login", "Login window / session artifacts"),
+    (
+        "TCC.db",
+        "privacy",
+        "Transparency, Consent, Control permissions",
+    ),
+    (
+        "LSSharedFileList",
+        "recent",
+        "Recent documents / shared file lists",
+    ),
+    (
+        "com.apple.loginwindow",
+        "login",
+        "Login window / session artifacts",
+    ),
 ];
 
 pub fn scan_macos_artifacts(root: &str) -> Result<Vec<MacosScanResult>, String> {
@@ -47,7 +67,9 @@ pub fn scan_macos_artifacts(root: &str) -> Result<Vec<MacosScanResult>, String> 
         for hit in find_artifacts(root_path, pattern, 0, 6) {
             scanned += 1;
             let artifacts = match hit.extension().and_then(|e| e.to_str()) {
-                Some("plist") => analyze_plist_file(hit.to_string_lossy().as_ref(), category, relevance),
+                Some("plist") => {
+                    analyze_plist_file(hit.to_string_lossy().as_ref(), category, relevance)
+                }
                 Some("db") | Some("sqlite") | Some("sqlite3") => {
                     analyze_sqlite_artifact(hit.to_string_lossy().as_ref(), category, relevance)
                 }
@@ -172,33 +194,33 @@ fn flatten_plist(
     if depth > 4 {
         return out;
     }
-    match value {
-        plist::Value::Dictionary(map) => {
-            for (k, v) in map {
-                let key = if prefix.is_empty() {
-                    k.clone()
-                } else {
-                    format!("{prefix}.{k}")
-                };
-                if matches!(v, plist::Value::String(_) | plist::Value::Integer(_) | plist::Value::Boolean(_)) {
-                    out.push(MacosArtifact {
-                        artifact_type: "plist".into(),
-                        path: path.into(),
-                        key: key.clone(),
-                        value: format!("{v:?}").trim_matches('"').to_string(),
-                        timestamp: chrono::Utc::now().to_rfc3339(),
-                        category: (*category).to_string(),
-                        forensic_relevance: (*relevance).to_string(),
-                    });
-                } else {
-                    out.extend(flatten_plist(v, path, category, relevance, &key, depth + 1));
-                }
-                if out.len() >= 50 {
-                    break;
-                }
+    if let plist::Value::Dictionary(map) = value {
+        for (k, v) in map {
+            let key = if prefix.is_empty() {
+                k.clone()
+            } else {
+                format!("{prefix}.{k}")
+            };
+            if matches!(
+                v,
+                plist::Value::String(_) | plist::Value::Integer(_) | plist::Value::Boolean(_)
+            ) {
+                out.push(MacosArtifact {
+                    artifact_type: "plist".into(),
+                    path: path.into(),
+                    key: key.clone(),
+                    value: format!("{v:?}").trim_matches('"').to_string(),
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    category: (*category).to_string(),
+                    forensic_relevance: (*relevance).to_string(),
+                });
+            } else {
+                out.extend(flatten_plist(v, path, category, relevance, &key, depth + 1));
+            }
+            if out.len() >= 50 {
+                break;
             }
         }
-        _ => {}
     }
     out
 }
@@ -232,9 +254,9 @@ fn analyze_sqlite_artifact(path: &str, category: &str, relevance: &str) -> Vec<M
     }
 
     let mut artifacts = vec![];
-    if let Ok(mut stmt) = conn.prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name LIMIT 10",
-    ) {
+    if let Ok(mut stmt) =
+        conn.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name LIMIT 10")
+    {
         if let Ok(rows) = stmt.query_map([], |r| r.get::<_, String>(0)) {
             for table in rows.flatten() {
                 artifacts.push(MacosArtifact {
@@ -252,7 +274,11 @@ fn analyze_sqlite_artifact(path: &str, category: &str, relevance: &str) -> Vec<M
     artifacts
 }
 
-fn query_knowledgec(conn: &rusqlite::Connection, path: &str, relevance: &str) -> Vec<MacosArtifact> {
+fn query_knowledgec(
+    conn: &rusqlite::Connection,
+    path: &str,
+    relevance: &str,
+) -> Vec<MacosArtifact> {
     let queries = [
         "SELECT ZSTARTDATE, ZSTREAMNAME FROM ZOBJECT ORDER BY ZSTARTDATE DESC LIMIT 20",
         "SELECT ZTITLE, ZURL FROM ZHISTORYITEM LIMIT 20",
@@ -261,7 +287,10 @@ fn query_knowledgec(conn: &rusqlite::Connection, path: &str, relevance: &str) ->
     for q in queries {
         if let Ok(mut stmt) = conn.prepare(q) {
             if let Ok(rows) = stmt.query_map([], |r| {
-                Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?))
+                Ok((
+                    r.get::<_, Option<String>>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                ))
             }) {
                 for row in rows.flatten() {
                     artifacts.push(MacosArtifact {

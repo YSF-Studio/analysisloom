@@ -97,8 +97,24 @@ pub fn analyze_hive(path: &str) -> Result<RegistryScanResult, String> {
     for (subpath, label, category) in forensic_paths {
         keys_scanned += 1;
         if let Some(key_off) = find_key_path(&data, root_abs, subpath) {
-            collect_key_values(&data, key_off, &hive_type, subpath, label, category, &mut findings);
-            collect_subkeys(&data, key_off, &hive_type, subpath, category, &mut findings, 2);
+            collect_key_values(
+                &data,
+                key_off,
+                &hive_type,
+                subpath,
+                label,
+                category,
+                &mut findings,
+            );
+            collect_subkeys(
+                &data,
+                key_off,
+                &hive_type,
+                subpath,
+                category,
+                &mut findings,
+                2,
+            );
         } else {
             findings.push(RegistryFinding {
                 hive: hive_type.clone(),
@@ -169,7 +185,8 @@ fn find_subkey(data: &[u8], key_off: usize, name: &str) -> Option<usize> {
     if cell.len() < 0x4c || &cell[0..2] != b"nk" {
         return None;
     }
-    let subkeys_list = i32::from_le_bytes([cell[0x24], cell[0x25], cell[0x26], cell[0x27]]) as isize;
+    let subkeys_list =
+        i32::from_le_bytes([cell[0x24], cell[0x25], cell[0x26], cell[0x27]]) as isize;
     let subkey_count =
         i32::from_le_bytes([cell[0x28], cell[0x29], cell[0x2a], cell[0x2b]]) as usize;
     if subkey_count == 0 {
@@ -180,7 +197,12 @@ fn find_subkey(data: &[u8], key_off: usize, name: &str) -> Option<usize> {
         return None;
     }
     let list_cell = cell_data(data, list_abs as usize)?;
-    if list_cell.len() < 8 || &list_cell[0..2] != b"lf" && &list_cell[0..2] != b"lh" && &list_cell[0..2] != b"ri" && &list_cell[0..2] != b"li" {
+    if list_cell.len() < 8
+        || &list_cell[0..2] != b"lf"
+            && &list_cell[0..2] != b"lh"
+            && &list_cell[0..2] != b"ri"
+            && &list_cell[0..2] != b"li"
+    {
         return walk_subkeys_linear(data, key_off, name);
     }
     let count = u16::from_le_bytes([list_cell[0x04], list_cell[0x05]]) as usize;
@@ -231,8 +253,12 @@ fn walk_subkeys_linear(data: &[u8], key_off: usize, name: &str) -> Option<usize>
                 if key_name.eq_ignore_ascii_case(name) {
                     return Some(sub_abs as usize);
                 }
-                sub_off_rel =
-                    i32::from_le_bytes([sub_cell[0x2c], sub_cell[0x2d], sub_cell[0x2e], sub_cell[0x2f]]) as isize;
+                sub_off_rel = i32::from_le_bytes([
+                    sub_cell[0x2c],
+                    sub_cell[0x2d],
+                    sub_cell[0x2e],
+                    sub_cell[0x2f],
+                ]) as isize;
             } else {
                 break;
             }
@@ -277,8 +303,7 @@ fn collect_key_values(
     if cell.len() < 0x4c || &cell[0..2] != b"nk" {
         return;
     }
-    let value_count =
-        i32::from_le_bytes([cell[0x2c], cell[0x2d], cell[0x2e], cell[0x2f]]) as usize;
+    let value_count = i32::from_le_bytes([cell[0x2c], cell[0x2d], cell[0x2e], cell[0x2f]]) as usize;
     let mut val_off_rel =
         i32::from_le_bytes([cell[0x30], cell[0x31], cell[0x32], cell[0x33]]) as isize;
 
@@ -301,8 +326,12 @@ fn collect_key_values(
                     category: category.into(),
                     forensic_relevance: label.into(),
                 });
-                val_off_rel =
-                    i32::from_le_bytes([val_cell[0x04], val_cell[0x05], val_cell[0x06], val_cell[0x07]]) as isize;
+                val_off_rel = i32::from_le_bytes([
+                    val_cell[0x04],
+                    val_cell[0x05],
+                    val_cell[0x06],
+                    val_cell[0x07],
+                ]) as isize;
             } else {
                 break;
             }
@@ -314,9 +343,24 @@ fn collect_key_values(
 
 fn read_value(val_cell: &[u8], data: &[u8], val_abs: usize) -> (String, String) {
     let name_len = u16::from_le_bytes([val_cell[0x02], val_cell[0x03]]) as usize;
-    let data_len = i32::from_le_bytes([val_cell[0x08], val_cell[0x09], val_cell[0x0a], val_cell[0x0b]]);
-    let data_off = i32::from_le_bytes([val_cell[0x0c], val_cell[0x0d], val_cell[0x0e], val_cell[0x0f]]);
-    let data_type = u32::from_le_bytes([val_cell[0x10], val_cell[0x11], val_cell[0x12], val_cell[0x13]]);
+    let data_len = i32::from_le_bytes([
+        val_cell[0x08],
+        val_cell[0x09],
+        val_cell[0x0a],
+        val_cell[0x0b],
+    ]);
+    let data_off = i32::from_le_bytes([
+        val_cell[0x0c],
+        val_cell[0x0d],
+        val_cell[0x0e],
+        val_cell[0x0f],
+    ]);
+    let data_type = u32::from_le_bytes([
+        val_cell[0x10],
+        val_cell[0x11],
+        val_cell[0x12],
+        val_cell[0x13],
+    ]);
 
     let name = if name_len > 0 && val_cell.len() >= 0x18 + name_len {
         String::from_utf8_lossy(&val_cell[0x18..0x18 + name_len]).to_string()
@@ -347,7 +391,15 @@ fn decode_value_data(raw: &[u8], data_type: u32, len: usize) -> String {
     let slice = &raw[..len.min(raw.len())];
     match data_type {
         1 | 2 => String::from_utf8_lossy(slice).to_string(),
-        3 | 5 => format!("DWORD: {}", u32::from_le_bytes([slice[0], slice.get(1).copied().unwrap_or(0), slice.get(2).copied().unwrap_or(0), slice.get(3).copied().unwrap_or(0)])),
+        3 | 5 => format!(
+            "DWORD: {}",
+            u32::from_le_bytes([
+                slice[0],
+                slice.get(1).copied().unwrap_or(0),
+                slice.get(2).copied().unwrap_or(0),
+                slice.get(3).copied().unwrap_or(0)
+            ])
+        ),
         7 => {
             if slice.len() >= 8 {
                 format_hex_preview(slice, 32)
@@ -408,9 +460,21 @@ fn collect_subkeys(
                     category: category.into(),
                     forensic_relevance: "Subkey enumeration".into(),
                 });
-                collect_subkeys(data, sub_abs as usize, hive, &full_path, category, findings, depth - 1);
-                sub_off_rel =
-                    i32::from_le_bytes([sub_cell[0x2c], sub_cell[0x2d], sub_cell[0x2e], sub_cell[0x2f]]) as isize;
+                collect_subkeys(
+                    data,
+                    sub_abs as usize,
+                    hive,
+                    &full_path,
+                    category,
+                    findings,
+                    depth - 1,
+                );
+                sub_off_rel = i32::from_le_bytes([
+                    sub_cell[0x2c],
+                    sub_cell[0x2d],
+                    sub_cell[0x2e],
+                    sub_cell[0x2f],
+                ]) as isize;
             } else {
                 break;
             }
@@ -429,7 +493,11 @@ pub fn scan_hives_in_directory(dir: &str) -> Result<Vec<RegistryScanResult>, Str
         if !path.is_file() {
             continue;
         }
-        let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_uppercase();
+        let fname = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_uppercase();
         if targets.iter().any(|t| fname.contains(t)) {
             if let Ok(r) = analyze_hive(path.to_string_lossy().as_ref()) {
                 results.push(r);

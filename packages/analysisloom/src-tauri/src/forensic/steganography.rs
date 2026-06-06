@@ -36,7 +36,10 @@ pub fn scan_images(paths: &[String]) -> StegoScanResult {
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_lowercase();
-        if matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "bmp" | "gif" | "webp") {
+        if matches!(
+            ext.as_str(),
+            "png" | "jpg" | "jpeg" | "bmp" | "gif" | "webp"
+        ) {
             if let Ok(f) = analyze_image(path) {
                 findings.push(f);
             }
@@ -55,7 +58,10 @@ pub fn analyze_image(path: &str) -> Result<StegoFinding, String> {
     let format = detect_format(&data);
     let (pixels, anomalies) = match format.as_str() {
         "PNG" => extract_png_pixels(&data),
-        "JPEG" => (vec![], vec!["JPEG LSB analysis limited to DCT domain heuristic".into()]),
+        "JPEG" => (
+            vec![],
+            vec!["JPEG LSB analysis limited to DCT domain heuristic".into()],
+        ),
         _ => (vec![], vec![]),
     };
 
@@ -127,8 +133,16 @@ fn extract_png_pixels(data: &[u8]) -> (Vec<u8>, Vec<String>) {
         }
 
         if chunk_type == b"IHDR" && len >= 8 {
-            width = u32::from_be_bytes(data[chunk_data_start..chunk_data_start + 4].try_into().unwrap());
-            height = u32::from_be_bytes(data[chunk_data_start + 4..chunk_data_start + 8].try_into().unwrap());
+            width = u32::from_be_bytes(
+                data[chunk_data_start..chunk_data_start + 4]
+                    .try_into()
+                    .unwrap(),
+            );
+            height = u32::from_be_bytes(
+                data[chunk_data_start + 4..chunk_data_start + 8]
+                    .try_into()
+                    .unwrap(),
+            );
         } else if chunk_type == b"IDAT" {
             pixels.extend_from_slice(&data[chunk_data_start..chunk_data_end]);
         } else if chunk_type == b"tEXt" || chunk_type == b"iTXt" || chunk_type == b"zTXt" {
@@ -137,7 +151,11 @@ fn extract_png_pixels(data: &[u8]) -> (Vec<u8>, Vec<String>) {
                 || text.to_lowercase().contains("secret")
                 || text.to_lowercase().contains("stego")
             {
-                anomalies.push(format!("Suspicious {} chunk: {}", String::from_utf8_lossy(chunk_type), text.chars().take(80).collect::<String>()));
+                anomalies.push(format!(
+                    "Suspicious {} chunk: {}",
+                    String::from_utf8_lossy(chunk_type),
+                    text.chars().take(80).collect::<String>()
+                ));
             }
         }
 
@@ -145,7 +163,9 @@ fn extract_png_pixels(data: &[u8]) -> (Vec<u8>, Vec<String>) {
     }
 
     if width > 0 && height > 0 && pixels.is_empty() {
-        anomalies.push(format!("PNG {width}×{height} — IDAT compressed, LSB on raw deflate bytes"));
+        anomalies.push(format!(
+            "PNG {width}×{height} — IDAT compressed, LSB on raw deflate bytes"
+        ));
     }
 
     (pixels, anomalies)
@@ -155,7 +175,10 @@ fn scan_chunk_text(data: &[u8]) -> Vec<String> {
     let mut found = vec![];
     let needles: &[&[u8]] = &[b"hidden", b"secret", b"password", b"stego", b"encrypted"];
     for needle in needles {
-        if data.windows(needle.len()).any(|w| w.eq_ignore_ascii_case(needle)) {
+        if data
+            .windows(needle.len())
+            .any(|w| w.eq_ignore_ascii_case(needle))
+        {
             found.push(format!(
                 "Embedded keyword '{}' in file bytes",
                 String::from_utf8_lossy(needle)

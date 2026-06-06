@@ -37,7 +37,10 @@ pub fn parse_volatility_json(path: &str) -> Result<MemoryAnalysisResult, String>
     parse_volatility_json_str(&content, path)
 }
 
-pub fn parse_volatility_json_str(content: &str, source: &str) -> Result<MemoryAnalysisResult, String> {
+pub fn parse_volatility_json_str(
+    content: &str,
+    source: &str,
+) -> Result<MemoryAnalysisResult, String> {
     let value: serde_json::Value =
         serde_json::from_str(content).map_err(|e| format!("Invalid Volatility JSON: {e}"))?;
 
@@ -121,7 +124,11 @@ fn parse_network_row(row: &serde_json::Value) -> Option<MemoryNetwork> {
     let foreign = row.get("ForeignAddr").or_else(|| row.get("foreign"))?;
     let local = row.get("LocalAddr").or_else(|| row.get("local"))?;
     Some(MemoryNetwork {
-        pid: row.get("PID").or_else(|| row.get("pid")).and_then(|v| v.as_u64()).unwrap_or(0),
+        pid: row
+            .get("PID")
+            .or_else(|| row.get("pid"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0),
         protocol: row
             .get("Proto")
             .or_else(|| row.get("protocol"))

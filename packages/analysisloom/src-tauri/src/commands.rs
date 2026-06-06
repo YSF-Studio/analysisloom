@@ -1,5 +1,5 @@
 use crate::forensic::{
-    self, antiforensics, browser, bundle, case_guard, carving, chat, email, encryption, evidence,
+    self, antiforensics, browser, bundle, carving, case_guard, chat, email, encryption, evidence,
     evtx, hashing, integrity, linux, macos, memory, nsrl, ntfs, pcap, plugins, preview, registry,
     report, report_meta, sqlite, steganography, timeline, windows_artifacts, yara, ProgressState,
 };
@@ -170,14 +170,13 @@ fn compute_case_seal_hash(case_id: &str) -> Result<String, String> {
     let mut estmt = db
         .prepare("SELECT sha256 FROM evidence_items WHERE case_id = ?1 ORDER BY source_path")
         .map_err(|e| e.to_string())?;
-    for row in estmt
+    for h in estmt
         .query_map([case_id], |row| row.get::<_, Option<String>>(0))
         .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
+        .flatten()
+        .flatten()
     {
-        if let Some(h) = row {
-            parts.push(h);
-        }
+        parts.push(h);
     }
 
     let mut fstmt = db
@@ -191,7 +190,8 @@ fn compute_case_seal_hash(case_id: &str) -> Result<String, String> {
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
-                row.get::<_, Option<String>>(4)?.unwrap_or_else(|| "pending".into()),
+                row.get::<_, Option<String>>(4)?
+                    .unwrap_or_else(|| "pending".into()),
             ))
         })
         .map_err(|e| e.to_string())?
@@ -227,11 +227,8 @@ pub fn delete_case(id: String) -> Result<(), String> {
         "case_manifest",
         "case_notes",
     ] {
-        tx.execute(
-            &format!("DELETE FROM {table} WHERE case_id = ?1"),
-            [&id],
-        )
-        .map_err(|e| e.to_string())?;
+        tx.execute(&format!("DELETE FROM {table} WHERE case_id = ?1"), [&id])
+            .map_err(|e| e.to_string())?;
     }
     tx.execute("DELETE FROM cases WHERE id = ?1", [&id])
         .map_err(|e| e.to_string())?;
@@ -608,88 +605,86 @@ pub fn generate_case_report(case_id: String, format: String) -> Result<String, S
         )
         .map_err(|e| format!("Case not found: {e}"))?;
 
-    // Get timeline events
-    let mut stmt = db.prepare(
+        // Get timeline events
+        let mut stmt = db.prepare(
         "SELECT timestamp, source, file_path, event_type FROM timeline_events WHERE case_id = ?1 ORDER BY timestamp DESC LIMIT 100"
     ).map_err(|e| e.to_string())?;
-    let timeline: Vec<String> = stmt
-        .query_map([&case_id], |row| {
-            Ok(format!(
-                "{} | {} | {} ({})",
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(1)?,
-            ))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        let timeline: Vec<String> = stmt
+            .query_map([&case_id], |row| {
+                Ok(format!(
+                    "{} | {} | {} ({})",
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(1)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
 
-    // Get evidence items
-    let mut stmt = db
+        // Get evidence items
+        let mut stmt = db
         .prepare(
             "SELECT source_path, type, sha256, size_bytes FROM evidence_items WHERE case_id = ?1",
         )
         .map_err(|e| e.to_string())?;
-    let evidence: Vec<String> = stmt
-        .query_map([&case_id], |row| {
-            Ok(format!(
-                "{} ({}) — {} bytes — SHA256: {}",
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(3).unwrap_or(0),
-                row.get::<_, String>(2).unwrap_or_default(),
-            ))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        let evidence: Vec<String> = stmt
+            .query_map([&case_id], |row| {
+                Ok(format!(
+                    "{} ({}) — {} bytes — SHA256: {}",
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(3).unwrap_or(0),
+                    row.get::<_, String>(2).unwrap_or_default(),
+                ))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
 
-    // Get findings
-    let mut stmt = db
+        // Get findings
+        let mut stmt = db
         .prepare("SELECT description, file_path, severity, review_status FROM findings WHERE case_id = ?1")
         .map_err(|e| e.to_string())?;
-    let findings: Vec<String> = stmt
-        .query_map([&case_id], |row| {
-            Ok(format!(
-                "[{}] {} — {} (review: {})",
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, Option<String>>(3)?.unwrap_or_else(|| "pending".into()),
-            ))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        let findings: Vec<String> = stmt
+            .query_map([&case_id], |row| {
+                Ok(format!(
+                    "[{}] {} — {} (review: {})",
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(3)?
+                        .unwrap_or_else(|| "pending".into()),
+                ))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
 
-    // Get audit trail
-    let mut stmt = db.prepare(
+        // Get audit trail
+        let mut stmt = db.prepare(
         "SELECT timestamp, action, detail FROM audit_log WHERE case_id = ?1 ORDER BY timestamp DESC LIMIT 50"
     ).map_err(|e| e.to_string())?;
-    let audit: Vec<String> = stmt
-        .query_map([&case_id], |row| {
-            Ok(format!(
-                "{} | {} — {}",
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-            ))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        let audit: Vec<String> = stmt
+            .query_map([&case_id], |row| {
+                Ok(format!(
+                    "{} | {} — {}",
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
 
         let mut estmt = db
             .prepare("SELECT source_path, sha256 FROM evidence_items WHERE case_id = ?1")
             .map_err(|e| e.to_string())?;
         let evidence_paths: Vec<(String, Option<String>)> = estmt
             .query_map([&case_id], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, Option<String>>(1)?,
-                ))
+                Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
             })
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
@@ -996,6 +991,7 @@ fn notes_html(notes: &[serde_json::Value]) -> String {
         .join("\n")
 }
 
+#[allow(clippy::too_many_arguments)]
 fn generate_html_report(
     case: &Case,
     timeline: &[String],
@@ -1393,7 +1389,14 @@ pub fn export_bookmark(
         note
     };
     let visual = collect_single_visual(&file_path, &title);
-    let html = build_single_export_html(&title, &case_name, &file_path, &body, &meta, visual.as_ref());
+    let html = build_single_export_html(
+        &title,
+        &case_name,
+        &file_path,
+        &body,
+        &meta,
+        visual.as_ref(),
+    );
     std::fs::write(&output_path, &html).map_err(|e| format!("Write error: {e}"))?;
 
     let _ = log_action(
@@ -1466,7 +1469,9 @@ pub fn export_finding(
 #[tauri::command]
 pub fn log_action(case_id: String, action: String, detail: String) -> Result<(), String> {
     let db = crate::db::conn();
-    let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
+    let timestamp = chrono::Utc::now()
+        .format("%Y-%m-%d %H:%M:%S UTC")
+        .to_string();
     let prev_hash: String = db
         .query_row(
             "SELECT entry_hash FROM audit_log WHERE case_id = ?1 ORDER BY id DESC LIMIT 1",
@@ -1550,11 +1555,9 @@ pub fn list_bookmarks(case_id: String) -> Result<Vec<serde_json::Value>, String>
 #[tauri::command]
 pub fn delete_bookmark(id: i64) -> Result<(), String> {
     let case_id: String = crate::db::conn()
-        .query_row(
-            "SELECT case_id FROM bookmarks WHERE id = ?1",
-            [id],
-            |row| row.get(0),
-        )
+        .query_row("SELECT case_id FROM bookmarks WHERE id = ?1", [id], |row| {
+            row.get(0)
+        })
         .map_err(|e| format!("Bookmark not found: {e}"))?;
     case_guard::ensure_case_mutable(&case_id)?;
     crate::db::conn()
@@ -1578,7 +1581,10 @@ pub fn scan_registry_directory(dir: String) -> Result<Vec<registry::RegistryScan
 // ─── YARA Scanner ───
 
 #[tauri::command]
-pub fn yara_scan_paths(paths: Vec<String>, rules_path: Option<String>) -> Result<Vec<yara::YaraMatch>, String> {
+pub fn yara_scan_paths(
+    paths: Vec<String>,
+    rules_path: Option<String>,
+) -> Result<Vec<yara::YaraMatch>, String> {
     yara::scan_with_optional_rules(&paths, rules_path.as_deref())
 }
 
@@ -1590,14 +1596,18 @@ pub fn yara_builtin_rule_count() -> Result<usize, String> {
 // ─── Anti-Forensics ───
 
 #[tauri::command]
-pub fn analyze_antiforensics_mft(image_path: String) -> Result<Vec<antiforensics::AntiForensicsFinding>, String> {
+pub fn analyze_antiforensics_mft(
+    image_path: String,
+) -> Result<Vec<antiforensics::AntiForensicsFinding>, String> {
     let cancel = std::sync::atomic::AtomicBool::new(false);
     let entries = ntfs::parse_mft(&image_path, &cancel)?;
     Ok(antiforensics::analyze_mft_entries(&entries, &image_path))
 }
 
 #[tauri::command]
-pub fn analyze_antiforensics_files(paths: Vec<String>) -> Result<Vec<antiforensics::AntiForensicsFinding>, String> {
+pub fn analyze_antiforensics_files(
+    paths: Vec<String>,
+) -> Result<Vec<antiforensics::AntiForensicsFinding>, String> {
     Ok(antiforensics::scan_evidence_files(&paths))
 }
 
@@ -1664,7 +1674,10 @@ pub fn list_deleted_mft(image_path: String) -> Result<Vec<ntfs::MftEntry>, Strin
 }
 
 #[tauri::command]
-pub fn recover_deleted_carve(image_path: String, output_dir: String) -> Result<carving::CarvingResult, String> {
+pub fn recover_deleted_carve(
+    image_path: String,
+    output_dir: String,
+) -> Result<carving::CarvingResult, String> {
     let cancel = std::sync::atomic::AtomicBool::new(false);
     std::fs::create_dir_all(&output_dir).map_err(|e| e.to_string())?;
     carving::carve_files(&image_path, &output_dir, &cancel)
@@ -1704,7 +1717,9 @@ pub fn analyze_pcap(path: String) -> Result<pcap::PcapScanResult, String> {
 // ─── V2.1: Windows Artifacts ───
 
 #[tauri::command]
-pub fn scan_windows_artifacts(root: String) -> Result<windows_artifacts::WindowsScanResult, String> {
+pub fn scan_windows_artifacts(
+    root: String,
+) -> Result<windows_artifacts::WindowsScanResult, String> {
     windows_artifacts::scan_windows_artifacts(&root)
 }
 
@@ -1755,9 +1770,69 @@ pub fn run_forensic_plugin(plugin_id: String, path: String) -> plugins::PluginRu
 
 // ─── V2: Evidence Bundle Export ───
 
+fn bundle_pdf_bytes(
+    case: &Case,
+    case_id: &str,
+    timeline: &[String],
+    evidence_lines: &[String],
+    hash_chain: &integrity::HashChainReport,
+    now: &str,
+) -> Option<Vec<u8>> {
+    let sections = vec![
+        report::ReportSection {
+            heading: "Case Information".into(),
+            content: format!(
+                "Case: {}\nOperator: {}\nStatus: {}\nCreated: {}",
+                case.name,
+                case.operator.clone().unwrap_or_default(),
+                case.status,
+                case.created_at
+            ),
+        },
+        report::ReportSection {
+            heading: "Timeline".into(),
+            content: timeline.join("\n"),
+        },
+        report::ReportSection {
+            heading: "Evidence".into(),
+            content: evidence_lines.join("\n"),
+        },
+        report::ReportSection {
+            heading: "Tool Limitations (ISO 27042 §10.1)".into(),
+            content: report_meta::limitations_text(),
+        },
+        report::ReportSection {
+            heading: "Hash Chain Validation".into(),
+            content: integrity::hash_chain_text(hash_chain),
+        },
+    ];
+    report::generate_pdf_report(&report::PdfReport {
+        title: format!("Forensic Analysis Report — {}", case.name),
+        evidence_id: case_id.to_string(),
+        operator: case.operator.clone().unwrap_or_default(),
+        case_name: case.name.clone(),
+        device: "AnalysisLoom Workstation".into(),
+        date: now.to_string(),
+        sections,
+    })
+    .ok()
+}
+
 #[tauri::command]
-pub fn export_case_bundle(case_id: String, output_path: String) -> Result<bundle::BundleExportResult, String> {
-    let (case, evidence_rows, findings_json, audit_json, timeline, evidence_lines, finding_lines, audit_lines) = {
+pub fn export_case_bundle(
+    case_id: String,
+    output_path: String,
+) -> Result<bundle::BundleExportResult, String> {
+    let (
+        case,
+        evidence_rows,
+        findings_json,
+        audit_json,
+        timeline,
+        evidence_lines,
+        finding_lines,
+        audit_lines,
+    ) = {
         let db = crate::db::conn();
 
         let case: Case = db
@@ -1779,109 +1854,108 @@ pub fn export_case_bundle(case_id: String, output_path: String) -> Result<bundle
         )
         .map_err(|e| format!("Case not found: {e}"))?;
 
-    let mut estmt = db
+        let mut estmt = db
         .prepare("SELECT source_path, type, sha256, size_bytes FROM evidence_items WHERE case_id = ?1")
         .map_err(|e| e.to_string())?;
-    let evidence_rows: Vec<(String, String, Option<String>, i64)> = estmt
-        .query_map([&case_id], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, Option<String>>(2)?,
-                row.get::<_, i64>(3).unwrap_or(0),
-            ))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        let evidence_rows: Vec<(String, String, Option<String>, i64)> = estmt
+            .query_map([&case_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, i64>(3).unwrap_or(0),
+                ))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
 
-    let mut fstmt = db
-        .prepare("SELECT id, description, file_path, severity FROM findings WHERE case_id = ?1")
-        .map_err(|e| e.to_string())?;
-    let findings: Vec<serde_json::Value> = fstmt
-        .query_map([&case_id], |row| {
-            Ok(serde_json::json!({
-                "id": row.get::<_, i64>(0)?,
-                "description": row.get::<_, String>(1)?,
-                "filePath": row.get::<_, String>(2)?,
-                "severity": row.get::<_, String>(3)?,
-            }))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
-    let findings_json =
-        serde_json::to_string_pretty(&findings).map_err(|e| e.to_string())?;
+        let mut fstmt = db
+            .prepare("SELECT id, description, file_path, severity FROM findings WHERE case_id = ?1")
+            .map_err(|e| e.to_string())?;
+        let findings: Vec<serde_json::Value> = fstmt
+            .query_map([&case_id], |row| {
+                Ok(serde_json::json!({
+                    "id": row.get::<_, i64>(0)?,
+                    "description": row.get::<_, String>(1)?,
+                    "filePath": row.get::<_, String>(2)?,
+                    "severity": row.get::<_, String>(3)?,
+                }))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        let findings_json = serde_json::to_string_pretty(&findings).map_err(|e| e.to_string())?;
 
-    let mut astmt = db.prepare(
+        let mut astmt = db.prepare(
         "SELECT timestamp, action, detail FROM audit_log WHERE case_id = ?1 ORDER BY timestamp DESC LIMIT 100",
     ).map_err(|e| e.to_string())?;
-    let audit: Vec<serde_json::Value> = astmt
-        .query_map([&case_id], |row| {
-            Ok(serde_json::json!({
-                "timestamp": row.get::<_, String>(0)?,
-                "action": row.get::<_, String>(1)?,
-                "detail": row.get::<_, String>(2)?,
-            }))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
-    let audit_json = serde_json::to_string_pretty(&audit).map_err(|e| e.to_string())?;
+        let audit: Vec<serde_json::Value> = astmt
+            .query_map([&case_id], |row| {
+                Ok(serde_json::json!({
+                    "timestamp": row.get::<_, String>(0)?,
+                    "action": row.get::<_, String>(1)?,
+                    "detail": row.get::<_, String>(2)?,
+                }))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        let audit_json = serde_json::to_string_pretty(&audit).map_err(|e| e.to_string())?;
 
-    let mut tstmt = db.prepare(
+        let mut tstmt = db.prepare(
         "SELECT timestamp, source, file_path, event_type FROM timeline_events WHERE case_id = ?1 ORDER BY timestamp DESC LIMIT 100",
     ).map_err(|e| e.to_string())?;
-    let timeline: Vec<String> = tstmt
-        .query_map([&case_id], |row| {
-            Ok(format!(
-                "{} | {} | {} ({})",
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(1)?,
-            ))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        let timeline: Vec<String> = tstmt
+            .query_map([&case_id], |row| {
+                Ok(format!(
+                    "{} | {} | {} ({})",
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(1)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
 
-    let evidence_lines: Vec<String> = evidence_rows
-        .iter()
-        .map(|(p, t, sha, sz)| {
-            format!(
-                "{} ({}) — {} bytes — SHA256: {}",
-                p,
-                t,
-                sz,
-                sha.clone().unwrap_or_default()
-            )
-        })
-        .collect();
+        let evidence_lines: Vec<String> = evidence_rows
+            .iter()
+            .map(|(p, t, sha, sz)| {
+                format!(
+                    "{} ({}) — {} bytes — SHA256: {}",
+                    p,
+                    t,
+                    sz,
+                    sha.clone().unwrap_or_default()
+                )
+            })
+            .collect();
 
-    let finding_lines: Vec<String> = findings
-        .iter()
-        .filter_map(|f| {
-            Some(format!(
-                "[{}] {} — {}",
-                f.get("severity")?.as_str()?,
-                f.get("description")?.as_str()?,
-                f.get("filePath")?.as_str()?,
-            ))
-        })
-        .collect();
+        let finding_lines: Vec<String> = findings
+            .iter()
+            .filter_map(|f| {
+                Some(format!(
+                    "[{}] {} — {}",
+                    f.get("severity")?.as_str()?,
+                    f.get("description")?.as_str()?,
+                    f.get("filePath")?.as_str()?,
+                ))
+            })
+            .collect();
 
-    let audit_lines: Vec<String> = audit
-        .iter()
-        .filter_map(|a| {
-            Some(format!(
-                "{} | {} — {}",
-                a.get("timestamp")?.as_str()?,
-                a.get("action")?.as_str()?,
-                a.get("detail")?.as_str()?,
-            ))
-        })
-        .collect();
+        let audit_lines: Vec<String> = audit
+            .iter()
+            .filter_map(|a| {
+                Some(format!(
+                    "{} | {} — {}",
+                    a.get("timestamp")?.as_str()?,
+                    a.get("action")?.as_str()?,
+                    a.get("detail")?.as_str()?,
+                ))
+            })
+            .collect();
 
         (
             case,
@@ -1917,46 +1991,14 @@ pub fn export_case_bundle(case_id: String, output_path: String) -> Result<bundle
         &visuals,
     );
 
-    let pdf_bytes = (|| {
-        let sections = vec![
-            report::ReportSection {
-                heading: "Case Information".into(),
-                content: format!(
-                    "Case: {}\nOperator: {}\nStatus: {}\nCreated: {}",
-                    case.name,
-                    case.operator.clone().unwrap_or_default(),
-                    case.status,
-                    case.created_at
-                ),
-            },
-            report::ReportSection {
-                heading: "Timeline".into(),
-                content: timeline.join("\n"),
-            },
-            report::ReportSection {
-                heading: "Evidence".into(),
-                content: evidence_lines.join("\n"),
-            },
-            report::ReportSection {
-                heading: "Tool Limitations (ISO 27042 §10.1)".into(),
-                content: report_meta::limitations_text(),
-            },
-            report::ReportSection {
-                heading: "Hash Chain Validation".into(),
-                content: integrity::hash_chain_text(&hash_chain),
-            },
-        ];
-        report::generate_pdf_report(&report::PdfReport {
-            title: format!("Forensic Analysis Report — {}", case.name),
-            evidence_id: case_id.clone(),
-            operator: case.operator.clone().unwrap_or_default(),
-            case_name: case.name.clone(),
-            device: "AnalysisLoom Workstation".into(),
-            date: now.clone(),
-            sections,
-        })
-        .ok()
-    })();
+    let pdf_bytes = bundle_pdf_bytes(
+        &case,
+        &case_id,
+        &timeline,
+        &evidence_lines,
+        &hash_chain,
+        &now,
+    );
 
     let operator = case.operator.clone().unwrap_or_else(|| "Analyst".into());
     let result = bundle::create_case_bundle(
@@ -2010,7 +2052,10 @@ pub fn demo_fixtures() -> Option<DemoFixtures> {
         luks: base.join("luks_volume.dd").to_string_lossy().into(),
         carve: base.join("carve_source.dd").to_string_lossy().into(),
         sqlite: base.join("messages.db").to_string_lossy().into(),
-        evidence: base.join("secret_password_log.txt").to_string_lossy().into(),
+        evidence: base
+            .join("secret_password_log.txt")
+            .to_string_lossy()
+            .into(),
         png: base.join("photo_evidence.png").to_string_lossy().into(),
     })
 }

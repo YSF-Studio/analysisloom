@@ -69,9 +69,18 @@ pub fn parse_mailbox(path: &Path) -> Result<EmailScanResult, String> {
 
     let magic = u32::from_le_bytes(data[0..4].try_into().unwrap());
     let (mailbox_type, version) = match magic {
-        0x4E444221 => ("PST (ANSI)".into(), u16::from_le_bytes(data[10..12].try_into().unwrap()) as u32),
-        0x4D505349 => ("OST (Unicode)".into(), u16::from_le_bytes(data[10..12].try_into().unwrap()) as u32),
-        0x21_42_44_4E => ("PST (Unicode)".into(), u16::from_le_bytes(data[10..12].try_into().unwrap()) as u32),
+        0x4E444221 => (
+            "PST (ANSI)".into(),
+            u16::from_le_bytes(data[10..12].try_into().unwrap()) as u32,
+        ),
+        0x4D505349 => (
+            "OST (Unicode)".into(),
+            u16::from_le_bytes(data[10..12].try_into().unwrap()) as u32,
+        ),
+        0x21_42_44_4E => (
+            "PST (Unicode)".into(),
+            u16::from_le_bytes(data[10..12].try_into().unwrap()) as u32,
+        ),
         _ => {
             if data.starts_with(b"!BDN") {
                 ("PST".into(), 23)
@@ -138,12 +147,13 @@ fn extract_messages(data: &[u8]) -> Vec<EmailMessage> {
                 }
             }
         }
-        if current.subject.is_empty() && trimmed.len() > 10 && trimmed.len() < 200 {
-            if trimmed.contains('@') && trimmed.contains('.') {
-                if current.sender.is_empty() {
-                    current.sender = trimmed.chars().take(120).collect();
-                }
-            }
+        if current.subject.is_empty()
+            && (10..200).contains(&trimmed.len())
+            && trimmed.contains('@')
+            && trimmed.contains('.')
+            && current.sender.is_empty()
+        {
+            current.sender = trimmed.chars().take(120).collect();
         }
         if !current.subject.is_empty() && !current.sender.is_empty() {
             current.body_preview = trimmed.chars().take(120).collect();
@@ -183,16 +193,26 @@ fn extract_messages(data: &[u8]) -> Vec<EmailMessage> {
 
 fn extract_folders(data: &[u8]) -> Vec<String> {
     let mut folders = vec![];
-    for name in ["Inbox", "Sent Items", "Deleted Items", "Drafts", "Outbox", "Calendar", "Contacts"] {
+    for name in [
+        "Inbox",
+        "Sent Items",
+        "Deleted Items",
+        "Drafts",
+        "Outbox",
+        "Calendar",
+        "Contacts",
+    ] {
         if data.windows(name.len()).any(|w| w == name.as_bytes()) {
             folders.push(name.into());
         }
     }
     for s in scan_utf16_strings(data, 4) {
-        if s.len() > 2 && s.len() < 64 && !folders.contains(&s) {
-            if s.chars().all(|c| c.is_alphanumeric() || c.is_whitespace() || c == '-' || c == '_') {
-                folders.push(s);
-            }
+        if (2..64).contains(&s.len())
+            && !folders.contains(&s)
+            && s.chars()
+                .all(|c| c.is_alphanumeric() || c.is_whitespace() || c == '-' || c == '_')
+        {
+            folders.push(s);
         }
         if folders.len() >= 15 {
             break;
@@ -208,12 +228,13 @@ fn scan_utf16_strings(data: &[u8], min_chars: usize) -> Vec<String> {
     let mut results = vec![];
     let mut i = 0usize;
     while i + 4 < data.len() {
-        if data[i] >= 0x20 && data[i] <= 0x7E && data[i + 1] == 0 {
+        if (0x20..=0x7E).contains(&data[i]) && data[i + 1] == 0 {
             if let Some(s) = read_utf16le(data, i) {
-                if s.len() >= min_chars && s.chars().any(|c| c.is_alphabetic()) {
-                    if !results.contains(&s) {
-                        results.push(s);
-                    }
+                if s.len() >= min_chars
+                    && s.chars().any(|c| c.is_alphabetic())
+                    && !results.contains(&s)
+                {
+                    results.push(s);
                 }
             }
         }

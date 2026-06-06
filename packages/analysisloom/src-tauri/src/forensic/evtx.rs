@@ -176,13 +176,20 @@ fn parse_xml_fallback(data: &[u8]) -> Vec<EvtxEvent> {
 
     if let Some(re) = id_re {
         for cap in re.captures_iter(&text) {
-            let event_id: u32 = cap.get(1).and_then(|m| m.as_str().parse().ok()).unwrap_or(0);
+            let event_id: u32 = cap
+                .get(1)
+                .and_then(|m| m.as_str().parse().ok())
+                .unwrap_or(0);
             if !is_forensic_event(event_id) {
                 continue;
             }
             let timestamp = time_re
                 .as_ref()
-                .and_then(|r| r.captures(&text).and_then(|c| c.get(1)).map(|m| m.as_str().to_string()))
+                .and_then(|r| {
+                    r.captures(&text)
+                        .and_then(|c| c.get(1))
+                        .map(|m| m.as_str().to_string())
+                })
                 .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
 
             events.push(EvtxEvent {

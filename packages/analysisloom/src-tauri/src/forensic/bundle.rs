@@ -38,6 +38,7 @@ pub struct BundleExportResult {
     pub total_bytes: u64,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_case_bundle(
     case_id: &str,
     case_name: &str,
@@ -51,8 +52,7 @@ pub fn create_case_bundle(
 ) -> Result<BundleExportResult, String> {
     let file = File::create(output_path).map_err(|e| format!("Cannot create ZIP: {e}"))?;
     let mut zip = ZipWriter::new(file);
-    let options = SimpleFileOptions::default()
-        .compression_method(zip::CompressionMethod::Deflated);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
     let mut manifest_files = vec![];
     let mut total_bytes = 0u64;
@@ -86,7 +86,11 @@ pub fn create_case_bundle(
             archive_path,
             source_path: source.clone(),
             sha256,
-            size_bytes: if *size > 0 { *size as u64 } else { buf.len() as u64 },
+            size_bytes: if *size > 0 {
+                *size as u64
+            } else {
+                buf.len() as u64
+            },
             item_type: item_type.clone(),
         });
     }
@@ -146,7 +150,8 @@ pub fn create_case_bundle(
         "AnalysisLoom Evidence Bundle\nCase: {case_name}\nCase ID: {case_id}\nFiles: {}\nManifest SHA-256: {manifest_sha256}\n",
         manifest_files.len()
     );
-    zip.write_all(readme.as_bytes()).map_err(|e| e.to_string())?;
+    zip.write_all(readme.as_bytes())
+        .map_err(|e| e.to_string())?;
 
     zip.finish().map_err(|e| e.to_string())?;
 

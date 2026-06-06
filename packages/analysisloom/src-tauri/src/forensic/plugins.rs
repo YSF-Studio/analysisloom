@@ -144,7 +144,7 @@ fn extract_strings(data: &[u8], min_len: usize, max_count: usize) -> Vec<String>
     let mut strings = vec![];
     let mut current = String::new();
     for &b in data {
-        if b >= 0x20 && b <= 0x7E {
+        if (0x20..=0x7E).contains(&b) {
             current.push(b as char);
         } else if current.len() >= min_len {
             strings.push(current.clone());
@@ -184,7 +184,11 @@ impl PluginRegistry {
                 name: p.name().into(),
                 version: p.version().into(),
                 description: p.description().into(),
-                supported_extensions: p.supported_extensions().iter().map(|s| s.to_string()).collect(),
+                supported_extensions: p
+                    .supported_extensions()
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
                 builtin: true,
             })
             .collect()

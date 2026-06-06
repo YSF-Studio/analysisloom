@@ -34,9 +34,18 @@ pub fn scan_windows_artifacts(root: &str) -> Result<WindowsScanResult, String> {
     let mut artifacts = vec![];
     collect_artifacts(root, 0, 6, &mut artifacts);
 
-    let prefetch_count = artifacts.iter().filter(|a| a.artifact_type == "prefetch").count();
-    let lnk_count = artifacts.iter().filter(|a| a.artifact_type == "lnk").count();
-    let jump_list_count = artifacts.iter().filter(|a| a.artifact_type == "jump_list").count();
+    let prefetch_count = artifacts
+        .iter()
+        .filter(|a| a.artifact_type == "prefetch")
+        .count();
+    let lnk_count = artifacts
+        .iter()
+        .filter(|a| a.artifact_type == "lnk")
+        .count();
+    let jump_list_count = artifacts
+        .iter()
+        .filter(|a| a.artifact_type == "jump_list")
+        .count();
 
     Ok(WindowsScanResult {
         artifacts,
@@ -92,8 +101,12 @@ pub fn parse_prefetch(path: &Path) -> Result<WindowsArtifact, String> {
     let version = u32::from_le_bytes(data[4..8].try_into().unwrap());
     let run_count = u32::from_le_bytes(data[0x48..0x4C].try_into().unwrap_or([0; 4]));
 
-    let executable = utf16_at(&data, 0x10, 30)
-        .unwrap_or_else(|| path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string());
+    let executable = utf16_at(&data, 0x10, 30).unwrap_or_else(|| {
+        path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown")
+            .to_string()
+    });
 
     let last_run = if data.len() >= 0x80 {
         let ft = u64::from_le_bytes(data[0x78..0x80].try_into().unwrap_or([0; 8]));
@@ -150,17 +163,16 @@ pub fn parse_lnk(path: &Path) -> Result<WindowsArtifact, String> {
 fn extract_lnk_target(data: &[u8], flags: u32) -> (String, String) {
     let mut offset = 0x4Cusize;
     let mut target = String::new();
-    let mut details = format!("link_flags=0x{flags:08X}");
+    let details = format!("link_flags=0x{flags:08X}");
 
-    if flags & 0x01 != 0 {
-        if offset + 2 <= data.len() {
-            let id_size = u16::from_le_bytes(data[offset..offset + 2].try_into().unwrap()) as usize;
-            offset += 2 + id_size;
-        }
+    if flags & 0x01 != 0 && offset + 2 <= data.len() {
+        let id_size = u16::from_le_bytes(data[offset..offset + 2].try_into().unwrap()) as usize;
+        offset += 2 + id_size;
     }
 
     if flags & 0x02 != 0 && offset + 4 <= data.len() {
-        let link_info_size = u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap()) as usize;
+        let link_info_size =
+            u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap()) as usize;
         if offset + link_info_size <= data.len() && link_info_size >= 0x1C {
             let li = &data[offset..offset + link_info_size];
             let local_base = u32::from_le_bytes(li[0x10..0x14].try_into().unwrap()) as usize;
@@ -168,7 +180,6 @@ fn extract_lnk_target(data: &[u8], flags: u32) -> (String, String) {
                 target = read_cstring(&li[local_base..]);
             }
         }
-        offset += link_info_size;
     }
 
     if target.is_empty() {
@@ -249,7 +260,7 @@ fn try_utf16_path_at(data: &[u8], start: usize) -> Option<String> {
         if ch == 0 {
             break;
         }
-        if ch < 0x20 || ch > 0x7E {
+        if !(0x20..=0x7E).contains(&ch) {
             if chars.is_empty() {
                 return None;
             }
