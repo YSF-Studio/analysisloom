@@ -127,7 +127,7 @@ fn write_ntfs_image(path: &Path, rng: &mut StdRng) {
     let record_size = 1024u64;
     // Parser scans 256 consecutive records from mft_offset — image must cover that span.
     let image_size =
-        (mft_offset + record_size * MFT_SCAN_RECORDS + rng.gen_range(0u64..8192)) as usize;
+        (mft_offset + record_size * MFT_SCAN_RECORDS + rng.random_range(0u64..8192)) as usize;
 
     let mut image = vec![0u8; image_size];
     write_ntfs_boot_sector(&mut image[..512], MFT_CLUSTER);
@@ -190,7 +190,7 @@ fn write_sqlite_db(path: &Path, rng: &mut StdRng) {
     .expect("schema");
 
     for i in 0..15 {
-        let sender = format!("+628{:08}", rng.gen_range(10_000_000..99_999_999));
+        let sender = format!("+628{:08}", rng.random_range(10_000_000..99_999_999));
         let msg = format!("Random forensic message #{i} password token");
         conn.execute(
             "INSERT INTO messages (sender, message, timestamp) VALUES (?1, ?2, ?3)",
@@ -210,10 +210,10 @@ fn write_evidence_text(path: &Path, rng: &mut StdRng) {
         "CONFIDENTIAL forensic export".into(),
         "user password=RandomP@ss123!".into(),
         "powershell -NoProfile -enc SQBFAFgA".into(),
-        "api_token=sk-live-".to_string() + &hex::encode(&rng.gen::<[u8; 8]>()),
+        "api_token=sk-live-".to_string() + &hex::encode(&rng.random::<[u8; 8]>()),
     ];
-    for i in 0..rng.gen_range(5..20) {
-        lines.push(format!("log line {i}: random data {}", rng.gen::<u32>()));
+    for i in 0..rng.random_range(5..20) {
+        lines.push(format!("log line {i}: random data {}", rng.random::<u32>()));
     }
     std::fs::write(path, lines.join("\n")).expect("write evidence");
 }
