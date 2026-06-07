@@ -14,9 +14,9 @@ pub struct HashSet {
 
 pub fn multi_hash_buffer(data: &[u8]) -> HashSet {
     HashSet {
-        md5: Some(format!("{:x}", Md5::digest(data))),
-        sha1: Some(format!("{:x}", Sha1::digest(data))),
-        sha256: Some(format!("{:x}", Sha256::digest(data))),
+        md5: Some(hex_encode(&Md5::digest(data))),
+        sha1: Some(hex_encode(&Sha1::digest(data))),
+        sha256: Some(hex_encode(&Sha256::digest(data))),
     }
 }
 
@@ -44,10 +44,15 @@ pub fn multi_hash_file(path: &str) -> Result<HashSet, String> {
     }
 
     Ok(HashSet {
-        md5: Some(format!("{:x}", md5.finalize())),
-        sha1: Some(format!("{:x}", sha1.finalize())),
-        sha256: Some(format!("{:x}", sha256.finalize())),
+        md5: Some(hex_encode(&md5.finalize())),
+        sha1: Some(hex_encode(&sha1.finalize())),
+        sha256: Some(hex_encode(&sha256.finalize())),
     })
+}
+
+/// Helper function to convert digest output to hex string
+fn hex_encode(digest: &[u8]) -> String {
+    digest.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 pub fn compute_entropy(data: &[u8]) -> f64 {
