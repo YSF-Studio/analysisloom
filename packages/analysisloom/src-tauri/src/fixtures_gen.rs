@@ -56,7 +56,7 @@ pub fn generate_workspace(seed: u64) -> TestWorkspace {
 fn ntfs_timestamp_bytes() -> [u8; 8] {
     let unix = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_else(|| panic!("time since unix epoch"))
+        .unwrap_or_else(|_| panic!("time since unix epoch"))
         .as_secs() as i64;
     let ntfs = (unix + 11_644_473_600) * 10_000_000;
     ntfs.to_le_bytes()
