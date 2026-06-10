@@ -1,10 +1,45 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let result = $state(null);
   let pcapPath = $state("");
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "PCAP Network Analyzer",
+      hint: "TCP · UDP · DNS · HTTP flow reconstruction from packet captures",
+      browse: "Browse",
+      analyze: "Analyze PCAP",
+      proto: "Proto",
+      source: "Source",
+      destination: "Destination",
+      pkts: "Pkts",
+      bytes: "Bytes",
+      info: "Info",
+      pcapPath: "PCAP file path",
+    },
+    id: {
+      title: "Penganalisis Jaringan PCAP",
+      hint: "Rekonstruksi alur TCP · UDP · DNS · HTTP dari packet capture",
+      browse: "Jelajah",
+      analyze: "Analisis PCAP",
+      proto: "Protokol",
+      source: "Sumber",
+      destination: "Tujuan",
+      pkts: "Pkt",
+      bytes: "Byte",
+      info: "Info",
+      pcapPath: "Path file PCAP",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function pick() {
     const picked = await open({
@@ -30,24 +65,36 @@
         }).catch(() => {});
       }
     } catch (e) {
+      result = null;
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
+
+  $effect(() => {
+    if (!pcapPath) {
+      result = null;
+    }
+  });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
-  <h3>PCAP Network Analyzer</h3>
-  <p class="hint">TCP · UDP · DNS · HTTP flow reconstruction from packet captures</p>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
   <div class="row">
-    <input type="text" bind:value={pcapPath} placeholder="/path/to/capture.pcap" disabled={busy} />
-    <button onclick={pick} disabled={busy} class="btn">Browse</button>
-    <button onclick={analyze} disabled={busy || !pcapPath} class="btn-primary">Analyze PCAP</button>
+    <input type="text" bind:value={pcapPath} placeholder={t("pcapPath")} disabled={busy} />
+    <button onclick={pick} disabled={busy} class="btn">{t("browse")}</button>
+    <button onclick={analyze} disabled={busy || !pcapPath} class="btn-primary">{t("analyze")}</button>
   </div>
   {#if result}
     <p class="stats">{result.packetsParsed} packets · {result.flows.length} flows · {result.durationSecs.toFixed(2)}s span</p>
     <div class="flows">
-      <div class="head"><span>Proto</span><span>Source</span><span>Destination</span><span>Pkts</span><span>Bytes</span><span>Info</span></div>
+      <div class="head"><span>{t("proto")}</span><span>{t("source")}</span><span>{t("destination")}</span><span>{t("pkts")}</span><span>{t("bytes")}</span><span>{t("info")}</span></div>
       {#each result.flows.slice(0, 60) as f}
         <div class="flow">
           <span>{f.protocol}</span>

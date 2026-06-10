@@ -123,7 +123,11 @@ fn extract_png_pixels(data: &[u8]) -> (Vec<u8>, Vec<String>) {
     let mut height = 0u32;
 
     while pos + 12 <= data.len() {
-        let len = u32::from_be_bytes(data[pos..pos + 4].try_into().unwrap()) as usize;
+        let len = u32::from_be_bytes(
+            data.get(pos..pos + 4)
+                .and_then(|s| s.try_into().ok())
+                .unwrap_or([0; 4]),
+        ) as usize;
         let chunk_type = &data[pos + 4..pos + 8];
         let chunk_data_start = pos + 8;
         let chunk_data_end = chunk_data_start + len;
@@ -134,14 +138,14 @@ fn extract_png_pixels(data: &[u8]) -> (Vec<u8>, Vec<String>) {
 
         if chunk_type == b"IHDR" && len >= 8 {
             width = u32::from_be_bytes(
-                data[chunk_data_start..chunk_data_start + 4]
-                    .try_into()
-                    .unwrap(),
+                data.get(chunk_data_start..chunk_data_start + 4)
+                    .and_then(|s| s.try_into().ok())
+                    .unwrap_or([0; 4]),
             );
             height = u32::from_be_bytes(
-                data[chunk_data_start + 4..chunk_data_start + 8]
-                    .try_into()
-                    .unwrap(),
+                data.get(chunk_data_start + 4..chunk_data_start + 8)
+                    .and_then(|s| s.try_into().ok())
+                    .unwrap_or([0; 4]),
             );
         } else if chunk_type == b"IDAT" {
             pixels.extend_from_slice(&data[chunk_data_start..chunk_data_end]);

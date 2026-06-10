@@ -1,5 +1,6 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let {
     metadata,
@@ -21,12 +22,82 @@
   let caseNoteDraft = $state("");
   let caseNotes = $state([]);
   let savingNote = $state(false);
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      selectedFile: "Selected file",
+      hash: "Hash",
+      computingHash: "Computing hash…",
+      mftOnly: "MFT metadata only — open local/carved copy to hash",
+      verified: "✓ Integrity verified (manifest)",
+      integrityFail: "✗ INTEGRITY FAIL — hash mismatch",
+      noManifest: "⚠ No acquisition manifest — hash not verified against source",
+      caseSealed: "🔒 Case Sealed",
+      addToEvidence: "Add to Evidence ↗",
+      openLocalCopy: "Open Local Copy…",
+      quickLook: "Quick Look",
+      size: "Size",
+      modified: "Modified",
+      entropy: "Entropy",
+      magic: "Magic",
+      mftNumber: "MFT #",
+      links: "Links",
+      linkHint: "Link related artifacts after carving",
+      bookmarkNote: "Bookmark Note",
+      notePlaceholder: "Note saved with bookmark/evidence...",
+      tags: "Tags",
+      caseLog: "Case Analysis Log",
+      caseLogPlaceholder: "Document observations during examination...",
+      saveCaseLog: "Save to Case Log",
+      saving: "Saving…",
+      selectFile: "Select a file for Quick Look & evidence linking",
+      low: "Low",
+      medium: "Medium",
+      high: "High",
+    },
+    id: {
+      selectedFile: "File terpilih",
+      hash: "Hash",
+      computingHash: "Menghitung hash…",
+      mftOnly: "Hanya metadata MFT — buka salinan lokal/carved untuk hash",
+      verified: "✓ Integritas terverifikasi (manifest)",
+      integrityFail: "✗ GAGAL INTEGRITAS — hash tidak cocok",
+      noManifest: "⚠ Tidak ada manifest akuisisi — hash belum diverifikasi terhadap sumber",
+      caseSealed: "🔒 Kasus Disegel",
+      addToEvidence: "Tambahkan ke Bukti ↗",
+      openLocalCopy: "Buka Salinan Lokal…",
+      quickLook: "Pratinjau Cepat",
+      size: "Ukuran",
+      modified: "Diubah",
+      entropy: "Entropi",
+      magic: "Magic",
+      mftNumber: "MFT #",
+      links: "Tautan",
+      linkHint: "Tautkan artefak terkait setelah carving",
+      bookmarkNote: "Catatan Bookmark",
+      notePlaceholder: "Catatan disimpan bersama bookmark/bukti...",
+      tags: "Tag",
+      caseLog: "Log Analisis Kasus",
+      caseLogPlaceholder: "Dokumentasikan pengamatan selama pemeriksaan...",
+      saveCaseLog: "Simpan ke Log Kasus",
+      saving: "Menyimpan…",
+      selectFile: "Pilih file untuk Quick Look & penautan bukti",
+      low: "Rendah",
+      medium: "Sedang",
+      high: "Tinggi",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   function entropyLabel(e) {
     if (e == null) return "—";
-    if (e < 4.0) return "Low";
-    if (e < 6.5) return "Medium";
-    return "High";
+    if (e < 4.0) return t("low");
+    if (e < 6.5) return t("medium");
+    return t("high");
   }
 
   function sizeStr(bytes) {
@@ -72,16 +143,26 @@
       caseNoteDraft = "";
       await loadCaseNotes();
       onNoteSaved?.();
-    } catch (e) {
+      } catch (e) {
       console.error("Failed to save case note:", e);
+      caseNotes = caseNotes || [];
+      caseNoteDraft = caseNoteDraft || "";
+    } finally {
+      savingNote = false;
     }
-    savingNote = false;
   }
 
   $effect(() => {
     if (caseId) loadCaseNotes();
-    else caseNotes = [];
+    else {
+      caseNotes = [];
+      caseNoteDraft = "";
+    }
   });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 {#if visible}
@@ -89,12 +170,12 @@
     {#if metadata || filename}
       <div class="file-header">
         <span class="file-icon">📄</span>
-        <span class="file-name">{filename || "Selected file"}</span>
+        <span class="file-name">{filename || t("selectedFile")}</span>
       </div>
 
       <section class="form-section">
         <div class="hash-head">
-          <label class="field-label">Hash</label>
+          <span class="field-label">{t("hash")}</span>
           <div class="hash-tabs">
             <button class="htab" class:active={hashAlgo === "sha256"} onclick={() => hashAlgo = "sha256"}>SHA-256</button>
             <button class="htab" class:active={hashAlgo === "sha1"} onclick={() => hashAlgo = "sha1"}>SHA-1</button>
@@ -103,11 +184,11 @@
         </div>
         <div class="hash-box mono">
           {#if hashLoading}
-            <span class="dim">Computing hash…</span>
+            <span class="dim">{t("computingHash")}</span>
           {:else if hasHash}
             {hash}
           {:else if metadata?.source === "mft"}
-            <span class="dim">MFT metadata only — open local/carved copy to hash</span>
+            <span class="dim">{t("mftOnly")}</span>
           {:else}
             —
           {/if}
@@ -115,9 +196,9 @@
         {#if integrityStatus}
           <div class="integrity" class:pass={integrityStatus.verified} class:fail={!integrityStatus.verified && integrityStatus.expectedSha256} class:warn={!integrityStatus.expectedSha256}>
             {#if integrityStatus.expectedSha256}
-              {integrityStatus.verified ? "✓ Integrity verified (manifest)" : "✗ INTEGRITY FAIL — hash mismatch"}
+              {integrityStatus.verified ? t("verified") : t("integrityFail")}
             {:else}
-              ⚠ No acquisition manifest — hash not verified against source
+              {t("noManifest")}
             {/if}
           </div>
         {/if}
@@ -125,67 +206,67 @@
 
       <section class="form-section">
         <button class="btn-evidence" onclick={() => onAddEvidence?.()} disabled={caseSealed}>
-          {caseSealed ? "🔒 Case Sealed" : "Add to Evidence ↗"}
+          {caseSealed ? t("caseSealed") : t("addToEvidence")}
         </button>
         {#if metadata?.source === "mft"}
           <button class="btn-artifact" onclick={() => onOpenArtifact?.()}>
-            Open Local Copy…
+            {t("openLocalCopy")}
           </button>
         {/if}
       </section>
 
       {#if metadata}
         <section class="form-section">
-          <span class="field-label">Quick Look</span>
+          <span class="field-label">{t("quickLook")}</span>
           <div class="kv">
-            <span>Size</span><span>{sizeStr(metadata.size)}</span>
-            <span>Modified</span><span class="mono">{metadata.modified}</span>
-            <span>Entropy</span>
+            <span>{t("size")}</span><span>{sizeStr(metadata.size)}</span>
+            <span>{t("modified")}</span><span class="mono">{metadata.modified}</span>
+            <span>{t("entropy")}</span>
             <span>{metadata.entropy != null ? `${metadata.entropy.toFixed(2)} (${entropyLabel(metadata.entropy)})` : "—"}</span>
             {#if metadata.magicMatch}
-              <span>Magic</span><span>{metadata.magicMatch}</span>
+              <span>{t("magic")}</span><span>{metadata.magicMatch}</span>
             {/if}
             {#if metadata.recordNumber != null}
-              <span>MFT #</span><span class="mono">{metadata.recordNumber}</span>
+              <span>{t("mftNumber")}</span><span class="mono">{metadata.recordNumber}</span>
             {/if}
           </div>
         </section>
       {/if}
 
       <section class="form-section">
-        <span class="field-label">Links</span>
+        <span class="field-label">{t("links")}</span>
         <div class="links">
-          <button class="link-chip dim-chip">Link related artifacts after carving</button>
+          <span class="link-chip dim-chip" aria-disabled="true">{t("linkHint")}</span>
         </div>
       </section>
 
       <section class="form-section grow">
-        <label class="field-label" for="inspector-note">Bookmark Note</label>
+        <label class="field-label" for="inspector-note">{t("bookmarkNote")}</label>
         <textarea
           id="inspector-note"
           class="note-field"
           bind:value={note}
-          placeholder="Note saved with bookmark/evidence..."
+          placeholder={t("notePlaceholder")}
           rows="3"
         ></textarea>
       </section>
 
       <section class="form-section">
-        <label class="field-label" for="inspector-tags">Tags</label>
-        <input id="inspector-tags" class="tag-field" bind:value={tags} placeholder="malware, PII, exfiltration" />
+        <label class="field-label" for="inspector-tags">{t("tags")}</label>
+        <input id="inspector-tags" class="tag-field" bind:value={tags} placeholder={locale === "id" ? "malware, PII, exfiltration" : "malware, PII, exfiltration"} />
       </section>
 
       {#if caseId}
         <section class="form-section case-log">
-          <span class="field-label">Case Analysis Log (SWGDE §4.4)</span>
+          <span class="field-label">{t("caseLog")}</span>
           <textarea
             class="note-field"
             bind:value={caseNoteDraft}
-            placeholder="Document observations during examination..."
+            placeholder={t("caseLogPlaceholder")}
             rows="3"
           ></textarea>
           <button class="btn-save-note" onclick={saveCaseNote} disabled={caseSealed || savingNote || !caseNoteDraft.trim()}>
-            {savingNote ? "Saving…" : "Save to Case Log"}
+            {savingNote ? t("saving") : t("saveCaseLog")}
           </button>
           {#if caseNotes.length > 0}
             <div class="note-history">
@@ -201,7 +282,7 @@
       {/if}
     {:else}
       <div class="empty">
-        <p>Select a file for Quick Look &amp; evidence linking</p>
+        <p>{t("selectFile")}</p>
       </div>
     {/if}
   </div>

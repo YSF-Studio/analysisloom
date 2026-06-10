@@ -514,7 +514,8 @@ mod tests {
     #[test]
     fn rejects_non_hive() {
         let path = std::env::temp_dir().join("not_a_hive.dat");
-        std::fs::write(&path, b"not a registry hive").unwrap();
+        std::fs::write(&path, b"not a registry hive")
+            .unwrap_or_else(|e| panic!("write registry fixture: {e}"));
         let err = analyze_hive(path.to_string_lossy().as_ref()).unwrap_err();
         assert!(err.contains("regf") || err.contains("too small"));
         let _ = std::fs::remove_file(path);

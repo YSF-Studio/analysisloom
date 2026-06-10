@@ -32,21 +32,24 @@ pub fn finish_progress(result: Result<String, String>) {
             Err(e) => Some(e.clone()),
         };
     }
-    *super::OPERATION_RESULT.lock().unwrap() = Some(result);
+    if let Ok(mut op) = super::OPERATION_RESULT.lock() {
+        *op = Some(result);
+    }
 }
 
 #[allow(dead_code)]
 pub fn set_cancel_flag(flag: Arc<AtomicBool>) {
-    *CANCEL_FLAG_MUTEX.lock().unwrap() = Some(flag);
+    if let Ok(mut slot) = CANCEL_FLAG_MUTEX.lock() {
+        *slot = Some(flag);
+    }
 }
 
 #[allow(dead_code)]
 pub fn is_cancelled() -> bool {
     CANCEL_FLAG_MUTEX
         .lock()
-        .unwrap()
-        .as_ref()
-        .map(|f| f.load(Ordering::SeqCst))
+        .ok()
+        .and_then(|guard| guard.as_ref().map(|f| f.load(Ordering::SeqCst)))
         .unwrap_or(false)
 }
 

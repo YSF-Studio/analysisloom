@@ -2,13 +2,15 @@ use once_cell::sync::Lazy;
 use rusqlite::Connection;
 use std::sync::Mutex;
 
-static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
+static DB: Lazy<Result<Mutex<Connection>, String>> = Lazy::new(|| {
     let db_path = dirs_next()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join(".ysf")
         .join("analysisloom.db");
-    let _ = std::fs::create_dir_all(db_path.parent().unwrap());
-    let conn = Connection::open(&db_path).expect("Cannot open database");
+    if let Some(parent) = db_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("Cannot create db dir: {e}"))?;
+    }
+    let conn = Connection::open(&db_path).map_err(|e| format!("Cannot open database: {e}"))?;
     conn.execute_batch(
         "
         CREATE TABLE IF NOT EXISTS cases (
@@ -80,7 +82,7 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
         );
     ",
     )
-    .expect("Schema creation failed");
+    .map_err(|e| format!("Schema creation failed: {e}"))?;
     let _ = conn.execute(
         "ALTER TABLE findings ADD COLUMN created_at TEXT DEFAULT (datetime('now'))",
         [],
@@ -108,10 +110,10 @@ static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
     let _ = conn.execute("ALTER TABLE findings ADD COLUMN reviewed_at TEXT", []);
     let _ = conn.execute("ALTER TABLE findings ADD COLUMN review_note TEXT", []);
     let _ = conn.execute(
-        "INSERT OR IGNORE INTO nsrl_hashes (sha256, file_name, product) VALUES ('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'empty', 'NIST Empty File')",
+        "INSERT OR IGNORE INTO nsrl_hashes (sha256, file_name, product) VALUES ('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'empty', 'Empty File')",
         [],
     );
-    Mutex::new(conn)
+    Ok(Mutex::new(conn))
 });
 
 fn dirs_next() -> Option<std::path::PathBuf> {
@@ -126,9 +128,11 @@ fn dirs_next() -> Option<std::path::PathBuf> {
 }
 
 pub fn init() -> Result<(), String> {
-    let _ = &*DB;
-    Ok(())
+    DB.as_ref().map(|_| ()).map_err(|e| e.clone())
 }
 pub fn conn() -> std::sync::MutexGuard<'static, Connection> {
-    DB.lock().unwrap()
+    match DB.as_ref() {
+        Ok(db) => db.lock().unwrap_or_else(|e| e.into_inner()),
+        Err(err) => panic!("database failed to initialize: {err}"),
+    }
 }

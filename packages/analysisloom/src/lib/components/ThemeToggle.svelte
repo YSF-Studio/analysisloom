@@ -4,10 +4,10 @@
 
   let { theme = $bindable("dark"), compact = false, label = "Theme" } = $props();
 
-  const options = [
+  const options = $derived([
     { id: "dark", label: compact ? "☾" : "Dark" },
     { id: "light", label: compact ? "☀" : "Light" },
-  ];
+  ]);
 
   function onThemeChange(id) {
     theme = id;

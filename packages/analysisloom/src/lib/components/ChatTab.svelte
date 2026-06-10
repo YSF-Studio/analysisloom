@@ -1,10 +1,35 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let results = $state([]);
   let rootPath = $state("");
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Chat Artifacts",
+      hint: "WhatsApp · Telegram · Signal — SQLite message databases",
+      scan: "Scan Chat DBs",
+      folder: "Evidence folder with msgstore.db / cache4.db",
+      messages: "messages",
+      databases: "chat databases",
+    },
+    id: {
+      title: "Artefak Chat",
+      hint: "WhatsApp · Telegram · Signal — basis data pesan SQLite",
+      scan: "Pindai DB Chat",
+      folder: "Folder bukti dengan msgstore.db / cache4.db",
+      messages: "pesan",
+      databases: "database chat",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function scan() {
     const root = rootPath || (await open({ directory: true }));
@@ -25,22 +50,34 @@
         }).catch(() => {});
       }
     } catch (e) {
+      results = [];
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
+
+  $effect(() => {
+    if (!rootPath) {
+      results = [];
+    }
+  });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
-  <h3>Chat Artifacts</h3>
-  <p class="hint">WhatsApp · Telegram · Signal — SQLite message databases</p>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
   <div class="row">
-    <input type="text" bind:value={rootPath} placeholder="Evidence folder with msgstore.db / cache4.db" disabled={busy} />
-    <button onclick={scan} disabled={busy} class="btn-primary">Scan Chat DBs</button>
+    <input type="text" bind:value={rootPath} placeholder={t("folder")} disabled={busy} />
+    <button onclick={scan} disabled={busy} class="btn-primary">{t("scan")}</button>
   </div>
   {#each results as res}
     <div class="chat-block">
-      <h4>{res.platform} — {res.messageCount} messages</h4>
+      <h4>{res.platform} — {res.messageCount} {t("messages")}</h4>
       <p class="db">{res.dbPath}</p>
       {#each res.messages.slice(0, 50) as m}
         <div class="msg">

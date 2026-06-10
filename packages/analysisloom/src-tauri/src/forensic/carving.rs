@@ -153,7 +153,9 @@ pub fn carve_files(
         files: carved_files,
         bytes_scanned: offset,
     };
-    *super::CARVING_RESULT.lock().unwrap() = Some(result.clone());
+    if let Ok(mut slot) = super::CARVING_RESULT.lock() {
+        *slot = Some(result.clone());
+    }
     super::progress::finish_progress(Ok(format!("{} files carved", result.files_found)));
     Ok(result)
 }

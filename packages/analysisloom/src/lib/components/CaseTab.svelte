@@ -2,12 +2,47 @@
   import { invoke } from "@tauri-apps/api/core";
   import SectionHeader from "./SectionHeader.svelte";
   import LoadingSkeleton from "./LoadingSkeleton.svelte";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase = $bindable(), busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let cases = $state([]);
   let newCaseName = $state("");
   let operatorName = $state("");
   let loading = $state(false);
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Case Management",
+      hint: "Create, open, or delete forensic cases. Shortcut: ⌘N / Ctrl+N",
+      caseName: "Case name...",
+      operator: "Operator name",
+      newCase: "+ New Case",
+      deleteCase: "Delete case",
+      sealed: "sealed",
+      noCases: "No cases yet. Create one to begin forensic analysis.",
+      deleteConfirmTitle: "Delete case",
+      deleteConfirmBody: "All evidence, findings, and audit data will be permanently removed.",
+      cannotDeleteSealed: "🔒 Cannot delete a sealed case",
+    },
+    id: {
+      title: "Manajemen Kasus",
+      hint: "Buat, buka, atau hapus kasus forensik. Pintasan: ⌘N / Ctrl+N",
+      caseName: "Nama kasus...",
+      operator: "Nama operator",
+      newCase: "+ Kasus Baru",
+      deleteCase: "Hapus kasus",
+      sealed: "disegel",
+      noCases: "Belum ada kasus. Buat satu untuk memulai analisis forensik.",
+      deleteConfirmTitle: "Hapus kasus",
+      deleteConfirmBody: "Semua bukti, temuan, dan data audit akan dihapus permanen.",
+      cannotDeleteSealed: "🔒 Tidak dapat menghapus kasus yang sudah disegel",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function loadCases() {
     loading = true;
@@ -16,9 +51,10 @@
       cases = await timeoutPromise(invoke("list_cases"), 5000);
     } catch {
       /* ignore */
+    } finally {
+      loading = false;
+      busy = false;
     }
-    loading = false;
-    busy = false;
   }
 
   async function createCase() {
@@ -41,10 +77,10 @@
 
   async function deleteCase(c) {
     if (c.status === "sealed") {
-      msg = "🔒 Cannot delete a sealed case";
+      msg = t("cannotDeleteSealed");
       return;
     }
-    if (!confirm(`Delete case "${c.name}" (${c.id})?\n\nAll evidence, findings, and audit data will be permanently removed.`)) {
+    if (!confirm(`${t("deleteConfirmTitle")} "${c.name}" (${c.id})?\n\n${t("deleteConfirmBody")}`)) {
       return;
     }
     busy = true;
@@ -66,14 +102,18 @@
   $effect(() => {
     loadCases();
   });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="case-panel">
-  <SectionHeader title="Case Management" hint="Create, open, or delete forensic cases. Shortcut: ⌘N / Ctrl+N" />
+  <SectionHeader title={t("title")} hint={t("hint")} />
   <div class="new-case">
-    <input type="text" bind:value={newCaseName} placeholder="Case name..." disabled={busy} aria-label="Case name" />
-    <input type="text" bind:value={operatorName} placeholder="Operator name" disabled={busy} aria-label="Operator" />
-    <button onclick={createCase} disabled={busy || !newCaseName} class="btn-primary">+ New Case</button>
+    <input type="text" bind:value={newCaseName} placeholder={t("caseName")} disabled={busy} aria-label={t("caseName")} />
+    <input type="text" bind:value={operatorName} placeholder={t("operator")} disabled={busy} aria-label={t("operator")} />
+    <button onclick={createCase} disabled={busy || !newCaseName} class="btn-primary">{t("newCase")}</button>
   </div>
 
   {#if loading}
@@ -85,10 +125,10 @@
           <button class="case-main" onclick={() => selectCase(c)}>
             <strong>{c.name}</strong>
             <span class="meta">{c.id} | {c.createdAt || c.created_at}</span>
-            <span class="status" class:sealed={c.status === "sealed"}>{c.status}</span>
+            <span class="status" class:sealed={c.status === "sealed"}>{c.status === "sealed" ? t("sealed") : c.status}</span>
           </button>
           {#if c.status !== "sealed"}
-            <button class="btn-delete" title="Delete case" onclick={() => deleteCase(c)} disabled={busy}>🗑</button>
+            <button class="btn-delete" title={t("deleteCase")} onclick={() => deleteCase(c)} disabled={busy}>🗑</button>
           {/if}
         </div>
       {/each}
@@ -96,7 +136,7 @@
   {/if}
 
   {#if !cases.length && !loading && !busy}
-    <p class="empty">No cases yet. Create one to begin forensic analysis.</p>
+    <p class="empty">{t("noCases")}</p>
   {/if}
 </div>
 

@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import SectionHeader from "./SectionHeader.svelte";
   import ProgressBar from "./ProgressBar.svelte";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let {
     activeCase,
@@ -16,11 +17,46 @@
   let carvedFiles = $state([]);
   let progress = $state({ percent: 0, status: "Idle", isDone: false });
   let pollId = $state(null);
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "File Carving",
+      hint: "Recover deleted files by magic-byte signature from the active source image",
+      start: "Start Carving",
+      stop: "Stop",
+      imagePath: "Disk image path (from Sources)",
+      output: "Output directory",
+      progress: "Carving in progress…",
+      name: "Name",
+      type: "Type",
+      offset: "Offset",
+      size: "Size",
+    },
+    id: {
+      title: "Carving File",
+      hint: "Pulihkan file terhapus berdasarkan signature magic-byte dari citra sumber aktif",
+      start: "Mulai Carving",
+      stop: "Hentikan",
+      imagePath: "Path citra disk (dari Sources)",
+      output: "Direktori output",
+      progress: "Carving sedang berjalan…",
+      name: "Nama",
+      type: "Tipe",
+      offset: "Offset",
+      size: "Ukuran",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function carve() {
     if (!imagePath) return;
     busy = true;
     carvedFiles = [];
+    progress = { percent: 0, status: t("progress"), isDone: false };
     try {
       await timeoutPromise(invoke("start_carving", { imagePath, outputDir }), 5000);
       pollId = setInterval(async () => {
@@ -53,12 +89,18 @@
         } catch {
           clearInterval(pollId);
           pollId = null;
+          progress = { percent: 0, status: t("progress"), isDone: false };
           busy = false;
         }
       }, 500);
     } catch (e) {
+      progress = { percent: 0, status: t("progress"), isDone: false };
       busy = false;
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      if (!pollId) {
+        busy = false;
+      }
     }
   }
 
@@ -66,31 +108,36 @@
     await invoke("cancel_carving");
     if (pollId) clearInterval(pollId);
     pollId = null;
+    progress = { percent: 0, status: t("progress"), isDone: false };
     busy = false;
     onProgress?.("");
   }
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="carving-panel">
-  <SectionHeader title="File Carving" hint="Recover deleted files by magic-byte signature from the active source image" />
+  <SectionHeader title={t("title")} hint={t("hint")} />
   <div class="row">
-    <input type="text" bind:value={imagePath} placeholder="Disk image path (from Sources)" disabled={busy} />
-    <input type="text" bind:value={outputDir} placeholder="Output directory" disabled={busy} />
+    <input type="text" bind:value={imagePath} placeholder={t("imagePath")} disabled={busy} />
+    <input type="text" bind:value={outputDir} placeholder={t("output")} disabled={busy} />
   </div>
   <div class="actions">
     {#if !busy}
-      <button onclick={carve} disabled={!imagePath} class="btn-primary">Start Carving</button>
+      <button onclick={carve} disabled={!imagePath} class="btn-primary">{t("start")}</button>
     {:else}
-      <button onclick={cancel} class="btn-danger">Stop</button>
+      <button onclick={cancel} class="btn-danger">{t("stop")}</button>
     {/if}
   </div>
   {#if progress.percent > 0 || busy}
-    <ProgressBar percent={progress.percent} label={progress.status || "Carving in progress…"} />
+    <ProgressBar percent={progress.percent} label={progress.status || t("progress")} />
   {/if}
   {#if carvedFiles.length}
     <div class="carved-list">
       <div class="carved-head">
-        <span>Name</span><span>Type</span><span>Offset</span><span>Size</span>
+        <span>{t("name")}</span><span>{t("type")}</span><span>{t("offset")}</span><span>{t("size")}</span>
       </div>
       {#each carvedFiles as f}
         <div class="carved-row">

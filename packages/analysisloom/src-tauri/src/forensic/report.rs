@@ -21,8 +21,8 @@ pub struct ReportSection {
 pub fn generate_pdf_report(report: &PdfReport) -> Result<Vec<u8>, String> {
     use printpdf::*;
 
-    let (mut doc, page) = PdfDocument::new(&report.title);
-    let layer = doc.get_page(page).get_layer(Layer::default());
+    let (doc, page, layer) = PdfDocument::new(&report.title, Mm(210.0), Mm(297.0), "Report");
+    let layer = doc.get_page(page).get_layer(layer);
 
     let font = doc
         .add_builtin_font(BuiltinFont::Helvetica)

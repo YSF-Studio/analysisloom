@@ -1,10 +1,33 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let results = $state([]);
   let rootPath = $state("");
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "macOS Artifact Analyzer",
+      hint: "KnowledgeC.db · Unified Log (.logarchive) · plist · Spotlight · DataDetectors · TCC",
+      scan: "Scan macOS Artifacts",
+      entries: "entries",
+      root: "root",
+    },
+    id: {
+      title: "Penganalisis Artefak macOS",
+      hint: "KnowledgeC.db · Unified Log (.logarchive) · plist · Spotlight · DataDetectors · TCC",
+      scan: "Pindai Artefak macOS",
+      entries: "entri",
+      root: "akar",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function scan() {
     const root = rootPath || (await open({ directory: true }));
@@ -25,22 +48,34 @@
         }).catch(() => {});
       }
     } catch (e) {
+      results = [];
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
+
+  $effect(() => {
+    if (!rootPath) {
+      results = [];
+    }
+  });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
-  <h3>macOS Artifact Analyzer</h3>
-  <p class="hint">KnowledgeC.db · Unified Log (.logarchive) · plist · Spotlight · DataDetectors · TCC</p>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
   <div class="row">
-    <input type="text" bind:value={rootPath} placeholder="/Users/.../Library or evidence folder" disabled={busy} />
-    <button onclick={scan} disabled={busy} class="btn-primary">Scan macOS Artifacts</button>
+    <input type="text" bind:value={rootPath} placeholder={locale === "id" ? "Folder Library / folder bukti" : "Library folder / evidence folder"} disabled={busy} />
+    <button onclick={scan} disabled={busy} class="btn-primary">{t("scan")}</button>
   </div>
   {#each results as res}
     <div class="block">
-      <h4>{res.sourcePath.split(/[/\\]/).pop()} — {res.artifacts.length} entries</h4>
+      <h4>{res.sourcePath.split(/[/\\]/).pop()} — {res.artifacts.length} {t("entries")}</h4>
       <div class="arts">
         {#each res.artifacts.slice(0, 40) as a}
           <div class="art">

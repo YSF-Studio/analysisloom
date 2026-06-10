@@ -1,10 +1,41 @@
 <script>
 import { invoke } from "@tauri-apps/api/core";
 import ThemeToggle from "./ThemeToggle.svelte";
+import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
 let { theme = $bindable("dark") } = $props();
 let info = $state({ features: [] });
 let loaded = $state(false);
+let locale = $state(getResolvedLocale());
+
+const text = {
+  en: {
+    subtitle: "Forensic Analysis Workstation",
+    features: "Features",
+    appearance: "Appearance",
+    appearanceBody: "Choose light or dark interface. Your preference is saved automatically.",
+    privacy: "Privacy & Security",
+    offline: "Fully Offline",
+    disclaimer: "Disclaimer",
+    developer: "Developer",
+    rights: "All rights reserved.",
+  },
+  id: {
+    subtitle: "Stasiun Kerja Analisis Forensik",
+    features: "Fitur",
+    appearance: "Tampilan",
+    appearanceBody: "Pilih antarmuka terang atau gelap. Preferensi Anda disimpan otomatis.",
+    privacy: "Privasi & Keamanan",
+    offline: "Sepenuhnya Offline",
+    disclaimer: "Pernyataan",
+    developer: "Pengembang",
+    rights: "Seluruh hak dilindungi.",
+  },
+};
+
+function t(key) {
+  return text[locale]?.[key] || text.en[key] || key;
+}
 
 async function load() {
     if (loaded) return;
@@ -14,6 +45,9 @@ async function load() {
     } catch(e) { /* fallback */ }
 }
 $effect(() => { load(); });
+$effect(() => subscribeLocale((_, resolved) => {
+  locale = resolved;
+}));
 </script>
 
 <div class="about">
@@ -23,10 +57,10 @@ $effect(() => { load(); });
         <span class="version">v{info.version || "0.1.0"}</span>
     </header>
 
-    <p class="subtitle">Forensic Analysis Workstation</p>
+    <p class="subtitle">{t("subtitle")}</p>
 
     <section class="card">
-        <h3>🚀 Features</h3>
+        <h3>🚀 {t("features")}</h3>
         <ul>
             {#each info.features as f}
                 <li>{f}</li>
@@ -35,37 +69,36 @@ $effect(() => { load(); });
     </section>
 
     <section class="card appearance-card">
-        <h3>🎨 Appearance</h3>
-        <p>Choose light or dark interface. Your preference is saved automatically.</p>
-        <ThemeToggle bind:theme label="Interface theme" />
+        <h3>🎨 {t("appearance")}</h3>
+        <p>{t("appearanceBody")}</p>
+        <ThemeToggle bind:theme label={locale === "id" ? "Tema antarmuka" : "Interface theme"} />
     </section>
 
     <section class="card offline-card">
-        <h3>🔒 Privacy & Security</h3>
-        <p>{info.privacy || "100% offline — zero data collection. No telemetry, no analytics, no external network calls."}</p>
-        <div class="badge">✅ Fully Offline</div>
+        <h3>🔒 {t("privacy")}</h3>
+        <p>{info.privacy || (locale === "id" ? "100% offline — tanpa pengumpulan data. Tanpa telemetry, tanpa analytics, tanpa panggilan jaringan eksternal." : "100% offline — zero data collection. No telemetry, no analytics, no external network calls.")}</p>
+        <div class="badge">✅ {t("offline")}</div>
     </section>
 
     <section class="card disclaimer-card">
-        <h3>⚖️ Disclaimer</h3>
-        <p class="disclaimer">{info.disclaimer || "This software is provided 'AS-IS'. Results should be independently verified before use in legal proceedings."}</p>
+        <h3>⚖️ {t("disclaimer")}</h3>
+        <p class="disclaimer">{info.disclaimer || (locale === "id" ? "Perangkat lunak ini disediakan 'SEBAGAIMANA ADANYA'. Hasil harus diverifikasi secara independen sebelum dipakai dalam proses hukum." : "This software is provided 'AS-IS'. Results should be independently verified before use in legal proceedings.")}</p>
     </section>
 
     <section class="card">
-        <h3>👨‍💻 Developer</h3>
+        <h3>👨‍💻 {t("developer")}</h3>
         <p class="dev">{info.developer || "YSF Studio — Built with ❤️ by Yusuf Shalahuddin"}</p>
-        <p class="build">{info.build || "Master Build — All Features Unlocked"}</p>
+        <p class="build">{info.build || (locale === "id" ? "Master Build — Semua fitur dibuka" : "Master Build — All Features Unlocked")}</p>
     </section>
 
     <footer class="footer">
-        <p>YSF Studio © {new Date().getFullYear()} — All rights reserved.</p>
+        <p>YSF Studio © {new Date().getFullYear()} — {t("rights")}</p>
     </footer>
 </div>
 
 <style>
 .about { max-width: 640px; margin: 0 auto; padding: 20px; }
 .hero { text-align: center; margin-bottom: 24px; }
-.hero .icon { font-size: 48px; margin-bottom: 8px; }
 .logo-hero { width: 72px; height: 72px; border-radius: 16px; margin-bottom: 8px; }
 .hero h1 { margin: 0; font-size: 28px; color: var(--text); display: inline; }
 .version { font-size: 14px; color: var(--text-secondary); margin-left: 8px; }

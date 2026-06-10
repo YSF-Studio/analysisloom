@@ -217,25 +217,27 @@ mod tests {
     fn sample_db() -> String {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_else(|_| panic!("system clock before unix epoch"))
             .as_nanos();
         let path = std::env::temp_dir().join(format!("analysisloom_test_{stamp}.db"));
-        let conn = rusqlite::Connection::open(&path).unwrap();
+        let conn = rusqlite::Connection::open(&path)
+            .unwrap_or_else(|e| panic!("open test sqlite db: {e}"));
         conn.execute_batch(
             "CREATE TABLE messages (id INTEGER PRIMARY KEY, sender TEXT, message TEXT);
              INSERT INTO messages (sender, message) VALUES ('+62812', 'Hello!');
              INSERT INTO messages (sender, message) VALUES ('+62813', 'Meeting at 3pm');",
         )
-        .unwrap();
+        .unwrap_or_else(|e| panic!("seed sqlite table: {e}"));
         path.to_string_lossy().to_string()
     }
 
     #[test]
     fn sqlite_info_and_query() {
         let path = sample_db();
-        let info = db_info(&path).unwrap();
+        let info = db_info(&path).unwrap_or_else(|e| panic!("db info: {e}"));
         assert!(info.tables.contains(&"messages".to_string()));
-        let result = query_table(&path, "messages", 10).unwrap();
+        let result = query_table(&path, "messages", 10)
+            .unwrap_or_else(|e| panic!("query sqlite table: {e}"));
         assert_eq!(result.row_count, 2);
         assert_eq!(result.columns, vec!["id", "sender", "message"]);
         let _ = std::fs::remove_file(&path);

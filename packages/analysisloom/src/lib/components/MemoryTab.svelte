@@ -1,10 +1,37 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let result = $state(null);
   let jsonPath = $state("");
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Memory Analysis Bridge",
+      hint: "Import Volatility 3 JSON output — processes, network, DLLs from memory dumps",
+      browse: "Browse",
+      parse: "Parse JSON",
+      processes: "Processes",
+      network: "Network",
+      jsonPath: "Volatility JSON path",
+    },
+    id: {
+      title: "Jembatan Analisis Memori",
+      hint: "Impor output JSON Volatility 3 — proses, jaringan, DLL dari dump memori",
+      browse: "Jelajah",
+      parse: "Parsing JSON",
+      processes: "Proses",
+      network: "Jaringan",
+      jsonPath: "Path JSON Volatility",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function pick() {
     const picked = await open({
@@ -26,35 +53,47 @@
           timestamp: new Date().toISOString(),
           source: "Memory",
           filePath: jsonPath,
-          eventType: `volatility_${result.processes.length}`,
-        }).catch(() => {});
+              eventType: `volatility_${result.processes.length}`,
+            }).catch(() => {});
       }
     } catch (e) {
+      result = null;
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
+
+  $effect(() => {
+    if (!jsonPath) {
+      result = null;
+    }
+  });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
-  <h3>Memory Analysis Bridge</h3>
-  <p class="hint">Import Volatility 3 JSON output — processes, network, DLLs from memory dumps</p>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
   <div class="row">
-    <input type="text" bind:value={jsonPath} placeholder="/path/to/volatility.json" disabled={busy} />
-    <button onclick={pick} disabled={busy} class="btn">Browse</button>
-    <button onclick={parse} disabled={busy || !jsonPath} class="btn-primary">Parse JSON</button>
+    <input type="text" bind:value={jsonPath} placeholder={t("jsonPath")} disabled={busy} />
+    <button onclick={pick} disabled={busy} class="btn">{t("browse")}</button>
+    <button onclick={parse} disabled={busy || !jsonPath} class="btn-primary">{t("parse")}</button>
   </div>
   {#if result}
     <div class="sections">
       <section>
-        <h4>Processes ({result.processes.length})</h4>
+        <h4>{t("processes")} ({result.processes.length})</h4>
         {#each result.processes.slice(0, 40) as p}
           <div class="line"><span class="pid">{p.pid}</span> {p.name} <span class="cmd">{p.cmdline}</span></div>
         {/each}
       </section>
       {#if result.networks.length}
         <section>
-          <h4>Network ({result.networks.length})</h4>
+          <h4>{t("network")} ({result.networks.length})</h4>
           {#each result.networks.slice(0, 30) as n}
             <div class="line">{n.protocol} {n.localAddr} → {n.foreignAddr} [{n.state}]</div>
           {/each}

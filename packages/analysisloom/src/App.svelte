@@ -16,7 +16,9 @@
   import StatusBar from "./lib/components/StatusBar.svelte";
   import TabBar from "./lib/components/TabBar.svelte";
   import ThemeToggle from "./lib/components/ThemeToggle.svelte";
+  import LocaleToggle from "./lib/components/ui/LocaleToggle.svelte";
   import { getStoredTheme, applyTheme } from "./lib/theme.js";
+  import { getLocale, initLocale, subscribeLocale } from "./lib/stores/locale.js";
   import EncryptedTab from "./lib/components/EncryptedTab.svelte";
   import RegistryTab from "./lib/components/RegistryTab.svelte";
   import YaraTab from "./lib/components/YaraTab.svelte";
@@ -68,11 +70,91 @@
   let sidebarWidth = $state(220);
   let inspectorWidth = $state(320);
   let theme = $state(import.meta.env.VITE_SCREENSHOT_LIGHT ? "light" : getStoredTheme());
+  let locale = $state(getLocale());
   let evidencePaths = $state([]);
   let dragOver = $state(false);
   let integrityStatus = $state(null);
 
   const caseSealed = $derived(activeCase?.status === "sealed");
+
+  const text = {
+    en: {
+      theme: "Theme",
+      language: "Language",
+      search: "Keyword search",
+      keywordSearch: "Keyword / Regex...",
+      export: "Export",
+      case: "Case",
+      sources: "Sources",
+      views: "Views",
+      forensics: "Forensics",
+      evidence: "Evidence",
+      caseManager: "Case Manager",
+      acquisition: "Cross-Platform Acquisition",
+      ntfsBrowser: "NTFS Browser",
+      timeline: "Timeline",
+      carvedFiles: "Carved Files",
+      sqliteManager: "SQLite Manager",
+      searchTab: "Search",
+      keyFindings: "Key Findings",
+      encrypted: "Encrypted",
+      report: "Report",
+      about: "About",
+      resizeSidebar: "Resize sidebar",
+      resizeInspector: "Resize inspector",
+      inspector: "Inspector",
+      keywordSearchLabel: "Keyword search",
+      appToolbar: "Application toolbar",
+      backNav: "Back navigation not available",
+      forwardNav: "Forward navigation not available",
+      clearSearch: "Clear search",
+      rowDensity: "Row density",
+      inspectorTitle: "Inspector",
+      resizeSidebar: "Resize sidebar",
+      resizeInspector: "Resize inspector",
+      closeToast: "Close notification",
+    },
+    id: {
+      theme: "Tema",
+      language: "Bahasa",
+      search: "Pencarian kata",
+      keywordSearch: "Kata kunci / Regex...",
+      export: "Ekspor",
+      case: "Kasus",
+      sources: "Sumber",
+      views: "Tampilan",
+      forensics: "Forensik",
+      evidence: "Bukti",
+      caseManager: "Manajer Kasus",
+      acquisition: "Akuisisi Multi-Platform",
+      ntfsBrowser: "Peramban NTFS",
+      timeline: "Linimasa",
+      carvedFiles: "File Terkarving",
+      sqliteManager: "Manajer SQLite",
+      searchTab: "Cari",
+      keyFindings: "Temuan Utama",
+      encrypted: "Terenkripsi",
+      report: "Laporan",
+      about: "Tentang",
+      resizeSidebar: "Ubah lebar sidebar",
+      resizeInspector: "Ubah lebar inspector",
+      inspector: "Inspector",
+      keywordSearchLabel: "Pencarian kata",
+      appToolbar: "Bilah alat aplikasi",
+      backNav: "Navigasi mundur tidak tersedia",
+      forwardNav: "Navigasi maju tidak tersedia",
+      clearSearch: "Hapus pencarian",
+      rowDensity: "Kepadatan baris",
+      inspectorTitle: "Inspector",
+      resizeSidebar: "Ubah lebar sidebar",
+      resizeInspector: "Ubah lebar inspector",
+      closeToast: "Tutup notifikasi",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   function timeoutPromise(promise, ms) {
     let timer;
@@ -359,8 +441,10 @@
       document.title = "AnalysisLoom — DEMO READY";
     } catch (e) {
       console.error("Demo bootstrap failed:", e);
+      msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
 
   async function onOpenArtifact() {
@@ -439,8 +523,9 @@
       await refreshCaseStats();
     } catch (e) {
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
 
   function openTab(id) {
@@ -483,6 +568,14 @@
 
   $effect(() => {
     platform = detectPlatform();
+  });
+
+  $effect(() => {
+    initLocale();
+    const unsubscribe = subscribeLocale((_, resolved) => {
+      locale = resolved;
+    });
+    return unsubscribe;
   });
 
   async function bootstrapScreenshot() {
@@ -582,7 +675,7 @@
       e.preventDefault();
       setView("cases");
       requestAnimationFrame(() => {
-        document.querySelector('.case-panel input[aria-label="Case name"]')?.focus();
+        document.querySelector('.case-panel input[type="text"], .case-panel input:first-of-type')?.focus();
       });
     }
   }
@@ -598,41 +691,42 @@
   class="app-shell platform-{platform}"
   style="--sidebar-w: {sidebarWidth}px; --inspector-w: {inspectorWidth}px"
 >
-  <header class="titlebar" aria-label="Application toolbar">
+  <header class="titlebar" aria-label={t("appToolbar")}>
     <div class="titlebar-brand">
       <img src="/logo.svg" class="title-logo" alt="" />
       <span class="title-text">AnalysisLoom</span>
     </div>
     <div class="titlebar-nav">
-      <button class="nav-btn" disabled title="Back" aria-label="Back">‹</button>
-      <button class="nav-btn" disabled title="Forward" aria-label="Forward">›</button>
+      <button class="nav-btn" disabled aria-disabled="true" title={t("backNav")} aria-label={t("backNav")}>‹</button>
+      <button class="nav-btn" disabled aria-disabled="true" title={t("forwardNav")} aria-label={t("forwardNav")}>›</button>
     </div>
 
     <div class="search-bar">
-      <label class="sr-only" for="global-search">Keyword search</label>
+      <label class="sr-only" for="global-search">{t("keywordSearchLabel")}</label>
       <span class="search-icon" aria-hidden="true">⌕</span>
       <input
         id="global-search"
         type="search"
-        placeholder="Keyword / Regex..."
+        placeholder={t("keywordSearch")}
         bind:value={searchQuery}
         onkeydown={(e) => e.key === "Enter" && handleSearchSubmit()}
       />
       {#if searchQuery}
-        <button class="search-clear" onclick={() => searchQuery = ""} aria-label="Clear">✕</button>
+        <button class="search-clear" onclick={() => searchQuery = ""} aria-label={t("clearSearch")}>✕</button>
       {/if}
     </div>
 
     <div class="titlebar-end">
-      <ThemeToggle bind:theme label="Theme" />
-      <button class="title-btn" onclick={handleExport} title="Export report">Export</button>
-      <button class="case-pill" onclick={openCaseManager} title="Manage case">
-        {activeCase?.name ? `Case: ${activeCase.name}` : "Case"}
+      <ThemeToggle bind:theme label={t("theme")} />
+      <LocaleToggle bind:locale compact label={t("language")} />
+      <button class="title-btn" onclick={handleExport} title={t("export")}>{t("export")}</button>
+      <button class="case-pill" onclick={openCaseManager} title={t("case")}>
+        {activeCase?.name ? `${t("case")}: ${activeCase.name}` : t("case")}
       </button>
       {#if activeView === "files"}
         <button
           class="icon-btn"
-          title="Row density"
+          title={t("rowDensity")}
           onclick={() => {
             const d = ["compact", "standard", "comfortable"];
             density = d[(d.indexOf(density) + 1) % 3];
@@ -645,14 +739,14 @@
   <TabBar bind:tabs bind:activeView />
 
   <div class="workspace">
-    <aside class="sidebar" role="navigation" aria-label="Sources and views">
+    <aside class="sidebar" role="navigation" aria-label={t("sources") + " and " + t("views")}>
       <div class="sidebar-section">
-        <div class="section-head">SOURCES</div>
+        <div class="section-head">{t("sources")}</div>
         <button class="nav-item" class:active={activeView === "cases"} onclick={() => setView("cases")}>
-          <span>📁</span> Case Manager
+          <span>📁</span> {t("caseManager")}
         </button>
         <button class="nav-item" class:active={activeView === "acquisition"} onclick={() => setView("acquisition")}>
-          <span>📦</span> Cross-Platform Acquisition
+          <span>📦</span> {t("acquisition")}
         </button>
         <SourceTree
           bind:sources
@@ -664,26 +758,26 @@
       </div>
 
       <div class="sidebar-section">
-        <div class="section-head">VIEWS</div>
+        <div class="section-head">{t("views")}</div>
         <button class="nav-item" class:active={activeView === "timeline"} onclick={() => setView("timeline")} aria-current={activeView === "timeline" ? "page" : undefined}>
-          <span>📊</span> Timeline
+          <span>📊</span> {t("timeline")}
         </button>
         <button class="nav-item" class:active={activeView === "carving"} onclick={() => setView("carving")}>
-          <span>🔎</span> Carved Files
+          <span>🔎</span> {t("carvedFiles")}
         </button>
         <button class="nav-item" class:active={activeView === "sqlite"} onclick={() => setView("sqlite")}>
-          <span>🗃️</span> SQLite Manager
+          <span>🗃️</span> {t("sqliteManager")}
         </button>
         <button class="nav-item" class:active={activeView === "search"} onclick={() => setView("search")}>
-          <span>◈</span> Search
+          <span>◈</span> {t("searchTab")}
         </button>
         <button class="nav-item" class:active={activeView === "files"} onclick={() => setView("files")}>
-          <span>▤</span> NTFS Browser
+          <span>▤</span> {t("ntfsBrowser")}
         </button>
       </div>
 
       <div class="sidebar-section">
-        <div class="section-head">FORENSICS</div>
+        <div class="section-head">{t("forensics")}</div>
         {#each FORENSICS_NAV as group}
           <div class="subsection-head">{group.label}</div>
           {#each group.views as viewId}
@@ -700,18 +794,18 @@
       </div>
 
       <div class="sidebar-section">
-        <div class="section-head">EVIDENCE</div>
+        <div class="section-head">{t("evidence")}</div>
         <button class="nav-item" class:active={activeView === "bookmarks"} onclick={() => setView("bookmarks")}>
-          <span>🔖</span> Key Findings {#if findingCount}<span class="count pill-info">{findingCount}</span>{/if}
+          <span>🔖</span> {t("keyFindings")} {#if findingCount}<span class="count pill-info">{findingCount}</span>{/if}
         </button>
         <button class="nav-item" class:active={activeView === "encrypted"} onclick={() => setView("encrypted")}>
-          <span>🔐</span> Encrypted {#if encryptedCount}<span class="count pill-high">{encryptedCount}</span>{/if}
+          <span>🔐</span> {t("encrypted")} {#if encryptedCount}<span class="count pill-high">{encryptedCount}</span>{/if}
         </button>
         <button class="nav-item" class:active={activeView === "report"} onclick={() => setView("report")}>
-          <span>▭</span> Report
+          <span>▭</span> {t("report")}
         </button>
         <button class="nav-item" class:active={activeView === "about"} onclick={() => setView("about")}>
-          <span>ⓘ</span> About
+          <span>ⓘ</span> {t("about")}
         </button>
       </div>
     </aside>
@@ -720,7 +814,7 @@
       class="pane-resize-v"
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize sidebar"
+      aria-label={t("resizeSidebar")}
       onpointerdown={(e) => startPaneDrag("sidebar", e)}
     ></div>
 
@@ -811,14 +905,14 @@
       class="pane-resize-v"
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize inspector"
+      aria-label={t("resizeInspector")}
       onpointerdown={(e) => startPaneDrag("inspector", e)}
     ></div>
 
     <aside class="inspector-pane">
       <div class="inspector-head">
         <img src="/logo.svg" class="inspector-logo" alt="" />
-        <span>Inspector</span>
+        <span>{t("inspectorTitle")}</span>
       </div>
       <InspectorPanel
         metadata={inspectorMeta}
@@ -848,12 +942,13 @@
     {progressStatus}
     tabCount={tabs.length}
     onAuditClick={() => setView("report")}
+    locale={locale}
   />
 
   {#if msg}
     <div class="toast" role="status" aria-live="polite" class:error={msg.includes("❌")} class:warn={msg.includes("⚠️")}>
       {msg}
-      <button class="close-toast" onclick={() => msg = ""}>✕</button>
+      <button class="close-toast" onclick={() => msg = ""} aria-label={t("closeToast")}>✕</button>
     </div>
   {/if}
 </div>

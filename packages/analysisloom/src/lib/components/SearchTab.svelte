@@ -1,6 +1,7 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { highlightSegments } from "../highlight.js";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let {
     activeCase,
@@ -13,8 +14,39 @@
   let query = $state("");
   let results = $state([]);
   let searched = $state(false);
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Search",
+      hint: "Keyword/regex or hex byte patterns — prefix hex with hex: (e.g. hex:FF D8 FF)",
+      query: "Search query",
+      search: "Search",
+      openCase: "Open a case to search evidence",
+      noMatches: "No matches — add evidence files first",
+      queryExample: "password | hex:FF D8 FF | 504B0304",
+    },
+    id: {
+      title: "Pencarian",
+      hint: "Kata kunci/regex atau pola byte hex — awali hex dengan hex: (mis. hex:FF D8 FF)",
+      query: "Kueri pencarian",
+      search: "Cari",
+      openCase: "Buka kasus untuk mencari bukti",
+      noMatches: "Tidak ada hasil — tambahkan file bukti dulu",
+      queryExample: "password | hex:FF D8 FF | 504B0304",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   $effect(() => {
+    if (!activeCase?.id) {
+      results = [];
+      searched = false;
+      return;
+    }
     if (initialQuery && initialQuery !== query) {
       query = initialQuery;
       if (activeCase?.id) search();
@@ -22,7 +54,11 @@
   });
 
   async function search() {
-    if (!query || !activeCase?.id) return;
+    if (!query || !activeCase?.id) {
+      results = [];
+      searched = false;
+      return;
+    }
     busy = true;
     searched = true;
     try {
@@ -37,29 +73,42 @@
         detail: query,
       }).catch(() => {});
     } catch (e) {
+      results = [];
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
+
+  $effect(() => {
+    if (!activeCase?.id) {
+      results = [];
+      searched = false;
+    }
+  });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="search-panel">
-  <h3>Search</h3>
-  <p class="hint">Keyword/regex or hex byte patterns — prefix hex with <code>hex:</code> (e.g. hex:FF D8 FF)</p>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
   <div class="row">
-    <label class="sr-only" for="search-query">Search query</label>
+    <label class="sr-only" for="search-query">{t("query")}</label>
     <input
       id="search-query"
       type="search"
       bind:value={query}
-      placeholder="password | hex:FF D8 FF | 504B0304"
+      placeholder={t("queryExample")}
       disabled={busy}
       onkeydown={(e) => e.key === "Enter" && search()}
     />
-    <button onclick={search} disabled={busy || !query || !activeCase} class="btn-primary">Search</button>
+    <button onclick={search} disabled={busy || !query || !activeCase} class="btn-primary">{t("search")}</button>
   </div>
   {#if !activeCase}
-    <p class="empty">Open a case to search evidence</p>
+    <p class="empty">{t("openCase")}</p>
   {:else if results.length}
     <div class="results">
       {#each results as r}
@@ -71,7 +120,7 @@
       {/each}
     </div>
   {:else if searched && !busy}
-    <p class="empty">No matches — add evidence files first</p>
+    <p class="empty">{t("noMatches")}</p>
   {/if}
 </div>
 

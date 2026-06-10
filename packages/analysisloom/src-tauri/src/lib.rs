@@ -8,13 +8,18 @@ pub mod forensic;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Initialize database
-    db::init().expect("Failed to initialize database");
+    if let Err(err) = db::init() {
+        eprintln!("Failed to initialize database: {err}");
+        return;
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let window = app.get_webview_window("main").unwrap();
+            let Some(window) = app.get_webview_window("main") else {
+                return Err("main window not found".into());
+            };
             window.set_title("AnalysisLoom — Forensic Analysis Workstation")?;
 
             // ─── Inject error handler for debugging ───
@@ -167,5 +172,7 @@ pub fn run() {
             commands::export_case_bundle,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running AnalysisLoom");
+        .unwrap_or_else(|e| {
+            eprintln!("error while running AnalysisLoom: {e}");
+        });
 }

@@ -98,8 +98,8 @@ pub fn parse_prefetch(path: &Path) -> Result<WindowsArtifact, String> {
         return Err("Invalid SCCA signature".into());
     }
 
-    let version = u32::from_le_bytes(data[4..8].try_into().unwrap());
-    let run_count = u32::from_le_bytes(data[0x48..0x4C].try_into().unwrap_or([0; 4]));
+    let version = u32::from_le_bytes(data.get(4..8).and_then(|s| s.try_into().ok()).unwrap_or([0; 4]));
+    let run_count = u32::from_le_bytes(data.get(0x48..0x4C).and_then(|s| s.try_into().ok()).unwrap_or([0; 4]));
 
     let executable = utf16_at(&data, 0x10, 30).unwrap_or_else(|| {
         path.file_stem()
@@ -109,7 +109,7 @@ pub fn parse_prefetch(path: &Path) -> Result<WindowsArtifact, String> {
     });
 
     let last_run = if data.len() >= 0x80 {
-        let ft = u64::from_le_bytes(data[0x78..0x80].try_into().unwrap_or([0; 8]));
+        let ft = u64::from_le_bytes(data.get(0x78..0x80).and_then(|s| s.try_into().ok()).unwrap_or([0; 8]));
         filetime_to_iso(ft)
     } else {
         "—".into()
@@ -136,12 +136,12 @@ pub fn parse_lnk(path: &Path) -> Result<WindowsArtifact, String> {
     if data.len() < 0x4C {
         return Err("LNK file too small".into());
     }
-    let header_size = u32::from_le_bytes(data[0..4].try_into().unwrap());
+    let header_size = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
     if header_size != 0x4C {
         return Err(format!("Unexpected LNK header size: {header_size}"));
     }
 
-    let flags = u32::from_le_bytes(data[0x14..0x18].try_into().unwrap());
+    let flags = u32::from_le_bytes(data.get(0x14..0x18).and_then(|s| s.try_into().ok()).unwrap_or([0; 4]));
     let (target, details) = extract_lnk_target(&data, flags);
 
     Ok(WindowsArtifact {
@@ -166,16 +166,25 @@ fn extract_lnk_target(data: &[u8], flags: u32) -> (String, String) {
     let details = format!("link_flags=0x{flags:08X}");
 
     if flags & 0x01 != 0 && offset + 2 <= data.len() {
-        let id_size = u16::from_le_bytes(data[offset..offset + 2].try_into().unwrap()) as usize;
-        offset += 2 + id_size;
+        if let Some(bytes) = data.get(offset..offset + 2) {
+            let id_size = u16::from_le_bytes(bytes.try_into().unwrap_or([0; 2])) as usize;
+            offset += 2 + id_size;
+        }
     }
 
     if flags & 0x02 != 0 && offset + 4 <= data.len() {
-        let link_info_size =
-            u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap()) as usize;
+        let link_info_size = u32::from_le_bytes(
+            data.get(offset..offset + 4)
+                .and_then(|s| s.try_into().ok())
+                .unwrap_or([0; 4]),
+        ) as usize;
         if offset + link_info_size <= data.len() && link_info_size >= 0x1C {
             let li = &data[offset..offset + link_info_size];
-            let local_base = u32::from_le_bytes(li[0x10..0x14].try_into().unwrap()) as usize;
+            let local_base = u32::from_le_bytes(
+                li.get(0x10..0x14)
+                    .and_then(|s| s.try_into().ok())
+                    .unwrap_or([0; 4]),
+            ) as usize;
             if local_base > 0 && local_base < li.len() {
                 target = read_cstring(&li[local_base..]);
             }

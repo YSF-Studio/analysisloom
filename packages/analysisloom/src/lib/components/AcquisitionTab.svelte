@@ -1,11 +1,13 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let rootPath = $state("");
   let detection = $state(null);
   let scanResult = $state(null);
+  let locale = $state(getResolvedLocale());
 
   const PLATFORM_META = {
     windows: { icon: "🪟", label: "Windows", color: "#2563eb" },
@@ -14,6 +16,39 @@
     mixed: { icon: "🔀", label: "Mixed OS", color: "#6366f1" },
     unknown: { icon: "❓", label: "Unknown", color: "#6b7280" },
   };
+
+  const text = {
+    en: {
+      title: "Cross-Platform Acquisition",
+      hint: "Analyze evidence from Windows, Linux, or macOS — auto-detect platform then run all relevant modules",
+      browse: "Browse",
+      detect: "Detect OS",
+      scanAll: "Scan All",
+      openCase: "⚠️ Open a case first to record findings and timeline",
+      mixed: "Mixed acquisition",
+      confidence: "confidence",
+      moduleResults: "Module Results",
+      platformCoverage: "Platform Coverage",
+      root: "Acquisition folder / extracted evidence tree",
+    },
+    id: {
+      title: "Akuisisi Lintas Platform",
+      hint: "Analisis bukti dari Windows, Linux, atau macOS — deteksi platform otomatis lalu jalankan semua modul relevan",
+      browse: "Jelajah",
+      detect: "Deteksi OS",
+      scanAll: "Pindai Semua",
+      openCase: "⚠️ Buka kasus dulu untuk merekam temuan dan timeline",
+      mixed: "Akuisisi campuran",
+      confidence: "keyakinan",
+      moduleResults: "Hasil Modul",
+      platformCoverage: "Cakupan Platform",
+      root: "Folder akuisisi / pohon bukti ter-ekstrak",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function pickFolder() {
     const dir = await open({ directory: true });
@@ -29,15 +64,17 @@
       const pct = Math.round((detection.confidence || 0) * 100);
       msg = `✅ Detected: ${detection.primaryPlatform} (${pct}% confidence)`;
     } catch (e) {
+      detection = null;
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
 
   async function scanAll() {
     if (!rootPath) return;
     if (!activeCase?.id) {
-      msg = "⚠️ Open a case first to record findings and timeline";
+      msg = t("openCase");
       return;
     }
     busy = true;
@@ -50,27 +87,31 @@
       const ok = scanResult.modules.filter((m) => m.status === "ok").length;
       msg = `✅ Acquisition scan: ${ok} modules, ${scanResult.findingsRecorded} findings, ${scanResult.timelineEvents} timeline events (${scanResult.durationMs}ms)`;
     } catch (e) {
+      scanResult = null;
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
 
   function platformInfo(id) {
     return PLATFORM_META[id] || PLATFORM_META.unknown;
   }
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
-  <h3>Cross-Platform Acquisition</h3>
-  <p class="hint">
-    Analyze barang bukti dari Windows, Linux, atau macOS — deteksi otomatis platform lalu jalankan semua modul relevan
-  </p>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
 
   <div class="row">
-    <input type="text" bind:value={rootPath} placeholder="Folder akuisisi / extracted evidence tree" disabled={busy} />
-    <button onclick={pickFolder} disabled={busy}>Browse</button>
-    <button onclick={detect} disabled={busy || !rootPath} class="btn-secondary">Detect OS</button>
-    <button onclick={scanAll} disabled={busy || !rootPath || !activeCase} class="btn-primary">Scan All</button>
+    <input type="text" bind:value={rootPath} placeholder={t("root")} disabled={busy} />
+    <button onclick={pickFolder} disabled={busy}>{t("browse")}</button>
+    <button onclick={detect} disabled={busy || !rootPath} class="btn-secondary">{t("detect")}</button>
+    <button onclick={scanAll} disabled={busy || !rootPath || !activeCase} class="btn-primary">{t("scanAll")}</button>
   </div>
 
   {#if detection}
@@ -79,8 +120,8 @@
         <span class="icon">{platformInfo(detection.primaryPlatform).icon}</span>
         <div>
           <strong>{platformInfo(detection.primaryPlatform).label}</strong>
-          {#if detection.mixed}<span class="badge">Mixed acquisition</span>{/if}
-          <span class="conf">{Math.round(detection.confidence * 100)}% confidence</span>
+          {#if detection.mixed}<span class="badge">{t("mixed")}</span>{/if}
+          <span class="conf">{Math.round(detection.confidence * 100)}% {t("confidence")}</span>
         </div>
       </div>
       <div class="signals">
@@ -97,7 +138,7 @@
 
   {#if scanResult}
     <div class="modules">
-      <h4>Module Results</h4>
+      <h4>{t("moduleResults")}</h4>
       {#each scanResult.modules as m}
         <div class="mod" class:error={m.status === "error"}>
           <span class="name">{m.module}</span>
@@ -110,7 +151,7 @@
   {/if}
 
   <div class="coverage">
-    <h4>Platform Coverage</h4>
+    <h4>{t("platformCoverage")}</h4>
     <div class="grid">
       <div class="cov"><strong>🪟 Windows</strong> Registry, EVTX, Prefetch/LNK, NTFS image</div>
       <div class="cov"><strong>🐧 Linux</strong> auth.log, audit, syslog, journal, cron, bash history</div>

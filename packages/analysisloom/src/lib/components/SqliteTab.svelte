@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
   import SegmentedControl from "./SegmentedControl.svelte";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let {
     activeCase,
@@ -19,13 +20,68 @@
   let rows = $state([]);
   let customQuery = $state("");
   let lastSql = $state("");
+  let loadedPath = $state("");
+  let locale = $state(getResolvedLocale());
 
-  const modes = [
-    { id: "preview", label: "Preview" },
-    { id: "hex", label: "Hex" },
-    { id: "strings", label: "Strings" },
-    { id: "metadata", label: "Metadata" },
-  ];
+  const TEXT = {
+    en: {
+      title: "SQLite Manager",
+      hint: "Forensic table browser — WhatsApp, Chrome, iOS backups",
+      openDb: "Open .db",
+      load: "Load",
+      openArtifact: "Open a SQLite artifact or select a .db file from NTFS Browser",
+      reading: "Reading database…",
+      table: "Table",
+      noRows: "No rows in this table",
+      selectTable: "Select a table",
+      run: "Run",
+      preview: "Preview",
+      hex: "Hex",
+      strings: "Strings",
+      metadata: "Metadata",
+      dbPath: "SQLite database path",
+      query: "SELECT * FROM messages LIMIT 100",
+      path: "Path",
+      tables: "Tables",
+      pages: "Pages",
+      encoding: "Encoding",
+      schemaVersion: "Schema v",
+    },
+    id: {
+      title: "Manajer SQLite",
+      hint: "Penjelajah tabel forensik — WhatsApp, Chrome, backup iOS",
+      openDb: "Buka .db",
+      load: "Muat",
+      openArtifact: "Buka artefak SQLite atau pilih file .db dari NTFS Browser",
+      reading: "Membaca basis data…",
+      table: "Tabel",
+      noRows: "Tidak ada baris di tabel ini",
+      selectTable: "Pilih tabel",
+      run: "Jalankan",
+      preview: "Pratinjau",
+      hex: "Hex",
+      strings: "String",
+      metadata: "Metadata",
+      dbPath: "Path basis data SQLite",
+      query: "SELECT * FROM messages LIMIT 100",
+      path: "Path",
+      tables: "Tabel",
+      pages: "Halaman",
+      encoding: "Pengodean",
+      schemaVersion: "Skema v",
+    },
+  };
+
+  function t(key) {
+    return TEXT[locale]?.[key] || TEXT.en[key] || key;
+  }
+
+  let modes = $derived([
+    { id: "preview", label: t("preview") },
+    { id: "hex", label: t("hex") },
+    { id: "strings", label: t("strings") },
+    { id: "metadata", label: t("metadata") },
+  ]);
 
   async function pickDatabase() {
     const picked = await open({
@@ -43,6 +99,7 @@
     busy = true;
     try {
       dbInfo = await timeoutPromise(invoke("sqlite_db_info", { path: dbPath }), 15000);
+      loadedPath = dbPath;
       tables = dbInfo.tables || [];
       selectedTable = tables[0] || "";
       if (selectedTable) await loadTable(selectedTable);
@@ -60,6 +117,9 @@
       dbInfo = null;
       tables = [];
       rows = [];
+      columns = [];
+      selectedTable = "";
+      lastSql = "";
     }
     busy = false;
   }
@@ -106,35 +166,39 @@
   }
 
   $effect(() => {
-    if (dbPath && !dbInfo && !busy) loadDatabase();
+    if (dbPath && dbPath !== loadedPath && !busy) loadDatabase();
   });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="sqlite-manager">
   <div class="sqlite-header">
     <div>
-      <h3>SQLite Manager</h3>
-      <span class="hint">Forensic table browser — WhatsApp, Chrome, iOS backups</span>
+      <h3>{t("title")}</h3>
+      <span class="hint">{t("hint")}</span>
     </div>
-    <button class="btn-primary" onclick={pickDatabase} disabled={busy}>Open .db</button>
+    <button class="btn-primary" onclick={pickDatabase} disabled={busy}>{t("openDb")}</button>
   </div>
 
   <div class="path-row">
-    <input type="text" bind:value={dbPath} placeholder="/path/to/messages.db" disabled={busy} />
-    <button onclick={loadDatabase} disabled={busy || !dbPath} class="btn">Load</button>
+    <input type="text" bind:value={dbPath} placeholder={t("dbPath")} disabled={busy} />
+    <button onclick={loadDatabase} disabled={busy || !dbPath} class="btn">{t("load")}</button>
   </div>
 
   {#if !dbPath}
     <div class="empty-state">
       <span class="icon">🗄️</span>
-      <p>Open a SQLite artifact or select a .db file from NTFS Browser</p>
+      <p>{t("openArtifact")}</p>
     </div>
   {:else if !dbInfo && busy}
-    <div class="empty-state"><span class="spinner">⏳</span> Reading database…</div>
+    <div class="empty-state"><span class="spinner">⏳</span> {t("reading")}</div>
   {:else if dbInfo}
     <div class="toolbar">
       <label>
-        Table
+        {t("table")}
         <select bind:value={selectedTable} onchange={() => loadTable(selectedTable)} disabled={busy}>
           {#each tables as t}
             <option value={t}>{t}</option>
@@ -159,16 +223,16 @@
           </div>
         {/each}
         {#if !rows.length}
-          <div class="empty-row">No rows in this table</div>
+          <div class="empty-row">{t("noRows")}</div>
         {/if}
       {:else}
-        <div class="empty-row">Select a table</div>
+        <div class="empty-row">{t("selectTable")}</div>
       {/if}
     </div>
 
     <div class="query-row">
-      <input type="text" bind:value={customQuery} placeholder="SELECT * FROM messages LIMIT 100" disabled={busy} />
-      <button onclick={runCustomQuery} disabled={busy || !customQuery.trim()} class="btn-primary">Run</button>
+      <input type="text" bind:value={customQuery} placeholder={t("query")} disabled={busy} />
+      <button onclick={runCustomQuery} disabled={busy || !customQuery.trim()} class="btn-primary">{t("run")}</button>
     </div>
 
     <div class="viewer-panel">
@@ -182,11 +246,11 @@
           <pre class="preview-text">{rows.flat().map(cellStr).filter((s) => s.length > 2 && s !== "NULL").slice(0, 40).join("\n")}</pre>
         {:else}
           <dl class="meta-list">
-            <dt>Path</dt><dd class="mono">{dbInfo.path}</dd>
-            <dt>Tables</dt><dd>{tables.join(", ") || "—"}</dd>
-            <dt>Pages</dt><dd>{dbInfo.pageCount} × {dbInfo.pageSize} bytes</dd>
-            <dt>Encoding</dt><dd>{dbInfo.encoding}</dd>
-            <dt>Schema v</dt><dd>{dbInfo.schemaVersion}</dd>
+            <dt>{t("path")}</dt><dd class="mono">{dbInfo.path}</dd>
+            <dt>{t("tables")}</dt><dd>{tables.join(", ") || "—"}</dd>
+            <dt>{t("pages")}</dt><dd>{dbInfo.pageCount} × {dbInfo.pageSize} bytes</dd>
+            <dt>{t("encoding")}</dt><dd>{dbInfo.encoding}</dd>
+            <dt>{t("schemaVersion")}</dt><dd>{dbInfo.schemaVersion}</dd>
           </dl>
         {/if}
       </div>

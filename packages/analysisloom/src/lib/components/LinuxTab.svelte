@@ -1,10 +1,51 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let result = $state(null);
   let rootPath = $state("");
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Linux Artifacts",
+      hint: "auth.log · audit.log · .bash_history — endpoint activity traces",
+      scan: "Scan Linux Logs",
+      files: "Files",
+      auth: "Auth",
+      audit: "Audit",
+      history: "History",
+      syslog: "Syslog",
+      cron: "Cron",
+      type: "Type",
+      time: "Time",
+      user: "User",
+      cmd: "Command / Details",
+      root: "Linux log folder / evidence folder",
+    },
+    id: {
+      title: "Artefak Linux",
+      hint: "auth.log · audit.log · .bash_history — jejak aktivitas endpoint",
+      scan: "Pindai Log Linux",
+      files: "File",
+      auth: "Auth",
+      audit: "Audit",
+      history: "Riwayat",
+      syslog: "Syslog",
+      cron: "Cron",
+      type: "Tipe",
+      time: "Waktu",
+      user: "Pengguna",
+      cmd: "Perintah / Detail",
+      root: "Folder log Linux / folder bukti",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function scan() {
     const root = rootPath || (await open({ directory: true }));
@@ -24,30 +65,42 @@
         }).catch(() => {});
       }
     } catch (e) {
+      result = null;
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
+
+  $effect(() => {
+    if (!rootPath) {
+      result = null;
+    }
+  });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
-  <h3>Linux Artifacts</h3>
-  <p class="hint">auth.log · audit.log · .bash_history — endpoint activity traces</p>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
   <div class="row">
-    <input type="text" bind:value={rootPath} placeholder="/var/log or evidence folder" disabled={busy} />
-    <button onclick={scan} disabled={busy} class="btn-primary">Scan Linux Logs</button>
+    <input type="text" bind:value={rootPath} placeholder={t("root")} disabled={busy} />
+    <button onclick={scan} disabled={busy} class="btn-primary">{t("scan")}</button>
   </div>
   {#if result}
     <div class="stats">
-      <span>Files: {result.filesParsed}</span>
-      <span>Auth: {result.authEvents}</span>
-      <span>Audit: {result.auditEvents}</span>
-      <span>History: {result.historyCommands}</span>
-      <span>Syslog: {result.syslogEvents}</span>
-      <span>Cron: {result.cronEvents}</span>
+      <span>{t("files")}: {result.filesParsed}</span>
+      <span>{t("auth")}: {result.authEvents}</span>
+      <span>{t("audit")}: {result.auditEvents}</span>
+      <span>{t("history")}: {result.historyCommands}</span>
+      <span>{t("syslog")}: {result.syslogEvents}</span>
+      <span>{t("cron")}: {result.cronEvents}</span>
     </div>
     <div class="events">
-      <div class="thead"><span>Type</span><span>Time</span><span>User</span><span>Command / Details</span></div>
+      <div class="thead"><span>{t("type")}</span><span>{t("time")}</span><span>{t("user")}</span><span>{t("cmd")}</span></div>
       {#each result.events.slice(0, 150) as ev}
         <div class="ev type-{ev.eventType}">
           <span class="type">{ev.eventType}</span>

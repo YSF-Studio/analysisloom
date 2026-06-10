@@ -1,10 +1,33 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let results = $state([]);
   let rootPath = $state("");
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Browser Artifacts",
+      hint: "Chrome · Firefox · Safari · Edge — history, downloads, bookmarks",
+      scan: "Scan Browsers",
+      entries: "entries",
+      root: "root",
+    },
+    id: {
+      title: "Artefak Browser",
+      hint: "Chrome · Firefox · Safari · Edge — histori, unduhan, bookmark",
+      scan: "Pindai Browser",
+      entries: "entri",
+      root: "akar",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function scan() {
     const root = rootPath || (await open({ directory: true }));
@@ -24,22 +47,34 @@
         }).catch(() => {});
       }
     } catch (e) {
+      results = [];
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
+
+  $effect(() => {
+    if (!rootPath) {
+      results = [];
+    }
+  });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
-  <h3>Browser Artifacts</h3>
-  <p class="hint">Chrome · Firefox · Safari · Edge — history, downloads, bookmarks</p>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
   <div class="row">
-    <input type="text" bind:value={rootPath} placeholder="/Users/.../AppData or evidence folder" disabled={busy} />
-    <button onclick={scan} disabled={busy} class="btn-primary">Scan Browsers</button>
+    <input type="text" bind:value={rootPath} placeholder={locale === "id" ? "Folder AppData / folder bukti" : "AppData folder / evidence folder"} disabled={busy} />
+    <button onclick={scan} disabled={busy} class="btn-primary">{t("scan")}</button>
   </div>
   {#each results as res}
     <div class="browser-block">
-      <h4>{res.browser} — {res.artifacts.length} entries</h4>
+      <h4>{res.browser} — {res.artifacts.length} {t("entries")}</h4>
       <p class="db">{res.dbPath}</p>
       <div class="artifacts">
         {#each res.artifacts.slice(0, 50) as a}

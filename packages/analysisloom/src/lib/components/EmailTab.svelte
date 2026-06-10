@@ -1,10 +1,35 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let results = $state([]);
   let dirPath = $state("");
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Email Forensics",
+      hint: "PST / OST mailbox parsing — headers, folders, message stubs",
+      scan: "Scan Mailboxes",
+      folder: "Folder containing .pst / .ost files",
+      mailboxes: "mailboxes",
+      messages: "messages",
+    },
+    id: {
+      title: "Forensik Email",
+      hint: "Parsing mailbox PST / OST — header, folder, stub pesan",
+      scan: "Pindai Mailbox",
+      folder: "Folder berisi file .pst / .ost",
+      mailboxes: "mailbox",
+      messages: "pesan",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function scan() {
     const dir = dirPath || (await open({ directory: true }));
@@ -25,26 +50,38 @@
         }).catch(() => {});
       }
     } catch (e) {
+      results = [];
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
+
+  $effect(() => {
+    if (!dirPath) {
+      results = [];
+    }
+  });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
-  <h3>Email Forensics</h3>
-  <p class="hint">PST / OST mailbox parsing — headers, folders, message stubs</p>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
   <div class="row">
-    <input type="text" bind:value={dirPath} placeholder="Folder containing .pst / .ost files" disabled={busy} />
-    <button onclick={scan} disabled={busy} class="btn-primary">Scan Mailboxes</button>
+    <input type="text" bind:value={dirPath} placeholder={t("folder")} disabled={busy} />
+    <button onclick={scan} disabled={busy} class="btn-primary">{t("scan")}</button>
   </div>
   {#each results as mb}
     <div class="mailbox">
-      <h4>{mb.mailboxType} — {mb.messageCount} messages</h4>
+      <h4>{mb.mailboxType} — {mb.messageCount} {t("messages")}</h4>
       <p class="path">{mb.filePath}</p>
       <p class="meta">{mb.details} · encrypted={mb.encrypted}</p>
       {#if mb.folders?.length}
-        <div class="folders">Folders: {mb.folders.join(", ")}</div>
+        <div class="folders">{locale === "id" ? "Folder:" : "Folders:"} {mb.folders.join(", ")}</div>
       {/if}
       {#each mb.messages.slice(0, 30) as m}
         <div class="msg">

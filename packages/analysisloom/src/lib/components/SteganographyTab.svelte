@@ -1,10 +1,37 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let findings = $state([]);
   let paths = $state([]);
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Steganography Detection",
+      hint: "LSB ratio · χ² analysis · metadata anomaly scan on PNG/JPEG/BMP",
+      analyze: "Analyze Images",
+      format: "Format:",
+      lsb: "LSB:",
+      chi: "χ²:",
+      score: "Score:",
+    },
+    id: {
+      title: "Deteksi Steganografi",
+      hint: "Rasio LSB · analisis χ² · pemindaian anomali metadata pada PNG/JPEG/BMP",
+      analyze: "Analisis Gambar",
+      format: "Format:",
+      lsb: "LSB:",
+      chi: "χ²:",
+      score: "Skor:",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function scan() {
     const selected = await open({ multiple: true, filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "bmp", "gif", "webp"] }] });
@@ -29,12 +56,16 @@
     }
     busy = false;
   }
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
-  <h3>Steganography Detection</h3>
-  <p class="hint">LSB ratio · χ² analysis · metadata anomaly scan on PNG/JPEG/BMP</p>
-  <button onclick={scan} disabled={busy} class="btn-primary">Analyze Images</button>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
+  <button onclick={scan} disabled={busy} class="btn-primary">{t("analyze")}</button>
   {#if findings.length}
     <div class="findings">
       {#each findings as f}
@@ -44,10 +75,10 @@
             <span class="verdict">{f.verdict}</span>
           </div>
           <div class="metrics">
-            <span>Format: {f.format}</span>
-            <span>LSB: {(f.lsbRatio * 100).toFixed(1)}%</span>
-            <span>χ²: {f.chiSquare.toFixed(1)}</span>
-            <span>Score: {(f.suspicionScore * 100).toFixed(0)}%</span>
+            <span>{t("format")} {f.format}</span>
+            <span>{t("lsb")} {(f.lsbRatio * 100).toFixed(1)}%</span>
+            <span>{t("chi")} {f.chiSquare.toFixed(1)}</span>
+            <span>{t("score")} {(f.suspicionScore * 100).toFixed(0)}%</span>
           </div>
           {#if f.metadataAnomalies?.length}
             <ul class="anomalies">

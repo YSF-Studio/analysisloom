@@ -4,6 +4,7 @@
   import SegmentedControl from "./SegmentedControl.svelte";
   import LoadingSkeleton from "./LoadingSkeleton.svelte";
   import { isSqliteArtifact } from "../mftTree.js";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let {
     activeCase,
@@ -23,17 +24,52 @@
 
   let previewFile = $state(null);
   let previewPath = $state("");
+  let previewKey = $state("");
   let sortCol = $state("filename");
   let sortDir = $state("asc");
   let splitRatio = $state(58);
   let viewerMode = $state("preview");
+  let locale = $state(getResolvedLocale());
 
-  const modes = [
-    { id: "preview", label: "Preview" },
+  const text = {
+    en: {
+      load: "Load",
+      recover: "Recover Deleted",
+      name: "Name",
+      modified: "Date Modified",
+      size: "Size",
+      parsing: "Parsing filesystem…",
+      noEntries: "No entries in this folder",
+      addSource: "Add a source image or enter a disk path",
+      resize: "Drag to resize",
+      openCopy: "MFT entry — open a carved/local copy to preview & hash",
+      selectFile: "Select a file to preview",
+    },
+    id: {
+      load: "Muat",
+      recover: "Pulihkan Terhapus",
+      name: "Nama",
+      modified: "Tanggal Diubah",
+      size: "Ukuran",
+      parsing: "Mengurai filesystem…",
+      noEntries: "Tidak ada entri di folder ini",
+      addSource: "Tambahkan citra sumber atau masukkan path disk",
+      resize: "Seret untuk ubah ukuran",
+      openCopy: "Entri MFT — buka salinan carved/lokal untuk pratinjau & hash",
+      selectFile: "Pilih file untuk pratinjau",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
+
+  let modes = $derived([
+    { id: "preview", label: locale === "id" ? "Pratinjau" : "Preview" },
     { id: "hex", label: "Hex" },
-    { id: "strings", label: "Strings" },
+    { id: "strings", label: locale === "id" ? "String" : "Strings" },
     { id: "metadata", label: "Metadata" },
-  ];
+  ]);
 
   let entries = $derived(
     mftEntries.filter((e) => (e.parentRecord ?? 0) === (filterParent ?? 5))
@@ -41,6 +77,7 @@
 
   function startDrag(e) {
     const parent = e.target.closest(".workspace-split");
+    if (!parent) return;
     const startY = e.clientY;
     const startRatio = splitRatio;
     const parentHeight = parent.offsetHeight;
@@ -129,6 +166,7 @@
     previewFile = entry.filename || "unnamed";
     const localPath = artifactPath || "";
     previewPath = localPath;
+    previewKey = `${entry.recordNumber ?? ""}:${entry.filename ?? ""}`;
 
     const baseMeta = {
       size: entry.fileSize,
@@ -147,8 +185,8 @@
       try {
         const hashes = await invoke("hash_file", { path: localPath });
         onFileSelect?.(localPath, { ...baseMeta, ...hashes, source: "disk" }, localPath);
-      } catch {
-        /* hash unavailable */
+      } catch (e) {
+        msg = `⚠️ ${typeof e === "string" ? e : String(e)}`;
       }
     }
 
@@ -201,16 +239,24 @@
     if (artifactPath) {
       previewPath = artifactPath;
       previewFile = artifactPath.split(/[/\\]/).pop() || artifactPath;
+    } else if (!imagePath) {
+      previewPath = "";
+      previewFile = null;
+      previewKey = "";
     }
   });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="file-browser">
   <div class="load-row">
-    <input type="text" bind:value={imagePath} placeholder="/dev/sda or path to E01/DD image..." disabled={busy} />
-    <button onclick={() => loadMft()} disabled={busy || !imagePath} class="btn-primary">Load</button>
+    <input type="text" bind:value={imagePath} placeholder={t("addSource")} disabled={busy} />
+    <button onclick={() => loadMft()} disabled={busy || !imagePath} class="btn-primary">{t("load")}</button>
     {#if mftEntries.some((e) => e.isDeleted)}
-      <button onclick={recoverDeleted} disabled={busy || !imagePath} class="btn" title="Carve deleted files from image">Recover Deleted</button>
+      <button onclick={recoverDeleted} disabled={busy || !imagePath} class="btn" title={t("recover")}>{t("recover")}</button>
     {/if}
   </div>
 
@@ -219,16 +265,16 @@
       {#if sortedEntries.length}
         <div class="finder-table">
           <div class="thead">
-            <button class="th" onclick={() => sortBy("filename")}>Name{sortIndicator("filename")}</button>
-            <button class="th" onclick={() => sortBy("siModified")}>Date Modified{sortIndicator("siModified")}</button>
-            <button class="th right" onclick={() => sortBy("fileSize")}>Size{sortIndicator("fileSize")}</button>
+            <button class="th" onclick={() => sortBy("filename")}>{t("name")}{sortIndicator("filename")}</button>
+            <button class="th" onclick={() => sortBy("siModified")}>{t("modified")}{sortIndicator("siModified")}</button>
+            <button class="th right" onclick={() => sortBy("fileSize")}>{t("size")}{sortIndicator("fileSize")}</button>
           </div>
           <div class="tbody">
             {#each sortedEntries.slice(0, 500) as e}
               <button
                 class="trow"
                 class:deleted={e.isDeleted}
-                class:selected={previewFile === e.filename}
+                class:selected={previewKey === `${e.recordNumber ?? ""}:${e.filename ?? ""}`}
                 style="height:{densityRows[density] || densityRows.compact};font-size:{densityFont[density] || '12px'}"
                 onclick={() => selectFile(e)}
               >
@@ -242,17 +288,17 @@
       {:else if busy}
         <div class="loading-panel">
           <LoadingSkeleton rows={8} columns={3} />
-          <span class="loading-label"><span class="spinner">⏳</span> Parsing filesystem…</span>
+          <span class="loading-label"><span class="spinner">⏳</span> {t("parsing")}</span>
         </div>
       {:else if mftEntries.length}
-        <div class="empty">No entries in this folder</div>
+        <div class="empty">{t("noEntries")}</div>
       {:else}
-        <div class="empty">Add a source image or enter a disk path</div>
+        <div class="empty">{t("addSource")}</div>
       {/if}
     </div>
 
     {#if previewFile || sortedEntries.length || previewPath}
-      <div class="resize-handle" onpointerdown={startDrag} title="Drag to resize" role="separator"></div>
+      <div class="resize-handle" onpointerdown={startDrag} title={t("resize")} role="separator"></div>
       <div class="viewer-section" style="flex: 0 0 calc(100% - {splitRatio}%)">
         <div class="viewer-toolbar">
           <SegmentedControl options={modes} bind:value={viewerMode} />
@@ -271,10 +317,10 @@
             />
           {:else if previewFile}
             <div class="empty small">
-              MFT entry — open a carved/local copy to preview &amp; hash
+              {t("openCopy")}
             </div>
           {:else}
-            <div class="empty small">Select a file to preview</div>
+            <div class="empty small">{t("selectFile")}</div>
           {/if}
         </div>
       </div>

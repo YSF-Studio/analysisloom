@@ -152,14 +152,12 @@ pub fn parse_mft(
             };
 
             match attr_type {
-                0x10 => {
+                0x10 if resident && content_offset + 48 <= buf.len() => {
                     // $STANDARD_INFORMATION
-                    if resident && content_offset + 48 <= buf.len() {
-                        let si_pos = pos + content_offset;
-                        si_created = Some(ntfs_timestamp(&buf[si_pos..si_pos + 8]));
-                        si_modified = Some(ntfs_timestamp(&buf[si_pos + 8..si_pos + 16]));
-                        si_accessed = Some(ntfs_timestamp(&buf[si_pos + 24..si_pos + 32]));
-                    }
+                    let si_pos = pos + content_offset;
+                    si_created = Some(ntfs_timestamp(&buf[si_pos..si_pos + 8]));
+                    si_modified = Some(ntfs_timestamp(&buf[si_pos + 8..si_pos + 16]));
+                    si_accessed = Some(ntfs_timestamp(&buf[si_pos + 24..si_pos + 32]));
                 }
                 0x80 => {
                     has_data = true;

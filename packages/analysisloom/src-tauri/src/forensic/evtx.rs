@@ -245,7 +245,8 @@ mod tests {
     #[test]
     fn rejects_non_evtx() {
         let path = std::env::temp_dir().join("not_evtx.bin");
-        std::fs::write(&path, b"not an evtx file").unwrap();
+        std::fs::write(&path, b"not an evtx file")
+            .unwrap_or_else(|e| panic!("write evtx fixture: {e}"));
         let err = parse_evtx_file(path.to_string_lossy().as_ref()).unwrap_err();
         assert!(err.contains("ElfFile") || err.contains("EVTX"));
         let _ = std::fs::remove_file(path);

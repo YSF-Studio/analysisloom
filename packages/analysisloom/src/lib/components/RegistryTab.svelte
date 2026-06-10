@@ -4,11 +4,13 @@
   import SectionHeader from "./SectionHeader.svelte";
   import ProgressBar from "./ProgressBar.svelte";
   import LoadingSkeleton from "./LoadingSkeleton.svelte";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let results = $state([]);
   let hivePath = $state("");
   let scanLabel = $state("");
+  let locale = $state(getResolvedLocale());
 
   const CATEGORY_LABELS = {
     usb: "USB History",
@@ -21,6 +23,45 @@
     accounts: "Local Accounts",
     other: "Other",
   };
+
+  const TEXT = {
+    en: {
+      title: "Registry Analyzer",
+      hint: "SAM · SYSTEM · SOFTWARE · NTUSER.DAT — USB history, UserAssist, Shellbags, MRU, Run keys",
+      browse: "Browse",
+      analyze: "Analyze Hive",
+      scanFolder: "Scan Folder",
+      parsing: "Parsing registry hive…",
+      scanning: "Scanning registry folder…",
+      keyPath: "Key Path",
+      valueName: "Value Name",
+      valueData: "Value Data",
+      relevance: "Relevance",
+      entries: "entries",
+      scanned: "keys scanned",
+      hivePath: "SYSTEM / NTUSER.DAT path",
+    },
+    id: {
+      title: "Penganalisis Registry",
+      hint: "SAM · SYSTEM · SOFTWARE · NTUSER.DAT — histori USB, UserAssist, Shellbags, MRU, Run keys",
+      browse: "Jelajah",
+      analyze: "Analisis Hive",
+      scanFolder: "Pindai Folder",
+      parsing: "Mengurai hive registry…",
+      scanning: "Memindai folder registry…",
+      keyPath: "Jalur Key",
+      valueName: "Nama Value",
+      valueData: "Data Value",
+      relevance: "Relevansi",
+      entries: "entri",
+      scanned: "key dipindai",
+      hivePath: "Path SYSTEM / NTUSER.DAT",
+    },
+  };
+
+  function t(key) {
+    return TEXT[locale]?.[key] || TEXT.en[key] || key;
+  }
 
   function groupFindings(findings) {
     const map = new Map();
@@ -43,7 +84,7 @@
   async function analyze() {
     if (!hivePath) return;
     busy = true;
-    scanLabel = "Parsing registry hive…";
+    scanLabel = t("parsing");
     try {
       const r = await timeoutPromise(invoke("analyze_registry_hive", { path: hivePath }), 120000);
       results = [r];
@@ -58,60 +99,68 @@
         }).catch(() => {});
       }
     } catch (e) {
+      results = [];
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
+      scanLabel = "";
     }
-    busy = false;
-    scanLabel = "";
   }
 
   async function scanDir() {
     const dir = await open({ directory: true });
     if (!dir) return;
     busy = true;
-    scanLabel = "Scanning registry folder…";
+    scanLabel = t("scanning");
     try {
       results = await timeoutPromise(invoke("scan_registry_directory", { dir }), 120000);
       msg = `✅ Scanned ${results.length} hives`;
     } catch (e) {
+      results = [];
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
+      scanLabel = "";
     }
-    busy = false;
-    scanLabel = "";
   }
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
   <SectionHeader
-    title="Registry Analyzer"
-    hint="SAM · SYSTEM · SOFTWARE · NTUSER.DAT — USB history, UserAssist, Shellbags, MRU, Run keys"
+    title={t("title")}
+    hint={t("hint")}
   />
   <div class="row">
-    <input type="text" bind:value={hivePath} placeholder="/path/to/SYSTEM or NTUSER.DAT" disabled={busy} />
-    <button onclick={pickHive} disabled={busy} class="btn">Browse</button>
-    <button onclick={analyze} disabled={busy || !hivePath} class="btn-primary">Analyze Hive</button>
-    <button onclick={scanDir} disabled={busy} class="btn">Scan Folder</button>
+    <input type="text" bind:value={hivePath} placeholder={t("hivePath")} disabled={busy} />
+    <button onclick={pickHive} disabled={busy} class="btn">{t("browse")}</button>
+    <button onclick={analyze} disabled={busy || !hivePath} class="btn-primary">{t("analyze")}</button>
+    <button onclick={scanDir} disabled={busy} class="btn">{t("scanFolder")}</button>
   </div>
 
   {#if busy}
-    <ProgressBar indeterminate label={scanLabel || "Analyzing registry…"} />
+    <ProgressBar indeterminate label={scanLabel || (locale === "id" ? "Menganalisis registry…" : "Analyzing registry…")} />
     <LoadingSkeleton rows={6} columns={3} />
   {/if}
 
   {#each results as res}
     <div class="hive-block">
-      <h4>{res.hiveType} — {res.findings.length} findings ({res.keysScanned} keys scanned)</h4>
+      <h4>{res.hiveType} — {res.findings.length} {locale === "id" ? "temuan" : "findings"} ({res.keysScanned} {t("scanned")})</h4>
       {#each groupFindings(res.findings) as [category, items]}
         <section class="category-group">
           <div class="category-head">
             <span class="category-pill">{CATEGORY_LABELS[category] || category}</span>
-            <span class="category-count">{items.length} entries</span>
+            <span class="category-count">{items.length} {t("entries")}</span>
           </div>
           <div class="findings-table">
             <div class="findings-head">
-              <span>Key Path</span>
-              <span>Value Name</span>
-              <span>Value Data</span>
-              <span>Relevance</span>
+              <span>{t("keyPath")}</span>
+              <span>{t("valueName")}</span>
+              <span>{t("valueData")}</span>
+              <span>{t("relevance")}</span>
             </div>
             {#each items as f}
               <div class="finding-row" class:not-found={f.valueData?.includes("not found") || f.valueData?.includes("not present")}>

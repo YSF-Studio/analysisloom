@@ -1,10 +1,39 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let result = $state(null);
   let rootPath = $state("");
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Windows Artifacts",
+      hint: "Prefetch (SCCA) · Shell Links (LNK) · Jump Lists (AutomaticDestinations-ms)",
+      scan: "Scan Windows Artifacts",
+      artifacts: "artifacts",
+      prefetch: "Prefetch",
+      lnk: "LNK",
+      jumpLists: "Jump Lists",
+      root: "Windows evidence folder",
+    },
+    id: {
+      title: "Artefak Windows",
+      hint: "Prefetch (SCCA) · Shell Links (LNK) · Jump Lists (AutomaticDestinations-ms)",
+      scan: "Pindai Artefak Windows",
+      artifacts: "artefak",
+      prefetch: "Prefetch",
+      lnk: "LNK",
+      jumpLists: "Jump List",
+      root: "folder bukti Windows",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function scan() {
     const root = rootPath || (await open({ directory: true }));
@@ -21,27 +50,39 @@
           source: "Windows",
           filePath: rootPath,
           eventType: `windows_${result.artifacts.length}`,
-        }).catch(() => {});
+          }).catch(() => {});
       }
     } catch (e) {
+      result = null;
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
+
+  $effect(() => {
+    if (!rootPath) {
+      result = null;
+    }
+  });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
-  <h3>Windows Artifacts</h3>
-  <p class="hint">Prefetch (SCCA) · Shell Links (LNK) · Jump Lists (AutomaticDestinations-ms)</p>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
   <div class="row">
-    <input type="text" bind:value={rootPath} placeholder="C:\Windows\Prefetch or evidence folder" disabled={busy} />
-    <button onclick={scan} disabled={busy} class="btn-primary">Scan Windows Artifacts</button>
+    <input type="text" bind:value={rootPath} placeholder={t("root")} disabled={busy} />
+    <button onclick={scan} disabled={busy} class="btn-primary">{t("scan")}</button>
   </div>
   {#if result}
     <div class="stats">
-      <span>Prefetch: {result.prefetchCount}</span>
-      <span>LNK: {result.lnkCount}</span>
-      <span>Jump Lists: {result.jumpListCount}</span>
+      <span>{t("prefetch")}: {result.prefetchCount}</span>
+      <span>{t("lnk")}: {result.lnkCount}</span>
+      <span>{t("jumpLists")}: {result.jumpListCount}</span>
     </div>
     <div class="artifacts">
       {#each result.artifacts.slice(0, 100) as art}

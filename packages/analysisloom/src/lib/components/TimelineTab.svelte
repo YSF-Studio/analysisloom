@@ -1,10 +1,49 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let events = $state([]);
   let superMode = $state(true);
   let viewMode = $state("gantt");
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Timeline Analysis",
+      superTimeline: "Super Timeline (multi-source correlation)",
+      gantt: "Gantt",
+      table: "Table",
+      load: "Load Timeline",
+      time: "Time",
+      source: "Source",
+      category: "Category",
+      event: "Event",
+      path: "Path",
+      empty: "Load Super Timeline to correlate NTFS, registry, browser, YARA, and memory events — switch to Gantt for graphical view",
+      correlated: "correlated events",
+      events: "timeline events",
+    },
+    id: {
+      title: "Analisis Timeline",
+      superTimeline: "Super Timeline (korelasi multi-sumber)",
+      gantt: "Gantt",
+      table: "Tabel",
+      load: "Muat Timeline",
+      time: "Waktu",
+      source: "Sumber",
+      category: "Kategori",
+      event: "Peristiwa",
+      path: "Path",
+      empty: "Muat Super Timeline untuk mengkorelasikan event NTFS, registry, browser, YARA, dan memori — beralih ke Gantt untuk tampilan grafis",
+      correlated: "event yang dikorelasikan",
+      events: "event timeline",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   const SOURCE_COLORS = {
     NTFS: "#6366f1",
@@ -25,7 +64,10 @@
   };
 
   async function loadTimeline() {
-    if (!activeCase?.id) return;
+    if (!activeCase?.id) {
+      events = [];
+      return;
+    }
     busy = true;
     try {
       if (superMode) {
@@ -36,10 +78,19 @@
         msg = `✅ ${events.length} timeline events`;
       }
     } catch (e) {
+      events = [];
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
+
+  $effect(() => {
+    if (!activeCase?.id) {
+      events = [];
+      viewMode = "gantt";
+    }
+  });
 
   function parseTs(ts) {
     const d = new Date(ts);
@@ -84,20 +135,24 @@
     }
     return SOURCE_COLORS.general;
   }
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="timeline-panel">
   <div class="head">
-    <h3>Timeline Analysis</h3>
+    <h3>{t("title")}</h3>
     <label class="toggle">
       <input type="checkbox" bind:checked={superMode} />
-      Super Timeline (multi-source correlation)
+      {t("superTimeline")}
     </label>
     <div class="view-toggle">
-      <button class:active={viewMode === "gantt"} onclick={() => (viewMode = "gantt")}>Gantt</button>
-      <button class:active={viewMode === "table"} onclick={() => (viewMode = "table")}>Table</button>
+      <button class:active={viewMode === "gantt"} onclick={() => (viewMode = "gantt")}>{t("gantt")}</button>
+      <button class:active={viewMode === "table"} onclick={() => (viewMode = "table")}>{t("table")}</button>
     </div>
-    <button onclick={loadTimeline} disabled={busy || !activeCase} class="btn-primary">Load Timeline</button>
+    <button onclick={loadTimeline} disabled={busy || !activeCase} class="btn-primary">{t("load")}</button>
   </div>
 
   {#if events.length && viewMode === "gantt"}
@@ -115,7 +170,7 @@
                 <div
                   class="bar sev-{evt.severity || 'info'}"
                   style="left: {barLeft(evt.ms, ganttData.min, ganttData.span)}%; background: {sourceColor(src)}"
-                  title="{evt.label} — {evt.path}"
+                  title={`${evt.label} — ${evt.path}`}
                 >
                   <span class="bar-tip">{evt.label}</span>
                 </div>
@@ -131,9 +186,9 @@
       </div>
     </div>
   {:else if events.length}
-    <div class="timeline">
-      <div class="thead">
-        <span>Time</span><span>Source</span><span>Category</span><span>Event</span><span>Path</span>
+      <div class="timeline">
+        <div class="thead">
+        <span>{t("time")}</span><span>{t("source")}</span><span>{t("category")}</span><span>{t("event")}</span><span>{t("path")}</span>
       </div>
       {#each events.slice(0, 200) as evt}
         <div class="event sev-{evt.severity || 'info'}">
@@ -146,7 +201,9 @@
       {/each}
     </div>
   {:else if !busy && activeCase}
-    <p class="empty">Load Super Timeline to correlate NTFS, registry, browser, YARA, and memory events — switch to Gantt for graphical view</p>
+    <p class="empty">{t("empty")}</p>
+  {:else if !busy}
+    <p class="empty">{locale === "id" ? "Pilih kasus untuk memuat timeline" : "Select a case to load the timeline"}</p>
   {/if}
 </div>
 

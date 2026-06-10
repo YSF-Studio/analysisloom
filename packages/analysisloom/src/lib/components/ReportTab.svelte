@@ -1,6 +1,7 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open, save } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let {
     activeCase = $bindable(),
@@ -11,6 +12,98 @@
 
   const isSealed = $derived(activeCase?.status === "sealed");
   let sealing = $state(false);
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Forensic Report",
+      subtitle: "Generate HTML/PDF reports or export a full evidence bundle (ZIP with manifest hashes, evidence files, and reports).",
+      openCase: "Open a case first from the Case Manager",
+      configuration: "Report Configuration",
+      case: "Case:",
+      format: "Format:",
+      html: "🌐 HTML Report",
+      pdf: "📕 PDF Report",
+      generate: "📄 Generate Report",
+      bundling: "📦 Export Evidence Bundle (ZIP)",
+      importManifest: "🔗 Import hash_manifest.json",
+      noManifest: "No acquisition manifest — integrity verify on load disabled",
+      seal: "🔒 Seal Case (Complete & Immutable)",
+      savedBundle: "Bundle saved:",
+      reportSaved: "Report saved:",
+      auditTitle: "📋 Audit Trail (Last 50 Actions)",
+      noAudit: "No audit log entries yet. Actions will be recorded automatically.",
+      previewTitle: "📊 Report Contents Preview",
+      previewSubtitle: "The report includes all sections below from your active case:",
+      generating: "Generating...",
+      packaging: "Packaging...",
+      importing: "Importing...",
+      sealing: "Sealing…",
+      reportGenerated: "report generated",
+      manifestImported: "Manifest imported",
+      sealConfirmTitle: "Seal case",
+      sealConfirmBody: "This will mark the case as completed and immutable.",
+      sections: [
+        ["Case Information", "Name, operator, status, creation date"],
+        ["Timeline Events", "Chronological event log (last 100)"],
+        ["Evidence Items", "All acquired items with hashes"],
+        ["Findings", "Tagged findings with severity"],
+        ["Hash Validation", "Acquisition → analysis SHA-256 comparison"],
+        ["Tool Notes", "Per-module limitations and scope notes"],
+        ["Analyst Notes", "Running examination log"],
+        ["Finding Visuals", "Embedded screenshots and text excerpts for bookmarks"],
+        ["Audit Trail", "Chained action log with timestamps"],
+        ["Evidence Bundle (ZIP)", "Selected evidence files + SHA-256 manifest + HTML/PDF report"],
+      ],
+    },
+    id: {
+      title: "Laporan Forensik",
+      subtitle: "Buat laporan HTML/PDF atau ekspor bundle bukti lengkap (ZIP dengan hash manifest, file bukti, dan laporan).",
+      openCase: "Buka kasus dulu dari Manajer Kasus",
+      configuration: "Konfigurasi Laporan",
+      case: "Kasus:",
+      format: "Format:",
+      html: "🌐 Laporan HTML",
+      pdf: "📕 Laporan PDF",
+      generate: "📄 Buat Laporan",
+      bundling: "📦 Ekspor Bundle Bukti (ZIP)",
+      importManifest: "🔗 Impor hash_manifest.json",
+      noManifest: "Tidak ada manifest akuisisi — verifikasi integritas saat muat dinonaktifkan",
+      seal: "🔒 Segel Kasus (Selesai & Tak Dapat Diubah)",
+      savedBundle: "Bundle tersimpan:",
+      reportSaved: "Laporan tersimpan:",
+      auditTitle: "📋 Jejak Audit (50 Aksi Terakhir)",
+      noAudit: "Belum ada entri log audit. Aksi akan dicatat otomatis.",
+      previewTitle: "📊 Pratinjau Isi Laporan",
+      previewSubtitle: "Laporan mencakup semua bagian di bawah dari kasus aktif:",
+      generating: "Membuat...",
+      packaging: "Mengemas...",
+      importing: "Mengimpor...",
+      sealing: "Menutup…",
+      reportGenerated: "laporan dibuat",
+      manifestImported: "Manifest diimpor",
+      sealConfirmTitle: "Segel kasus",
+      sealConfirmBody: "Ini akan menandai kasus sebagai selesai dan tidak dapat diubah.",
+      sections: [
+        ["Informasi Kasus", "Nama, operator, status, tanggal pembuatan"],
+        ["Event Timeline", "Log peristiwa kronologis (100 terakhir)"],
+        ["Item Bukti", "Semua item yang diakuisisi beserta hash"],
+        ["Temuan", "Temuan bertag dengan tingkat keparahan"],
+        ["Validasi Hash", "Perbandingan SHA-256 akuisisi → analisis"],
+        ["Catatan Alat", "Batasan dan catatan cakupan per modul"],
+        ["Catatan Analis", "Log pemeriksaan berjalan"],
+        ["Visual Temuan", "Screenshot dan cuplikan teks tersemat untuk bookmark"],
+        ["Jejak Audit", "Log aksi berantai dengan timestamp"],
+        ["Bundle Bukti (ZIP)", "File bukti terpilih + manifest SHA-256 + laporan HTML/PDF"],
+      ],
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
+
+  let sections = $derived.by(() => text[locale]?.sections || text.en.sections);
 
   let format = $state("html");
   let generating = $state(false);
@@ -35,14 +128,15 @@
       await invoke("log_action", {
         caseId: activeCase.id,
         action: "GENERATE_REPORT",
-        detail: format.toUpperCase() + " report generated",
+        detail: `${format.toUpperCase()} ${t("reportGenerated")}`,
       });
     } catch (e) {
       const err = typeof e === 'string' ? e : String(e);
       msg = `❌ ${err}`;
+    } finally {
+      generating = false;
+      busy = false;
     }
-    generating = false;
-    busy = false;
   }
 
   async function exportBundle() {
@@ -62,16 +156,20 @@
       msg = `✅ Bundle exported — ${result.fileCount} files, manifest ${result.manifestSha256.slice(0, 16)}…`;
       await loadAuditLog();
     } catch (e) {
+      bundlePath = "";
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      bundling = false;
     }
-    bundling = false;
   }
 
   async function loadAuditLog() {
     if (!activeCase?.id) return;
     try {
       auditLog = await invoke("get_audit_log", { caseId: activeCase.id });
-    } catch (e) {}
+    } catch {
+      auditLog = [];
+    }
   }
 
   async function loadManifestInfo() {
@@ -101,18 +199,20 @@
       });
       manifestInfo = await invoke("get_case_manifest", { caseId: activeCase.id });
       const sig = result.signatureVerified ? " (Ed25519 verified)" : "";
-      msg = `✅ Manifest imported — ${result.fileCount} files from ${result.source}${sig}`;
+      msg = `✅ ${t("manifestImported")} — ${result.fileCount} files from ${result.source}${sig}`;
       await loadAuditLog();
     } catch (e) {
+      manifestInfo = null;
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      importingManifest = false;
     }
-    importingManifest = false;
   }
 
   async function sealCase() {
     if (!activeCase?.id || isSealed) return;
     const operator = activeCase.operator || "Analyst";
-    if (!confirm(`Seal case "${activeCase.name}" as completed and immutable?\n\nOperator: ${operator}`)) {
+    if (!confirm(`${t("sealConfirmTitle")} "${activeCase.name}"?\n\n${t("sealConfirmBody")}\n\nOperator: ${operator}`)) {
       return;
     }
     sealing = true;
@@ -123,8 +223,9 @@
       await loadAuditLog();
     } catch (e) {
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      sealing = false;
     }
-    sealing = false;
   }
 
   // Load audit log when case changes
@@ -132,6 +233,15 @@
     if (activeCase?.id) {
       loadAuditLog();
       loadManifestInfo();
+    } else {
+      auditLog = [];
+      manifestInfo = null;
+      reportPath = "";
+      bundlePath = "";
+      generating = false;
+      bundling = false;
+      importingManifest = false;
+      sealing = false;
     }
   });
 
@@ -140,49 +250,51 @@
     if (s === "warning") return "var(--warn)";
     return "var(--text-secondary)";
   }
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="report-container">
-  <h3>📄 Forensic Report</h3>
-  <p class="subtitle">
-    Generate HTML/PDF reports or export a full evidence bundle (ZIP with manifest hashes, evidence files, and reports).
-  </p>
+  <h3>📄 {t("title")}</h3>
+  <p class="subtitle">{t("subtitle")}</p>
 
   {#if !activeCase?.id}
     <div class="empty-state">
       <span style="font-size:32px">📂</span>
-      <p>Open a case first from the Case Manager</p>
+      <p>{t("openCase")}</p>
     </div>
   {:else}
     <!-- Format selection -->
     <div class="card">
-      <h4>Report Configuration</h4>
+      <h4>{t("configuration")}</h4>
       <div class="row">
-        <label>Case: <strong>{activeCase.name}</strong></label>
+        <span class="field-label">{t("case")} <strong>{activeCase.name}</strong></span>
       </div>
       <div class="row">
-        <label>Format:</label>
+        <span class="field-label">{t("format")}</span>
         <div class="format-pills">
           <button class="pill" class:active={format === 'html'} onclick={() => format = 'html'}>
-            🌐 HTML Report
+            {t("html")}
           </button>
           <button class="pill" class:active={format === 'pdf'} onclick={() => format = 'pdf'}>
-            📕 PDF Report
+            {t("pdf")}
           </button>
         </div>
       </div>
 
       <button class="btn-generate" onclick={generateReport} disabled={generating}>
-        {generating ? '🔄 Generating...' : '📄 Generate Report'}
+        {generating ? `🔄 ${t("generating")}` : t("generate")}
       </button>
 
       <button class="btn-bundle" onclick={exportBundle} disabled={bundling}>
-        {bundling ? '🔄 Packaging...' : '📦 Export Evidence Bundle (ZIP)'}
+        {bundling ? `🔄 ${t("packaging")}` : t("bundling")}
       </button>
 
       <div class="manifest-row">
         <button class="btn-manifest" onclick={importManifest} disabled={importingManifest}>
-          {importingManifest ? '🔄 Importing...' : '🔗 Import hash_manifest.json'}
+          {importingManifest ? `🔄 ${t("importing")}` : t("importManifest")}
         </button>
         {#if manifestInfo?.loaded}
           <span class="manifest-badge">
@@ -190,7 +302,7 @@
             {#if manifestInfo.signatureVerified} — Ed25519 signed{/if}
           </span>
         {:else}
-          <span class="manifest-badge warn">No acquisition manifest — integrity verify on load disabled</span>
+          <span class="manifest-badge warn">{t("noManifest")}</span>
         {/if}
       </div>
 
@@ -203,7 +315,7 @@
         </div>
       {:else}
         <button class="btn-seal" onclick={sealCase} disabled={sealing}>
-          {sealing ? "🔒 Sealing…" : "🔒 Seal Case (Complete & Immutable)"}
+          {sealing ? `🔒 ${t("sealing")}` : t("seal")}
         </button>
       {/if}
 
@@ -211,7 +323,7 @@
         <div class="report-link bundle">
           <span class="icon">📦</span>
           <div>
-            <strong>Bundle saved:</strong><br />
+            <strong>{t("savedBundle")}</strong><br />
             <code>{bundlePath}</code>
           </div>
         </div>
@@ -221,7 +333,7 @@
         <div class="report-link">
           <span class="icon">✅</span>
           <div>
-            <strong>Report saved:</strong><br />
+            <strong>{t("reportSaved")}</strong><br />
             <code>{reportPath}</code>
           </div>
         </div>
@@ -230,7 +342,7 @@
 
     <!-- Audit Trail -->
     <div class="card" style="margin-top:16px">
-      <h4>📋 Audit Trail (Last 50 Actions)</h4>
+      <h4>{t("auditTitle")}</h4>
       {#if auditLog.length > 0}
         <div class="audit-table">
           {#each auditLog as entry}
@@ -242,25 +354,18 @@
           {/each}
         </div>
       {:else}
-        <p class="muted">No audit log entries yet. Actions will be recorded automatically.</p>
+        <p class="muted">{t("noAudit")}</p>
       {/if}
     </div>
 
     <!-- Report Preview -->
     <div class="card" style="margin-top:16px">
-      <h4>📊 Report Contents Preview</h4>
-      <p class="muted">The report includes all sections below from your active case:</p>
+      <h4>{t("previewTitle")}</h4>
+      <p class="muted">{t("previewSubtitle")}</p>
       <ul class="preview-list">
-        <li><strong>Case Information</strong> — Name, operator, status, creation date</li>
-        <li><strong>Timeline Events</strong> — Chronological event log (last 100)</li>
-        <li><strong>Evidence Items</strong> — All acquired items with hashes</li>
-        <li><strong>Findings</strong> — Tagged findings with severity</li>
-        <li><strong>Hash Chain Validation</strong> — Acquisition → analysis SHA-256 comparison (NIST §3.4.1)</li>
-        <li><strong>Tool Limitations</strong> — Per-module disclaimers (ISO 27042 §10.1)</li>
-        <li><strong>Analyst Notes</strong> — Running examination log (SWGDE §4.4)</li>
-        <li><strong>Finding Visuals</strong> — Embedded screenshots and text excerpts for bookmarks</li>
-        <li><strong>Audit Trail</strong> — Chained action log with timestamps</li>
-        <li><strong>Evidence Bundle (ZIP)</strong> — Selected evidence files + SHA-256 manifest + HTML/PDF report</li>
+        {#each sections as [sectionTitle, sectionDetail]}
+          <li><strong>{sectionTitle}</strong> — {sectionDetail}</li>
+        {/each}
       </ul>
     </div>
   {/if}

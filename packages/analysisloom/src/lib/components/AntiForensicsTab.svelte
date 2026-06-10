@@ -4,6 +4,7 @@
   import SeverityBadge from "./SeverityBadge.svelte";
   import ProgressBar from "./ProgressBar.svelte";
   import LoadingSkeleton from "./LoadingSkeleton.svelte";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let {
     activeCase,
@@ -16,14 +17,52 @@
 
   let findings = $state([]);
   let scanLabel = $state("");
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Anti-Forensics Detection",
+      hint: "Timestomp · extension mismatch · NTFS ADS · zero-size anomalies · deleted entries",
+      loadDisk: "⚠️ Load a disk image first",
+      noEvidence: "⚠️ No evidence files in case",
+      scanMft: "Scan MFT Image",
+      scanFiles: "Scan Evidence Files",
+      loading: "Analyzing MFT for anti-forensics indicators…",
+      scanning: "Scanning evidence files for masquerading…",
+      type: "Type",
+      file: "File",
+      details: "Details",
+      severity: "Severity",
+      empty: "Detect timestomping, hidden ADS streams, and masqueraded file types",
+    },
+    id: {
+      title: "Deteksi Anti-Forensik",
+      hint: "Timestomp · mismatch ekstensi · NTFS ADS · anomali ukuran nol · entri terhapus",
+      loadDisk: "⚠️ Muat citra disk dulu",
+      noEvidence: "⚠️ Tidak ada file bukti dalam kasus",
+      scanMft: "Pindai Citra MFT",
+      scanFiles: "Pindai File Bukti",
+      loading: "Menganalisis MFT untuk indikator anti-forensik…",
+      scanning: "Memindai file bukti untuk penyamaran…",
+      type: "Tipe",
+      file: "File",
+      details: "Detail",
+      severity: "Keparahan",
+      empty: "Deteksi timestomping, stream ADS tersembunyi, dan jenis file yang disamarkan",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function scanMft() {
     if (!imagePath) {
-      msg = "⚠️ Load a disk image first";
+      msg = t("loadDisk");
       return;
     }
     busy = true;
-    scanLabel = "Analyzing MFT for anti-forensics indicators…";
+    scanLabel = t("loading");
     try {
       findings = await timeoutPromise(invoke("analyze_antiforensics_mft", { imagePath }), 120000);
       msg = `✅ ${findings.length} anti-forensics indicators`;
@@ -45,11 +84,11 @@
 
   async function scanFiles() {
     if (!evidencePaths.length) {
-      msg = "⚠️ No evidence files in case";
+      msg = t("noEvidence");
       return;
     }
     busy = true;
-    scanLabel = "Scanning evidence files for masquerading…";
+    scanLabel = t("scanning");
     try {
       findings = await timeoutPromise(
         invoke("analyze_antiforensics_files", { paths: evidencePaths }),
@@ -62,16 +101,20 @@
     busy = false;
     scanLabel = "";
   }
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
   <SectionHeader
-    title="Anti-Forensics Detection"
-    hint="Timestomp · extension mismatch · NTFS ADS · zero-size anomalies · deleted entries"
+    title={t("title")}
+    hint={t("hint")}
   />
   <div class="actions">
-    <button onclick={scanMft} disabled={busy || !imagePath} class="btn-primary">Scan MFT Image</button>
-    <button onclick={scanFiles} disabled={busy || !evidencePaths.length} class="btn">Scan Evidence Files</button>
+    <button onclick={scanMft} disabled={busy || !imagePath} class="btn-primary">{t("scanMft")}</button>
+    <button onclick={scanFiles} disabled={busy || !evidencePaths.length} class="btn">{t("scanFiles")}</button>
   </div>
 
   {#if busy}
@@ -80,7 +123,7 @@
   {:else if findings.length}
     <div class="list">
       <div class="list-head">
-        <span>Type</span><span>File</span><span>Details</span><span>Severity</span>
+        <span>{t("type")}</span><span>{t("file")}</span><span>{t("details")}</span><span>{t("severity")}</span>
       </div>
       {#each findings as f}
         <div class="item">
@@ -92,7 +135,7 @@
       {/each}
     </div>
   {:else}
-    <p class="empty">Detect timestomping, hidden ADS streams, and masqueraded file types</p>
+    <p class="empty">{t("empty")}</p>
   {/if}
 </div>
 

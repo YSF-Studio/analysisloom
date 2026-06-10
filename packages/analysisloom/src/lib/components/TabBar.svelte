@@ -40,7 +40,7 @@
 <svelte:window onresize={checkOverflow} />
 
 <div class="tab-bar-wrap" class:has-overflow={showScrollHint} bind:this={wrapEl}>
-  <div class="tab-bar" role="tablist" aria-label="Open documents" onscroll={checkOverflow}>
+  <div class="tab-bar" role="tablist" aria-label="Open tabs" onscroll={checkOverflow}>
     {#each tabs as tab (tab.id)}
       <button
         class="tab"
@@ -56,9 +56,13 @@
             class="tab-close"
             role="button"
             tabindex="0"
-            aria-label="Close {tab.label}"
+            aria-label={`Close ${tab.label}`}
             onclick={(e) => closeTab(tab.id, e)}
-            onkeydown={(e) => e.key === "Enter" && closeTab(tab.id, e)}
+            onkeydown={(e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              closeTab(tab.id, e);
+            }}
           >✕</span>
         {/if}
       </button>

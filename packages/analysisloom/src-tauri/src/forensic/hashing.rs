@@ -101,8 +101,12 @@ mod tests {
     fn hash_file_streams_bytes() {
         let path = std::env::temp_dir().join("analysisloom_hash_test.bin");
         let data = b"forensic chain of custody";
-        std::fs::write(&path, data).unwrap();
-        let hashes = multi_hash_file(path.to_str().unwrap()).unwrap();
+        std::fs::write(&path, data)
+            .unwrap_or_else(|e| panic!("write temp hash file: {e}"));
+        let hashes = multi_hash_file(
+            path.to_str().unwrap_or_else(|| panic!("temp path utf-8")),
+        )
+        .unwrap_or_else(|e| panic!("hash temp file: {e}"));
         let mem = multi_hash_buffer(data);
         assert_eq!(hashes.sha256, mem.sha256);
         let _ = std::fs::remove_file(&path);

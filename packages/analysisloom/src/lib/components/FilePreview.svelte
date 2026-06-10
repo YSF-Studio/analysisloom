@@ -1,6 +1,7 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { highlightSegments } from "../highlight.js";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let {
     filePath,
@@ -14,6 +15,50 @@
 
   let preview = $state(null);
   let loading = $state(false);
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      loadingPreview: "Loading preview...",
+      noStrings: "No printable strings found",
+      searchByte: "Search byte (e.g. FF)",
+      search: "Search",
+      copyOffset: "Copy Offset",
+      archiveContents: "Archive Contents",
+      noPreview: "No preview available",
+      selectFile: "Select a file to preview",
+      size: "Size",
+      type: "Type",
+      mime: "MIME",
+      extension: "Extension",
+      ext: "Ext",
+      items: "items",
+      match: "match",
+      matches: "matches",
+    },
+    id: {
+      loadingPreview: "Memuat pratinjau...",
+      noStrings: "Tidak ada string yang dapat dicetak",
+      searchByte: "Cari byte (mis. FF)",
+      search: "Cari",
+      copyOffset: "Salin Offset",
+      archiveContents: "Isi Arsip",
+      noPreview: "Tidak ada pratinjau tersedia",
+      selectFile: "Pilih file untuk pratinjau",
+      size: "Ukuran",
+      type: "Tipe",
+      mime: "MIME",
+      extension: "Ekstensi",
+      ext: "Ext",
+      items: "item",
+      match: "cocok",
+      matches: "cocok",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   // Hex viewer state
   let hexLines = $state([]);
@@ -101,30 +146,34 @@
     while (s >= 1024 && i < u.length - 1) { s /= 1024; i++; }
     return `${s.toFixed(i === 0 ? 0 : 1)} ${u[i]}`;
   }
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 {#if loading}
-  <div class="loading"><span class="spinner">⏳</span> Loading preview...</div>
+  <div class="loading"><span class="spinner">⏳</span> {t("loadingPreview")}</div>
 {:else if preview}
   <div class="preview">
     {#if mode === "metadata"}
       <dl class="meta-panel">
-        <dt>Size</dt><dd>{sizeStr(preview.size)}</dd>
-        <dt>Type</dt><dd>{preview.kind}</dd>
-        <dt>MIME</dt><dd>{preview.mime_type}</dd>
-        <dt>Extension</dt><dd>{preview.extension}</dd>
+        <dt>{t("size")}</dt><dd>{sizeStr(preview.size)}</dd>
+        <dt>{t("type")}</dt><dd>{preview.kind}</dd>
+        <dt>{t("mime")}</dt><dd>{preview.mime_type}</dd>
+        <dt>{t("extension")}</dt><dd>{preview.extension}</dd>
       </dl>
     {:else if mode === "strings" && preview.preview?.Text}
       <pre class="text-view strings-view">{#each highlightSegments(preview.preview.Text, highlightTerm) as seg}{#if seg.match}<mark class="hl">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</pre>
     {:else if mode === "strings"}
-      <pre class="text-view strings-view dim">No printable strings found</pre>
+      <pre class="text-view strings-view dim">{t("noStrings")}</pre>
     {:else if mode === "hex" && preview.preview?.HexDump}
       <!-- Hex only mode -->
       <div class="hex-toolbar">
-        <div class="hex-search">
-          <input type="text" bind:value={hexSearch} placeholder="Search byte (e.g. FF)"
+      <div class="hex-search">
+          <input type="text" bind:value={hexSearch} placeholder={t("searchByte")}
             onkeydown={(e) => e.key === "Enter" && doHexSearch()} />
-          <button class="btn-ghost" onclick={doHexSearch}>Search</button>
+          <button class="btn-ghost" onclick={doHexSearch}>{t("search")}</button>
         </div>
       </div>
       <div class="hex-grid-wrap">
@@ -136,7 +185,9 @@
                 {#each line.hex as byte, bi}
                   {#if byte}
                     <span class="hex-byte" class:hl={isSearchHit(li, bi)} class:sel={selectedOffset === line.offset + bi}
-                      onclick={() => onHexClick(li, bi)} role="button" tabindex="0">{byte.toUpperCase()}</span>
+                      onclick={() => onHexClick(li, bi)}
+                      onkeydown={(e) => (e.key === "Enter" || e.key === " ") && onHexClick(li, bi)}
+                      role="button" tabindex="0">{byte.toUpperCase()}</span>
                   {:else}
                     <span class="hex-byte empty">  </span>
                   {/if}
@@ -158,11 +209,11 @@
       <!-- Hex Toolbar -->
       <div class="hex-toolbar">
         <div class="hex-search">
-          <input type="text" bind:value={hexSearch} placeholder="Search byte (e.g. FF)"
+          <input type="text" bind:value={hexSearch} placeholder={t("searchByte")}
             onkeydown={(e) => e.key === "Enter" && doHexSearch()} />
           <button class="btn-ghost" onclick={doHexSearch}>🔍</button>
           {#if hexSearchHits.length > 0}
-            <span class="hit-count">{hexSearchHits.length} match{hexSearchHits.length > 1 ? 'es' : ''}</span>
+            <span class="hit-count">{hexSearchHits.length} {hexSearchHits.length === 1 ? t("match") : t("matches")}</span>
           {/if}
         </div>
         <div class="hex-info">
@@ -189,7 +240,9 @@
                 {#each line.hex as byte, bi}
                   {#if byte}
                     <span class="hex-byte" class:hl={isSearchHit(li, bi)} class:sel={selectedOffset === line.offset + bi}
-                      onclick={() => onHexClick(li, bi)}>{byte.toUpperCase()}</span>
+                      onclick={() => onHexClick(li, bi)}
+                      onkeydown={(e) => (e.key === "Enter" || e.key === " ") && onHexClick(li, bi)}
+                      role="button" tabindex="0">{byte.toUpperCase()}</span>
                   {:else}
                     <span class="hex-byte empty">  </span>
                   {/if}
@@ -202,7 +255,7 @@
       </div>
     {:else if preview.preview?.ArchiveList}
       <div class="archive-view">
-        <h4>📦 Archive Contents ({preview.preview.ArchiveList.length} items)</h4>
+        <h4>📦 {t("archiveContents")} ({preview.preview.ArchiveList.length} {t("items")})</h4>
         <div class="arc-list">
           {#each preview.preview.ArchiveList as entry}
             <div class="arc-item">{entry}</div>
@@ -210,23 +263,23 @@
         </div>
       </div>
     {:else}
-      <div class="unsupported"><p>⚠️ No preview available</p></div>
+      <div class="unsupported"><p>⚠️ {t("noPreview")}</p></div>
     {/if}
 
     {#if mode === "preview"}
       <div class="file-meta">
-        <span class="label">Size:</span> {sizeStr(preview.size)}
+        <span class="label">{t("size")}:</span> {sizeStr(preview.size)}
         <span class="sep">|</span>
-        <span class="label">Type:</span> {preview.kind}
+        <span class="label">{t("type")}:</span> {preview.kind}
         <span class="sep">|</span>
-        <span class="label">MIME:</span> {preview.mime_type}
+        <span class="label">{t("mime")}:</span> {preview.mime_type}
         <span class="sep">|</span>
-        <span class="label">Ext:</span> {preview.extension}
+        <span class="label">{t("ext")}:</span> {preview.extension}
       </div>
     {/if}
   </div>
 {:else}
-  <div class="empty"><p>Select a file to preview</p></div>
+  <div class="empty"><p>{t("selectFile")}</p></div>
 {/if}
 
 <style>

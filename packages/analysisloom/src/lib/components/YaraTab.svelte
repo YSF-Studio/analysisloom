@@ -6,16 +6,65 @@
   import ProgressBar from "./ProgressBar.svelte";
   import LoadingSkeleton from "./LoadingSkeleton.svelte";
   import { highlightSegments } from "../highlight.js";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise, evidencePaths = [] } = $props();
   let matches = $state([]);
   let rulesPath = $state("");
   let ruleCount = $state(0);
   let expanded = $state({});
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "YARA Scanner",
+      hint: "built-in rules + optional custom .yar — malware classification & IOC detection",
+      addEvidence: "⚠️ Add evidence files to the case first",
+      loadRules: "Load Rules",
+      scanEvidence: "Scan Evidence",
+      scanning: "Scanning evidence with YARA rules…",
+      rule: "Rule",
+      file: "File",
+      offset: "Offset",
+      severity: "Severity",
+      preview: "Match Preview",
+      hide: "Hide",
+      show: "Show",
+      snippet: "snippet",
+      string: "String:",
+      empty: "Scan case evidence with built-in + custom YARA rules",
+    },
+    id: {
+      title: "Pemindai YARA",
+      hint: "aturan bawaan + .yar opsional — klasifikasi malware & deteksi IOC",
+      addEvidence: "⚠️ Tambahkan file bukti ke kasus dulu",
+      loadRules: "Muat Aturan",
+      scanEvidence: "Pindai Bukti",
+      scanning: "Memindai bukti dengan aturan YARA…",
+      rule: "Aturan",
+      file: "File",
+      offset: "Offset",
+      severity: "Keparahan",
+      preview: "Pratinjau Match",
+      hide: "Sembunyikan",
+      show: "Tampilkan",
+      snippet: "cuplikan",
+      string: "String:",
+      empty: "Pindai bukti kasus dengan aturan YARA bawaan + kustom",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   $effect(() => {
     invoke("yara_builtin_rule_count").then((n) => (ruleCount = n)).catch(() => {});
   });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 
   function toggleExpand(i) {
     expanded = { ...expanded, [i]: !expanded[i] };
@@ -23,7 +72,8 @@
 
   async function scan() {
     if (!evidencePaths.length) {
-      msg = "⚠️ Add evidence files to the case first";
+      msg = t("addEvidence");
+      matches = [];
       return;
     }
     busy = true;
@@ -44,9 +94,11 @@
         }).catch(() => {});
       }
     } catch (e) {
+      matches = [];
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
 
   async function pickRules() {
@@ -57,22 +109,22 @@
 
 <div class="panel">
   <SectionHeader
-    title="YARA Scanner"
-    hint="{ruleCount} built-in rules + optional custom .yar — malware classification & IOC detection"
+    title={t("title")}
+    hint={`${ruleCount} ${t("hint")}`}
   />
   <div class="row">
-    <input type="text" bind:value={rulesPath} placeholder="Optional custom rules (.yar)" disabled={busy} />
-    <button onclick={pickRules} disabled={busy} class="btn">Load Rules</button>
-    <button onclick={scan} disabled={busy || !activeCase} class="btn-primary">Scan Evidence</button>
+    <input type="text" bind:value={rulesPath} placeholder={locale === "id" ? "Aturan kustom opsional (.yar)" : "Optional custom rules (.yar)"} disabled={busy} />
+    <button onclick={pickRules} disabled={busy} class="btn">{t("loadRules")}</button>
+    <button onclick={scan} disabled={busy || !activeCase} class="btn-primary">{t("scanEvidence")}</button>
   </div>
 
   {#if busy}
-    <ProgressBar indeterminate label="Scanning evidence with YARA rules…" />
+    <ProgressBar indeterminate label={t("scanning")} />
     <LoadingSkeleton rows={5} columns={4} />
   {:else if matches.length}
     <div class="matches">
       <div class="head">
-        <span>Rule</span><span>File</span><span>Offset</span><span>Severity</span><span>Match Preview</span>
+        <span>{t("rule")}</span><span>{t("file")}</span><span>{t("offset")}</span><span>{t("severity")}</span><span>{t("preview")}</span>
       </div>
       {#each matches as m, i}
         <div class="row-match">
@@ -81,19 +133,19 @@
           <span class="mono">0x{m.offset.toString(16)}</span>
           <span><SeverityBadge severity={m.severity} /></span>
           <button class="snippet-btn" onclick={() => toggleExpand(i)}>
-            {expanded[i] ? "Hide" : "Show"} snippet
+            {expanded[i] ? t("hide") : t("show")} {t("snippet")}
           </button>
         </div>
         {#if expanded[i] || matches.length <= 8}
           <div class="snippet-row">
-            <span class="snippet-label">String: <code>{m.matchedString}</code></span>
+            <span class="snippet-label">{t("string")} <code>{m.matchedString}</code></span>
             <pre class="snippet">{#each highlightSegments(m.matchSnippet || m.matchedString, m.matchedString) as seg}{#if seg.match}<mark class="hl">{seg.text}</mark>{:else}{seg.text}{/if}{/each}</pre>
           </div>
         {/if}
       {/each}
     </div>
   {:else}
-    <p class="empty">Scan case evidence with built-in + custom YARA rules</p>
+    <p class="empty">{t("empty")}</p>
   {/if}
 </div>
 

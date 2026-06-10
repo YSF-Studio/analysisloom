@@ -1,8 +1,8 @@
 <script>
-  let { rows = 5, columns = 1 } = $props();
+  let { rows = 5, columns = 1, label = "Loading" } = $props();
 </script>
 
-<div class="skeleton" role="status" aria-label="Loading">
+<div class="skeleton" role="status" aria-label={label}>
   {#each Array(rows) as _, ri}
     <div class="skeleton-row" style="grid-template-columns: repeat({columns}, 1fr)">
       {#each Array(columns) as _, ci}

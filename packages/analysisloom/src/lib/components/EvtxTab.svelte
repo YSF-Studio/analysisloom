@@ -1,10 +1,49 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let { activeCase, busy = $bindable(), msg = $bindable(), timeoutPromise } = $props();
   let results = $state([]);
   let logPath = $state("");
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Windows Event Log (EVTX)",
+      hint: "Security events — 4624/4625 logon, 4688 process create, 4104 PowerShell, 7045 service install",
+      browse: "Browse",
+      parse: "Parse EVTX",
+      scanFolder: "Scan Folder",
+      id: "ID",
+      time: "Time",
+      channel: "Channel",
+      message: "Message",
+      relevance: "Relevance",
+      parsed: "parsed",
+      events: "events",
+      logPath: "Security.evtx path",
+    },
+    id: {
+      title: "Log Peristiwa Windows (EVTX)",
+      hint: "Event keamanan — 4624/4625 login, 4688 proses, 4104 PowerShell, 7045 instalasi service",
+      browse: "Jelajah",
+      parse: "Parsing EVTX",
+      scanFolder: "Pindai Folder",
+      id: "ID",
+      time: "Waktu",
+      channel: "Channel",
+      message: "Pesan",
+      relevance: "Relevansi",
+      parsed: "diurai",
+      events: "event",
+      logPath: "Path Security.evtx",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function pick() {
     const picked = await open({
@@ -48,22 +87,26 @@
     }
     busy = false;
   }
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="panel">
-  <h3>Windows Event Log (EVTX)</h3>
-  <p class="hint">Security events — 4624/4625 logon, 4688 process create, 4104 PowerShell, 7045 service install</p>
+  <h3>{t("title")}</h3>
+  <p class="hint">{t("hint")}</p>
   <div class="row">
-    <input type="text" bind:value={logPath} placeholder="/path/to/Security.evtx" disabled={busy} />
-    <button onclick={pick} disabled={busy} class="btn">Browse</button>
-    <button onclick={analyze} disabled={busy || !logPath} class="btn-primary">Parse EVTX</button>
-    <button onclick={scanDir} disabled={busy} class="btn">Scan Folder</button>
+    <input type="text" bind:value={logPath} placeholder={t("logPath")} disabled={busy} />
+    <button onclick={pick} disabled={busy} class="btn">{t("browse")}</button>
+    <button onclick={analyze} disabled={busy || !logPath} class="btn-primary">{t("parse")}</button>
+    <button onclick={scanDir} disabled={busy} class="btn">{t("scanFolder")}</button>
   </div>
   {#each results as res}
     <div class="block">
-      <h4>{res.logPath.split(/[/\\]/).pop()} — {res.events.length} events ({res.recordsParsed} parsed)</h4>
+      <h4>{res.logPath.split(/[/\\]/).pop()} — {res.events.length} {t("events")} ({res.recordsParsed} {t("parsed")})</h4>
       <div class="events">
-        <div class="head"><span>ID</span><span>Time</span><span>Channel</span><span>Message</span><span>Relevance</span></div>
+        <div class="head"><span>{t("id")}</span><span>{t("time")}</span><span>{t("channel")}</span><span>{t("message")}</span><span>{t("relevance")}</span></div>
         {#each res.events.slice(0, 80) as e}
           <div class="ev sev-{e.level.toLowerCase()}">
             <span>{e.eventId}</span>

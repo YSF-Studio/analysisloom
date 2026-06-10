@@ -1,7 +1,33 @@
 <script>
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
+
   let { sources = $bindable(), selectedSource = $bindable(), onSelect, onAddImage, loading = false } = $props();
 
   let expanded = $state({});
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      loading: "Loading…",
+      addImage: "+ Add Image",
+      browseHint: "Add a disk image to browse NTFS sources",
+      root: "root",
+      expandFolder: "Expand folder",
+      collapseFolder: "Collapse folder",
+    },
+    id: {
+      loading: "Memuat…",
+      addImage: "+ Tambah Gambar",
+      browseHint: "Tambahkan citra disk untuk menelusuri sumber NTFS",
+      root: "akar",
+      expandFolder: "Buka folder",
+      collapseFolder: "Tutup folder",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   $effect(() => {
     for (const src of sources) {
@@ -27,11 +53,21 @@
     selectedSource = source;
     onSelect?.(source);
   }
+
+  function activateOnEnterOrSpace(event, callback) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    callback();
+  }
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="source-tree">
   <button class="add-source" onclick={() => onAddImage?.()} disabled={loading}>
-    {loading ? "⏳ Loading…" : "+ Add Image"}
+    {loading ? `⏳ ${t("loading")}` : t("addImage")}
   </button>
 
   {#each sources as src}
@@ -50,7 +86,7 @@
             onclick={() => pick({ id: `${src.id}-root`, imageId: src.id, recordNumber: 5, name: src.name, isRoot: true })}
           >
             <span class="icon">🌐</span>
-            <span>\ (root)</span>
+            <span>↳ ({t("root")})</span>
           </button>
           {#each src.children || [] as child}
             {@render treeNode(child, src.id)}
@@ -61,31 +97,34 @@
   {/each}
 
   {#if !sources.length}
-    <p class="hint">Add a disk image to browse NTFS sources</p>
+    <p class="hint">{t("browseHint")}</p>
   {/if}
 </div>
 
 {#snippet treeNode(node, imageId)}
   <div class="tree-node">
-    <button
+    <div
       class="source-child"
       class:active={selectedSource?.id === node.id}
       onclick={() => pick({ ...node, imageId })}
+      onkeydown={(event) => activateOnEnterOrSpace(event, () => pick({ ...node, imageId }))}
+      role="button"
+      tabindex="0"
     >
       {#if node.children?.length}
-        <span
+        <button
+          type="button"
           class="chevron small"
           class:open={expanded[node.id]}
           onclick={(e) => { e.stopPropagation(); toggle(node.id); }}
-          role="button"
-          tabindex="0"
-        >›</span>
+          aria-label={expanded[node.id] ? t("collapseFolder") : t("expandFolder")}
+        >›</button>
       {:else}
         <span class="chevron-spacer"></span>
       {/if}
       <span class="icon">{node.icon}</span>
       <span class="node-name">{node.name}</span>
-    </button>
+    </div>
     {#if node.children?.length && expanded[node.id]}
       <div class="nested">
         {#each node.children as child}

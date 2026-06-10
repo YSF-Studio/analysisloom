@@ -1,4 +1,4 @@
-//! ISO 27042 / SWGDE report metadata — tool limitations and disclaimers.
+//! Report metadata — tool limitations and disclaimers.
 
 pub const TOOL_LIMITATIONS: &[(&str, &str)] = &[
     (

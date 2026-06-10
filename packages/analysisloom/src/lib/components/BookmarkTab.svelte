@@ -1,6 +1,7 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
   import { save } from "@tauri-apps/plugin-dialog";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let {
     activeCase,
@@ -19,11 +20,77 @@
   let addNote = $state("");
   let reviewerName = $state("Peer Reviewer");
   let reviewNotes = $state({});
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Key Findings & Bookmarks",
+      addBookmark: "+ Bookmark",
+      cancel: "✕ Cancel",
+      sealed: "Case sealed — read-only. Peer review and edits are locked.",
+      openCase: "Open a case first from the Case Manager",
+      reviewer: "Peer reviewer name",
+      filePath: "File Path:",
+      tag: "Tag:",
+      note: "Note:",
+      saveBookmark: "✅ Save Bookmark",
+      loading: "Loading...",
+      findings: "Findings — Peer Review",
+      pending: "pending",
+      export: "📤 Export",
+      reviewNote: "Review note (optional)",
+      approve: "✓ Approve",
+      reject: "✕ Reject",
+      revise: "↻ Revise",
+      reviewedBy: "Reviewed by",
+      bookmarks: "Bookmarks",
+      noFindings: "No findings yet — add evidence to generate findings.",
+      noBookmarks: "No bookmarks yet — add evidence or create a bookmark.",
+      filePathPlaceholder: "Evidence file path",
+      tagPlaceholder: "suspicious, malware",
+      notePlaceholder: "Optional note...",
+    },
+    id: {
+      title: "Temuan Utama & Bookmark",
+      addBookmark: "+ Bookmark",
+      cancel: "✕ Batal",
+      sealed: "Kasus disegel — hanya baca. Review sejawat dan edit terkunci.",
+      openCase: "Buka kasus dulu dari Manajer Kasus",
+      reviewer: "Nama peninjau sejawat",
+      filePath: "Lokasi File:",
+      tag: "Tag:",
+      note: "Catatan:",
+      saveBookmark: "✅ Simpan Bookmark",
+      loading: "Memuat...",
+      findings: "Temuan — Review Sejawat",
+      pending: "menunggu",
+      export: "📤 Ekspor",
+      reviewNote: "Catatan review (opsional)",
+      approve: "✓ Setuju",
+      reject: "✕ Tolak",
+      revise: "↻ Revisi",
+      reviewedBy: "Ditinjau oleh",
+      bookmarks: "Bookmark",
+      noFindings: "Belum ada temuan — tambahkan bukti untuk membuat temuan.",
+      noBookmarks: "Belum ada bookmark — tambahkan bukti atau buat bookmark.",
+      filePathPlaceholder: "Path file bukti",
+      tagPlaceholder: "mencurigakan, malware",
+      notePlaceholder: "Catatan opsional...",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   const isSealed = $derived(caseSealed || activeCase?.status === "sealed");
 
   async function loadAll() {
-    if (!activeCase?.id) return;
+    if (!activeCase?.id) {
+      bookmarks = [];
+      findings = [];
+      return;
+    }
     loading = true;
     try {
       [bookmarks, findings] = await Promise.all([
@@ -33,8 +100,9 @@
     } catch {
       bookmarks = [];
       findings = [];
+    } finally {
+      loading = false;
     }
-    loading = false;
   }
 
   async function doAddBookmark() {
@@ -131,93 +199,97 @@
   }
 
   $effect(() => {
-    if (activeCase?.id) loadAll();
+    loadAll();
   });
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="bookmark-tab">
   <div class="toolbar">
-    <h3>🔖 Key Findings &amp; Bookmarks</h3>
+    <h3>🔖 {t("title")}</h3>
     {#if !isSealed}
       <button class="btn-ghost" onclick={() => { showAdd = !showAdd; if (!showAdd) { addFilePath = ""; addTag = ""; addNote = ""; } }}>
-        {showAdd ? "✕ Cancel" : "+ Bookmark"}
+        {showAdd ? t("cancel") : t("addBookmark")}
       </button>
     {/if}
   </div>
 
   {#if isSealed}
-    <div class="sealed-banner">🔒 Case sealed — read-only. Peer review and edits are locked.</div>
+    <div class="sealed-banner">🔒 {t("sealed")}</div>
   {/if}
 
   {#if !activeCase?.id}
     <div class="empty-state">
       <span class="icon">📂</span>
-      <p>Open a case first from the Case Manager</p>
+      <p>{t("openCase")}</p>
     </div>
   {:else}
     <div class="reviewer-row">
-      <label for="reviewer-name">Peer reviewer name</label>
+      <label for="reviewer-name">{t("reviewer")}</label>
       <input id="reviewer-name" type="text" bind:value={reviewerName} disabled={isSealed} />
     </div>
 
     {#if showAdd && !isSealed}
       <div class="card add-form">
         <div class="row">
-          <label>File Path:</label>
-          <input type="text" bind:value={addFilePath} placeholder="/path/to/evidence/file" />
+          <label for="bookmark-file-path">{t("filePath")}</label>
+          <input id="bookmark-file-path" type="text" bind:value={addFilePath} placeholder={t("filePathPlaceholder")} />
         </div>
         <div class="row">
-          <label>Tag:</label>
-          <input type="text" bind:value={addTag} placeholder="suspicious, malware" />
+          <label for="bookmark-tag">{t("tag")}</label>
+          <input id="bookmark-tag" type="text" bind:value={addTag} placeholder={t("tagPlaceholder")} />
         </div>
         <div class="row">
-          <label>Note:</label>
-          <textarea bind:value={addNote} placeholder="Optional note..." rows="2"></textarea>
+          <label for="bookmark-note">{t("note")}</label>
+          <textarea id="bookmark-note" bind:value={addNote} placeholder={t("notePlaceholder")} rows="2"></textarea>
         </div>
-        <button class="btn-primary" onclick={doAddBookmark} disabled={!addFilePath}>✅ Save Bookmark</button>
+        <button class="btn-primary" onclick={doAddBookmark} disabled={!addFilePath}>{t("saveBookmark")}</button>
       </div>
     {/if}
 
     {#if loading}
-      <div class="loading-state"><span class="spinner">⏳</span> Loading...</div>
+      <div class="loading-state"><span class="spinner">⏳</span> {t("loading")}</div>
     {:else}
       <section class="section">
-        <h4>🔍 Findings — Peer Review</h4>
+        <h4>🔍 {t("findings")}</h4>
         {#if findings.length > 0}
           <div class="finding-list">
             {#each findings as f}
               <div class="finding-card {reviewColor(f.reviewStatus || 'pending')}">
                 <div class="finding-head">
                   <span class="severity">[{f.severity}]</span>
-                  <span class="review-badge">{f.reviewStatus || "pending"}</span>
-                  <button class="btn-export" onclick={() => exportFinding(f.id)}>📤 Export</button>
+                  <span class="review-badge">{f.reviewStatus || t("pending")}</span>
+                  <button class="btn-export" onclick={() => exportFinding(f.id)}>{t("export")}</button>
                 </div>
                 <p class="finding-desc">{f.description}</p>
                 <span class="finding-file">{f.filePath}</span>
                 {#if !isSealed}
                   <input
                     class="review-input"
-                    placeholder="Review note (optional)"
+                    placeholder={t("reviewNote")}
                     bind:value={reviewNotes[f.id]}
                   />
                   <div class="review-actions">
-                    <button class="btn-approve" onclick={() => reviewFinding(f.id, "approved")}>✓ Approve</button>
-                    <button class="btn-reject" onclick={() => reviewFinding(f.id, "rejected")}>✕ Reject</button>
-                    <button class="btn-revision" onclick={() => reviewFinding(f.id, "needs_revision")}>↻ Revise</button>
+                    <button class="btn-approve" onclick={() => reviewFinding(f.id, "approved")}>{t("approve")}</button>
+                    <button class="btn-reject" onclick={() => reviewFinding(f.id, "rejected")}>{t("reject")}</button>
+                    <button class="btn-revision" onclick={() => reviewFinding(f.id, "needs_revision")}>{t("revise")}</button>
                   </div>
                 {:else if f.reviewer}
-                  <span class="review-meta">Reviewed by {f.reviewer} — {f.reviewedAt || ""}</span>
+                  <span class="review-meta">{t("reviewedBy")} {f.reviewer} — {f.reviewedAt || ""}</span>
                 {/if}
               </div>
             {/each}
           </div>
         {:else}
-          <p class="hint">No findings yet — add evidence to generate findings.</p>
+          <p class="hint">{t("noFindings")}</p>
         {/if}
       </section>
 
       <section class="section">
-        <h4>🔖 Bookmarks</h4>
+        <h4>🔖 {t("bookmarks")}</h4>
         {#if bookmarks.length > 0}
           <div class="bm-list">
             {#each bookmarks as bm}
@@ -239,7 +311,7 @@
             {/each}
           </div>
         {:else}
-          <p class="hint">No bookmarks yet.</p>
+          <p class="hint">{t("noBookmarks")}</p>
         {/if}
       </section>
     {/if}

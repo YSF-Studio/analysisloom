@@ -1,5 +1,6 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
+  import { getResolvedLocale, subscribeLocale } from "../stores/locale.js";
 
   let {
     activeCase,
@@ -12,10 +13,55 @@
 
   let findings = $state([]);
   let scanned = $state(false);
+  let locale = $state(getResolvedLocale());
+
+  const text = {
+    en: {
+      title: "Encrypted Volumes",
+      hint: "BitLocker · LUKS · VeraCrypt · high-entropy heuristics",
+      scan: "Scan Image",
+      addSource: "Add a source image to scan for encrypted volumes",
+      scanning: "Scanning encryption signatures…",
+      none: "No encryption indicators detected in this image",
+      prompt: "Run a scan to detect BitLocker, LUKS, VeraCrypt, and high-entropy regions",
+      type: "Type",
+      location: "Location",
+      confidence: "Confidence",
+      details: "Details",
+      high: "High",
+      medium: "Medium",
+      low: "Low",
+      imagePath: "Disk image from Sources",
+    },
+    id: {
+      title: "Volume Terenkripsi",
+      hint: "BitLocker · LUKS · VeraCrypt · heuristik entropi tinggi",
+      scan: "Pindai Citra",
+      addSource: "Tambahkan citra sumber untuk memindai volume terenkripsi",
+      scanning: "Memindai tanda enkripsi…",
+      none: "Tidak ada indikator enkripsi terdeteksi pada citra ini",
+      prompt: "Jalankan pemindaian untuk mendeteksi BitLocker, LUKS, VeraCrypt, dan region berentropi tinggi",
+      type: "Tipe",
+      location: "Lokasi",
+      confidence: "Keyakinan",
+      details: "Detail",
+      high: "Tinggi",
+      medium: "Sedang",
+      low: "Rendah",
+      imagePath: "Citra disk dari Sources",
+    },
+  };
+
+  function t(key) {
+    return text[locale]?.[key] || text.en[key] || key;
+  }
 
   async function scan() {
     if (!imagePath) {
       msg = "⚠️ Add a disk image in Sources first";
+      findings = [];
+      scanned = false;
+      onCountChange?.(0);
       return;
     }
     busy = true;
@@ -47,14 +93,23 @@
       msg = `❌ ${typeof e === "string" ? e : String(e)}`;
       findings = [];
       onCountChange?.(0);
+    } finally {
+      busy = false;
     }
-    busy = false;
   }
 
+  $effect(() => {
+    if (!imagePath) {
+      findings = [];
+      scanned = false;
+      onCountChange?.(0);
+    }
+  });
+
   function confidenceLabel(c) {
-    if (c >= 0.9) return "High";
-    if (c >= 0.7) return "Medium";
-    return "Low";
+    if (c >= 0.9) return t("high");
+    if (c >= 0.7) return t("medium");
+    return t("low");
   }
 
   function confidenceClass(c) {
@@ -62,29 +117,33 @@
     if (c >= 0.7) return "pill-info";
     return "pill-critical";
   }
+
+  $effect(() => subscribeLocale((_, resolved) => {
+    locale = resolved;
+  }));
 </script>
 
 <div class="encrypted-panel">
   <div class="header">
     <div>
-      <h3>Encrypted Volumes</h3>
-      <p class="hint">BitLocker · LUKS · VeraCrypt · high-entropy heuristics</p>
+      <h3>{t("title")}</h3>
+      <p class="hint">{t("hint")}</p>
     </div>
-    <button class="btn-primary" onclick={scan} disabled={busy || !imagePath}>Scan Image</button>
+    <button class="btn-primary" onclick={scan} disabled={busy || !imagePath}>{t("scan")}</button>
   </div>
 
   <div class="path-row">
-    <input type="text" bind:value={imagePath} placeholder="Disk image from Sources" disabled={busy} />
+    <input type="text" bind:value={imagePath} placeholder={t("imagePath")} disabled={busy} />
   </div>
 
   {#if !imagePath}
-    <div class="empty">Add a source image to scan for encrypted volumes</div>
+    <div class="empty">{t("addSource")}</div>
   {:else if busy}
-    <div class="empty"><span class="spinner">⏳</span> Scanning encryption signatures…</div>
+    <div class="empty"><span class="spinner">⏳</span> {t("scanning")}</div>
   {:else if findings.length}
     <div class="findings-list">
       <div class="findings-head">
-        <span>Type</span><span>Location</span><span>Confidence</span><span>Details</span>
+        <span>{t("type")}</span><span>{t("location")}</span><span>{t("confidence")}</span><span>{t("details")}</span>
       </div>
       {#each findings as f}
         <div class="finding-row">
@@ -96,9 +155,9 @@
       {/each}
     </div>
   {:else if scanned}
-    <div class="empty">No encryption indicators detected in this image</div>
+    <div class="empty">{t("none")}</div>
   {:else}
-    <div class="empty">Run a scan to detect BitLocker, LUKS, VeraCrypt, and high-entropy regions</div>
+    <div class="empty">{t("prompt")}</div>
   {/if}
 </div>
 

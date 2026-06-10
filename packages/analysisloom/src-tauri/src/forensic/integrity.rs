@@ -1,4 +1,4 @@
-//! Evidence integrity — hash manifest verification & chain-of-custody (NIST SP 800-86 §3.4.1).
+//! Evidence integrity — hash manifest verification & chain-of-custody.
 
 use super::hashing;
 use serde::{Deserialize, Serialize};
