@@ -70,22 +70,36 @@ pub fn parse_mailbox(path: &Path) -> Result<EmailScanResult, String> {
     let Some(magic_bytes) = data.get(0..4) else {
         return Err("Mailbox file too small".into());
     };
-    let magic = u32::from_le_bytes([magic_bytes[0], magic_bytes[1], magic_bytes[2], magic_bytes[3]]);
+    let magic = u32::from_le_bytes([
+        magic_bytes[0],
+        magic_bytes[1],
+        magic_bytes[2],
+        magic_bytes[3],
+    ]);
     let (mailbox_type, version) = match magic {
         0x4E444221 => (
             "PST (ANSI)".into(),
-            u16::from_le_bytes(data.get(10..12).and_then(|s| s.try_into().ok()).unwrap_or([0; 2]))
-                as u32,
+            u16::from_le_bytes(
+                data.get(10..12)
+                    .and_then(|s| s.try_into().ok())
+                    .unwrap_or([0; 2]),
+            ) as u32,
         ),
         0x4D505349 => (
             "OST (Unicode)".into(),
-            u16::from_le_bytes(data.get(10..12).and_then(|s| s.try_into().ok()).unwrap_or([0; 2]))
-                as u32,
+            u16::from_le_bytes(
+                data.get(10..12)
+                    .and_then(|s| s.try_into().ok())
+                    .unwrap_or([0; 2]),
+            ) as u32,
         ),
         0x21_42_44_4E => (
             "PST (Unicode)".into(),
-            u16::from_le_bytes(data.get(10..12).and_then(|s| s.try_into().ok()).unwrap_or([0; 2]))
-                as u32,
+            u16::from_le_bytes(
+                data.get(10..12)
+                    .and_then(|s| s.try_into().ok())
+                    .unwrap_or([0; 2]),
+            ) as u32,
         ),
         _ => {
             if data.starts_with(b"!BDN") {

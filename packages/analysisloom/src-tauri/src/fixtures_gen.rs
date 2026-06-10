@@ -19,7 +19,8 @@ pub fn generate_workspace(seed: u64) -> TestWorkspace {
     let root = std::env::temp_dir().join(format!("analysisloom_test_{seed}"));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap_or_else(|e| panic!("create workspace: {e}"));
-    std::fs::create_dir_all(root.join("carved")).unwrap_or_else(|e| panic!("create carved dir: {e}"));
+    std::fs::create_dir_all(root.join("carved"))
+        .unwrap_or_else(|e| panic!("create carved dir: {e}"));
 
     let mut rng = StdRng::seed_from_u64(seed);
 
@@ -161,7 +162,8 @@ fn write_ntfs_image(path: &Path, rng: &mut StdRng) {
     }
 
     let mut f = std::fs::File::create(path).unwrap_or_else(|e| panic!("create ntfs image: {e}"));
-    f.write_all(&image).unwrap_or_else(|e| panic!("write ntfs image: {e}"));
+    f.write_all(&image)
+        .unwrap_or_else(|e| panic!("write ntfs image: {e}"));
 }
 
 fn write_luks_image(path: &Path, rng: &mut StdRng) {
@@ -596,8 +598,12 @@ fn write_macos_profile(root: &Path) {
     .unwrap_or_else(|e| panic!("history insert: {e}"));
 
     let plist_path = root.join("Library/Preferences/com.apple.loginwindow.plist");
-    std::fs::create_dir_all(plist_path.parent().unwrap_or_else(|| panic!("plist parent")))
-        .unwrap_or_else(|e| panic!("plist dir: {e}"));
+    std::fs::create_dir_all(
+        plist_path
+            .parent()
+            .unwrap_or_else(|| panic!("plist parent")),
+    )
+    .unwrap_or_else(|e| panic!("plist dir: {e}"));
     let plist_xml = r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -615,8 +621,8 @@ fn write_browser_profile(root: &Path) {
     std::fs::create_dir_all(history.parent().unwrap_or_else(|| panic!("history parent")))
         .unwrap_or_else(|e| panic!("create browser dirs: {e}"));
     let _ = std::fs::remove_file(&history);
-    let conn = rusqlite::Connection::open(&history)
-        .unwrap_or_else(|e| panic!("open chrome history: {e}"));
+    let conn =
+        rusqlite::Connection::open(&history).unwrap_or_else(|e| panic!("open chrome history: {e}"));
     conn.execute_batch(
         "CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT, title TEXT, visit_count INTEGER, last_visit_time INTEGER);
          CREATE TABLE downloads (id INTEGER PRIMARY KEY, target_path TEXT, tab_url TEXT, start_time INTEGER);",

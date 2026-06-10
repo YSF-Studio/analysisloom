@@ -63,18 +63,10 @@ pub fn seed_builtin_nsrl() -> Result<usize, String> {
         (
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "empty",
-                "Empty File",
+            "Empty File",
         ),
-        (
-            "d41d8cd98f00b204e9800998ecf8427e",
-            "empty-md5",
-                "Empty MD5",
-        ),
-        (
-            "5d41402abc4b2a76b9719d911017c592",
-            "hello-md5",
-                "Sample",
-        ),
+        ("d41d8cd98f00b204e9800998ecf8427e", "empty-md5", "Empty MD5"),
+        ("5d41402abc4b2a76b9719d911017c592", "hello-md5", "Sample"),
     ];
     let mut n = 0;
     for (sha, name, product) in known {

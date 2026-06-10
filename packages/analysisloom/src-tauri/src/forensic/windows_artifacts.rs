@@ -98,8 +98,16 @@ pub fn parse_prefetch(path: &Path) -> Result<WindowsArtifact, String> {
         return Err("Invalid SCCA signature".into());
     }
 
-    let version = u32::from_le_bytes(data.get(4..8).and_then(|s| s.try_into().ok()).unwrap_or([0; 4]));
-    let run_count = u32::from_le_bytes(data.get(0x48..0x4C).and_then(|s| s.try_into().ok()).unwrap_or([0; 4]));
+    let version = u32::from_le_bytes(
+        data.get(4..8)
+            .and_then(|s| s.try_into().ok())
+            .unwrap_or([0; 4]),
+    );
+    let run_count = u32::from_le_bytes(
+        data.get(0x48..0x4C)
+            .and_then(|s| s.try_into().ok())
+            .unwrap_or([0; 4]),
+    );
 
     let executable = utf16_at(&data, 0x10, 30).unwrap_or_else(|| {
         path.file_stem()
@@ -109,7 +117,11 @@ pub fn parse_prefetch(path: &Path) -> Result<WindowsArtifact, String> {
     });
 
     let last_run = if data.len() >= 0x80 {
-        let ft = u64::from_le_bytes(data.get(0x78..0x80).and_then(|s| s.try_into().ok()).unwrap_or([0; 8]));
+        let ft = u64::from_le_bytes(
+            data.get(0x78..0x80)
+                .and_then(|s| s.try_into().ok())
+                .unwrap_or([0; 8]),
+        );
         filetime_to_iso(ft)
     } else {
         "—".into()
@@ -141,7 +153,11 @@ pub fn parse_lnk(path: &Path) -> Result<WindowsArtifact, String> {
         return Err(format!("Unexpected LNK header size: {header_size}"));
     }
 
-    let flags = u32::from_le_bytes(data.get(0x14..0x18).and_then(|s| s.try_into().ok()).unwrap_or([0; 4]));
+    let flags = u32::from_le_bytes(
+        data.get(0x14..0x18)
+            .and_then(|s| s.try_into().ok())
+            .unwrap_or([0; 4]),
+    );
     let (target, details) = extract_lnk_target(&data, flags);
 
     Ok(WindowsArtifact {
