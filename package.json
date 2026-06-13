@@ -4,7 +4,7 @@
   "workspaces": ["packages/analysisloom"],
   "devDependencies": {
     "@playwright/test": "^1.52.0",
-    "puppeteer": "^24.0.0"
+    "puppeteer": "^25.1.0"
   },
   "scripts": {
     "dev": "npm run dev:analysisloom",
